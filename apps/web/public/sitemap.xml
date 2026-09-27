@@ -105,108 +105,212 @@
     <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/sources"/>
   </url>
   <url>
-    <loc>https://opentrends.io/skills/opentrends</loc>
+    <loc>https://opentrends.io/agents</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/skills/opentrends"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/agents"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/agents"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/agents"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/agents"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/agents"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/agents"/>
   </url>
   <url>
-    <loc>https://opentrends.io/zh/skills/opentrends</loc>
+    <loc>https://opentrends.io/zh/agents</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/skills/opentrends"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/agents"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/agents"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/agents"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/agents"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/agents"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/agents"/>
   </url>
   <url>
-    <loc>https://opentrends.io/zh-Hant/skills/opentrends</loc>
+    <loc>https://opentrends.io/zh-Hant/agents</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/skills/opentrends"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/agents"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/agents"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/agents"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/agents"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/agents"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/agents"/>
   </url>
   <url>
-    <loc>https://opentrends.io/ru/skills/opentrends</loc>
+    <loc>https://opentrends.io/ru/agents</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/skills/opentrends"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/agents"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/agents"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/agents"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/agents"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/agents"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/agents"/>
   </url>
   <url>
-    <loc>https://opentrends.io/fr-FR/skills/opentrends</loc>
+    <loc>https://opentrends.io/fr-FR/agents</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/skills/opentrends"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/agents"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/agents"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/agents"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/agents"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/agents"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/agents"/>
   </url>
   <url>
-    <loc>https://opentrends.io/es-ES/skills/opentrends</loc>
+    <loc>https://opentrends.io/es-ES/agents</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/skills/opentrends"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/agents"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/agents"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/agents"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/agents"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/agents"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/agents"/>
   </url>
   <url>
-    <loc>https://opentrends.io/de-DE/skills/opentrends</loc>
+    <loc>https://opentrends.io/de-DE/agents</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/skills/opentrends"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/agents"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/agents"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/agents"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/agents"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/agents"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/agents"/>
   </url>
   <url>
-    <loc>https://opentrends.io/pt-BR/skills/opentrends</loc>
+    <loc>https://opentrends.io/pt-BR/agents</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/skills/opentrends"/>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/skills/opentrends"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/agents"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/agents"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/agents"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/agents"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/agents"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/agents"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/agents"/>
+  </url>
+  <url>
+    <loc>https://opentrends.io/trends/featured</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/trends/featured"/>
+  </url>
+  <url>
+    <loc>https://opentrends.io/zh/trends/featured</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/trends/featured"/>
+  </url>
+  <url>
+    <loc>https://opentrends.io/zh-Hant/trends/featured</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/trends/featured"/>
+  </url>
+  <url>
+    <loc>https://opentrends.io/ru/trends/featured</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/trends/featured"/>
+  </url>
+  <url>
+    <loc>https://opentrends.io/fr-FR/trends/featured</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/trends/featured"/>
+  </url>
+  <url>
+    <loc>https://opentrends.io/es-ES/trends/featured</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/trends/featured"/>
+  </url>
+  <url>
+    <loc>https://opentrends.io/de-DE/trends/featured</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/trends/featured"/>
+  </url>
+  <url>
+    <loc>https://opentrends.io/pt-BR/trends/featured</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://opentrends.io/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://opentrends.io/zh/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://opentrends.io/zh-Hant/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://opentrends.io/ru/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://opentrends.io/fr-FR/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="es-ES" href="https://opentrends.io/es-ES/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="de-DE" href="https://opentrends.io/de-DE/trends/featured"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://opentrends.io/pt-BR/trends/featured"/>
   </url>
   <url>
     <loc>https://opentrends.io/trends/ai</loc>
