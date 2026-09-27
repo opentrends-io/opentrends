@@ -57,7 +57,7 @@ const EN: Strings = {
 
 const ZH: Strings = {
 	about: "关于本页",
-	agents: "Agent 与订阅",
+	agents: "Agent · 订阅",
 	agentsLink: "MCP / JSON",
 	allSources: (count) => `全部 ${count} 个来源`,
 	archive: "归档",
@@ -70,7 +70,7 @@ const ZH: Strings = {
 
 const ZH_HANT: Strings = {
 	about: "關於本頁",
-	agents: "Agent 與訂閱",
+	agents: "Agent · 訂閱",
 	agentsLink: "MCP / JSON",
 	allSources: (count) => `全部 ${count} 個來源`,
 	archive: "歸檔",
@@ -98,7 +98,7 @@ function topicLabel(topic: string, locale: Locale): string {
 }
 
 const LINK_CLASS = "text-[var(--accent-blue)] hover:underline";
-const LABEL_CLASS = "w-16 shrink-0 text-[var(--text-muted)]";
+const LABEL_CLASS = "w-20 shrink-0 text-[var(--text-muted)]";
 
 export function TopicAbout({
 	locale,
