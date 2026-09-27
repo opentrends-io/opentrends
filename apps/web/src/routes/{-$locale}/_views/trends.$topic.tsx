@@ -17,7 +17,6 @@ import {
 	readApiJsonForSsr,
 } from "@/components/trends/load-trends-ssr";
 import { readLocalPreference } from "@/components/trends/source-preferences";
-import { TopicAbout } from "@/components/trends/topic-about";
 import { TrendsPage } from "@/components/trends/trends-page";
 import {
 	digestDaysQueryOptions,
@@ -253,9 +252,6 @@ function TopicComponent({ locale, topic }: { locale: Locale; topic: string }) {
 
 	const page = trends.data;
 	return (
-		<>
-			<TrendsPage key={`${page.id}:${locale}:${page.updatedAt}`} page={page} />
-			<TopicAbout locale={locale} page={page} topicId={topic} />
-		</>
+		<TrendsPage key={`${page.id}:${locale}:${page.updatedAt}`} page={page} />
 	);
 }

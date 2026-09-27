@@ -1,5 +1,5 @@
 import { env } from "@opentrends/env/web";
-import { Link } from "@tanstack/react-router";
+import { Link, useMatch } from "@tanstack/react-router";
 import { ArrowUpRight, Mail, Rss } from "lucide-react";
 
 import { GITHUB_REPOSITORY_URL } from "@/functions/get-github-repository-stats";
@@ -12,6 +12,7 @@ import {
 } from "@/lib/i18n";
 
 import Logo from "./logo";
+import { TopicAbout } from "./trends/topic-about";
 
 // The site footer: brand and contact on the left, three short link columns,
 // and a bottom bar with the copyright and the other language editions.
@@ -103,6 +104,15 @@ export default function Footer() {
 	const locale = useLocale();
 	const localeParam = localePathParam(locale);
 	const strings = STRINGS[locale] ?? EN;
+	// On a topic page the brand column also carries that page's summary.
+	const topicMatch = useMatch({
+		from: "/{-$locale}/_views/trends/$topic",
+		shouldThrow: false,
+	});
+	const aboutTopic =
+		topicMatch && topicMatch.params.topic !== "mine"
+			? topicMatch.params.topic
+			: undefined;
 	const exploreLinks = [
 		{
 			to: "/{-$locale}/trends/$topic",
@@ -160,6 +170,9 @@ export default function Footer() {
 							RSS
 						</a>
 					</div>
+					{aboutTopic ? (
+						<TopicAbout locale={locale} topicId={aboutTopic} />
+					) : null}
 				</div>
 
 				<nav aria-label={strings.topics}>

@@ -8,14 +8,12 @@ import {
 	translate,
 } from "@/lib/i18n";
 
-import { digestDaysQueryOptions } from "./trends-query";
-import type { TrendsPageData } from "./types";
+import { digestDaysQueryOptions, trendsPageQueryOptions } from "./trends-query";
 
-// What a topic page is, in a few lines below the cards: what feeds it, how
-// the digest is made, where the archive and the other topics are. It is
-// server-rendered so a crawler reads the page's subject in words, and kept
-// to a short strip so a reader who came for the cards barely notices it.
-// The full source list is in the HTML but folded.
+// What a topic page is, in a few lines inside the footer: what feeds it,
+// how the digest is made, where the archive is. It is server-rendered so a
+// crawler reads the page's subject in words; the full source list is in
+// the HTML but folded.
 
 const ARCHIVE_LINK_LIMIT = 7;
 
@@ -72,81 +70,87 @@ function topicLabel(topic: string, locale: Locale): string {
 
 const LINK_CLASS = "text-[var(--accent-blue)] hover:underline";
 
+// Rendered inside the site footer on a topic page. The page data is
+// already in the query cache (the route loader put it there, on the server
+// too), so this never fetches on its own.
 export function TopicAbout({
 	locale,
-	page,
 	topicId,
 }: {
 	locale: Locale;
-	page: TrendsPageData;
 	topicId: string;
 }) {
 	const strings = getStrings(locale);
 	const localeParam = localePathParam(locale);
+	const page = useQuery({
+		...trendsPageQueryOptions(topicId, locale),
+		enabled: false,
+	});
 	const days = useQuery(digestDaysQueryOptions(topicId, locale));
-	const sources = page.sections.flatMap((section) => section.sources);
+	if (!page.data) {
+		return null;
+	}
+	const sources = page.data.sections.flatMap((section) => section.sources);
 	const archiveDays = (days.data ?? []).slice(0, ARCHIVE_LINK_LIMIT);
 	const label = topicLabel(topicId, locale);
 
 	return (
 		<section
 			aria-labelledby="topic-about-heading"
-			className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] py-5 text-[12px] text-[var(--text-secondary)] leading-relaxed"
+			className="mt-4 border-[var(--border-subtle)] border-t pt-3 text-[12px] text-[var(--text-secondary)] leading-relaxed"
 		>
-			<div className="mx-auto max-w-6xl px-4 sm:px-6">
-				<h2
-					className="font-semibold text-[12px] text-[var(--text-primary)]"
-					id="topic-about-heading"
-				>
-					{strings.about} · {label}
-					{page.description ? (
-						<span className="font-normal text-[var(--text-muted)]">
-							{" "}
-							— {page.description}
+			<h2
+				className="font-semibold text-[12px] text-[var(--text-primary)]"
+				id="topic-about-heading"
+			>
+				{strings.about} · {label}
+				{page.data.description ? (
+					<span className="font-normal text-[var(--text-muted)]">
+						{" "}
+						— {page.data.description}
+					</span>
+				) : null}
+			</h2>
+			<p className="mt-1">
+				{strings.summary(sources.length)}{" "}
+				<span className="text-[var(--text-muted)]">{strings.archive}:</span>{" "}
+				{archiveDays.length > 0 ? (
+					archiveDays.map((day, index) => (
+						<span key={day}>
+							<Link
+								className={`${LINK_CLASS} tabular-nums`}
+								params={{ day, locale: localeParam, topic: topicId }}
+								to="/{-$locale}/trends/$topic/$day"
+							>
+								{day}
+							</Link>
+							{index < archiveDays.length - 1 ? " · " : ""}
 						</span>
-					) : null}
-				</h2>
-				<p className="mt-1 max-w-3xl">
-					{strings.summary(sources.length)}{" "}
-					<span className="text-[var(--text-muted)]">{strings.archive}:</span>{" "}
-					{archiveDays.length > 0 ? (
-						archiveDays.map((day, index) => (
-							<span key={day}>
-								<Link
-									className={`${LINK_CLASS} tabular-nums`}
-									params={{ day, locale: localeParam, topic: topicId }}
-									to="/{-$locale}/trends/$topic/$day"
-								>
-									{day}
-								</Link>
-								{index < archiveDays.length - 1 ? " · " : ""}
-							</span>
-						))
-					) : (
-						<span className="text-[var(--text-muted)]">
-							{strings.archiveEmpty}
-						</span>
-					)}
-				</p>
-				<details className="mt-1.5">
-					<summary className="cursor-pointer select-none text-[var(--text-muted)] hover:text-[var(--text-primary)]">
-						{strings.allSources(sources.length)}
-					</summary>
-					<ul className="mt-1.5 columns-2 gap-x-6 sm:columns-3 lg:columns-5">
-						{sources.map((source) => (
-							<li className="truncate" key={source.sourceId}>
-								<Link
-									className="text-[var(--text-secondary)] hover:text-[var(--accent-blue)] hover:underline"
-									params={{ id: source.sourceId, locale: localeParam }}
-									to="/{-$locale}/sources/$id"
-								>
-									{source.title}
-								</Link>
-							</li>
-						))}
-					</ul>
-				</details>
-			</div>
+					))
+				) : (
+					<span className="text-[var(--text-muted)]">
+						{strings.archiveEmpty}
+					</span>
+				)}
+			</p>
+			<details className="mt-1">
+				<summary className="cursor-pointer select-none text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+					{strings.allSources(sources.length)}
+				</summary>
+				<ul className="mt-1.5 columns-2 gap-x-4">
+					{sources.map((source) => (
+						<li className="truncate" key={source.sourceId}>
+							<Link
+								className="text-[var(--text-secondary)] hover:text-[var(--accent-blue)] hover:underline"
+								params={{ id: source.sourceId, locale: localeParam }}
+								to="/{-$locale}/sources/$id"
+							>
+								{source.title}
+							</Link>
+						</li>
+					))}
+				</ul>
+			</details>
 		</section>
 	);
 }
