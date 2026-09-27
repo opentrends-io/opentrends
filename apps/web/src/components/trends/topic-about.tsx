@@ -91,9 +91,9 @@ export function TopicAbout({
 	return (
 		<section
 			aria-labelledby="topic-about-heading"
-			className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] px-4 py-5 text-[12px] text-[var(--text-secondary)] leading-relaxed sm:px-6"
+			className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] py-5 text-[12px] text-[var(--text-secondary)] leading-relaxed"
 		>
-			<div className="mx-auto max-w-6xl">
+			<div className="mx-auto max-w-6xl px-4 sm:px-6">
 				<h2
 					className="font-semibold text-[12px] text-[var(--text-primary)]"
 					id="topic-about-heading"
