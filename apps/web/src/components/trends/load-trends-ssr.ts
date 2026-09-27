@@ -23,3 +23,48 @@ export const loadTrendsForSsr = createServerOnlyFn(
 		);
 	}
 );
+
+const SSR_API_TIMEOUT_MS = 3000;
+
+export interface SsrRead<T> {
+	data: T | null;
+	/** Why the read failed, when it did not reach the API at all. */
+	error?: string;
+	status: number;
+}
+
+// Any JSON endpoint of the API, read over the service binding with the same
+// budget as the topic snapshot. Null on any failure or non-2xx, so the
+// client loader takes over; a 404 is reported as such for not-found pages.
+// (Kept non-generic: the server-only transform strips the body only from a
+// plain function expression.)
+const readApiJson = createServerOnlyFn(
+	async (path: string): Promise<SsrRead<unknown>> => {
+		const bindings = workerEnv as unknown as WebWorkerBindings;
+		const url = new URL(path, bindings.VITE_SERVER_URL);
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), SSR_API_TIMEOUT_MS);
+		try {
+			const response = await bindings.API.fetch(
+				new Request(url, { credentials: "omit", signal: controller.signal })
+			);
+			if (!response.ok) {
+				await response.body?.cancel();
+				return { status: response.status, data: null };
+			}
+			return { status: response.status, data: await response.json() };
+		} catch (error) {
+			return {
+				status: 0,
+				data: null,
+				error: error instanceof Error ? error.message : String(error),
+			};
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+);
+
+export function readApiJsonForSsr<T>(path: string): Promise<SsrRead<T>> {
+	return readApiJson(path) as Promise<SsrRead<T>>;
+}

@@ -1,3 +1,4 @@
+import { getWorkerBindings } from "../../runtime";
 import { type CacheEnvelope, hotCache } from "../cache/hot-cache";
 import type { Citation } from "./get-trends-summary";
 import type { TranslationLanguage } from "./translate-news-items";
@@ -12,6 +13,11 @@ export interface ArchivedDigest {
 }
 
 const ARCHIVE_TTL_SECONDS = 90 * 24 * 60 * 60;
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isArchiveDay(value: string): boolean {
+	return DAY_RE.test(value);
+}
 const ARCHIVE_SCHEMA_VERSION = 1;
 
 export function utcDay(timestamp: number): string {
@@ -68,4 +74,31 @@ export async function readArchivedDigest(
 	return envelope?.schemaVersion === ARCHIVE_SCHEMA_VERSION
 		? envelope.value
 		: null;
+}
+
+// The days a topic has a digest archived for, newest first. Backed by a KV
+// key listing, so a digest written seconds ago may take a minute to show.
+export async function listArchivedDays(
+	topicId: string,
+	lang: TranslationLanguage,
+	limit = 90
+): Promise<string[]> {
+	const kv = getWorkerBindings()?.HOT_CACHE;
+	if (!kv) {
+		return [];
+	}
+	const prefix = archiveKey(topicId, lang, "");
+	const days: string[] = [];
+	let cursor: string | undefined;
+	do {
+		const page = await kv.list({ cursor, prefix });
+		for (const entry of page.keys) {
+			const day = entry.name.slice(prefix.length);
+			if (isArchiveDay(day)) {
+				days.push(day);
+			}
+		}
+		cursor = page.list_complete ? undefined : page.cursor;
+	} while (cursor);
+	return days.sort().reverse().slice(0, limit);
 }

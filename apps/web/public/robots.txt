@@ -5,3 +5,4 @@ Disallow: /login
 Allow: /
 
 Sitemap: https://opentrends.io/sitemap.xml
+Sitemap: https://opentrends.io/sitemap-archive.xml

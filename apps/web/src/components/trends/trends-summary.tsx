@@ -54,6 +54,9 @@ interface TrendsSummaryProps {
 	page: TrendsPageData;
 	/** Shown instead of the topic name, e.g. a briefing's own name. */
 	title?: string;
+	/** The digest title is the page's heading on topic pages; a page with
+	 * its own heading (briefings) passes "span". */
+	titleTag?: "h1" | "span";
 	topicId: string;
 }
 
@@ -694,6 +697,7 @@ export function TrendsSummary({
 	keywords,
 	onCollapsedChange,
 	title,
+	titleTag: TitleTag = "h1",
 	page,
 	topicId,
 }: TrendsSummaryProps) {
@@ -885,9 +889,9 @@ export function TrendsSummary({
 			<div className="flex min-w-0 flex-1 items-start gap-3">
 				<div className="min-w-0 flex-1">
 					<div className="flex h-10 flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
-						<span className="text-[12px] text-[var(--text-primary)]">
+						<TitleTag className="m-0 font-normal text-[12px] text-[var(--text-primary)]">
 							{digestTitle}
-						</span>
+						</TitleTag>
 						<span>·</span>
 						<span className="inline-flex min-w-0 flex-wrap items-center gap-1.5 tabular-nums">
 							<span>{t("summary.synthesizedFrom")}</span>

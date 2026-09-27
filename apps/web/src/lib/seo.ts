@@ -32,26 +32,33 @@ export const DEFAULT_IMAGE_HEIGHT = "630";
 export const DEFAULT_IMAGE_TYPE = "image/png";
 export const DEFAULT_IMAGE_WIDTH = "1200";
 
-export const DEFAULT_KEYWORDS = [
-	"trending news",
-	"AI news",
-	"tech news",
-	"hacker news",
-	"indie hackers",
-	"robotics",
-	"biotechnology news",
-	"RSS aggregator",
-	"OpenTrends",
-];
+// One brand word. Each page names its own subject in its title and
+// description; a shared list of big terms only dilutes them.
+export const DEFAULT_KEYWORDS = ["OpenTrends"];
 
-const RAW_SITE_URL = (
-	(import.meta as unknown as { env?: Record<string, string | undefined> }).env
-		?.VITE_SITE_URL ?? ""
-).trim();
+export const PRODUCTION_SITE_URL = "https://opentrends.io";
+const LOCAL_SITE_URL_RE =
+	/^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?$/i;
 
-export const SITE_URL = RAW_SITE_URL.replace(TRAILING_SLASHES_RE, "");
+const VITE_ENV = (
+	import.meta as unknown as { env?: Record<string, string | undefined> }
+).env;
+const RAW_SITE_URL = (VITE_ENV?.VITE_SITE_URL ?? "")
+	.trim()
+	.replace(TRAILING_SLASHES_RE, "");
+
+// A production build must never publish a developer's local origin as the
+// canonical address: an unset or loopback VITE_SITE_URL falls back to the
+// public site, the way VITE_SERVER_URL already does.
+export const SITE_URL =
+	VITE_ENV?.PROD && (!RAW_SITE_URL || LOCAL_SITE_URL_RE.test(RAW_SITE_URL))
+		? PRODUCTION_SITE_URL
+		: RAW_SITE_URL;
 
 export interface SeoInput {
+	/** False for a page that exists in this locale only (a digest archived in
+	 * one language): no hreflang alternates are emitted for it. */
+	alternates?: boolean;
 	description?: string;
 	/** Absolute or site-relative og:image URL. */
 	image?: string;
@@ -146,7 +153,12 @@ function buildSeoLinks(input: SeoInput, url?: string): LinkDescriptor[] {
 	if (url) {
 		links.push({ rel: "canonical", href: url });
 	}
-	if (input.path === undefined || input.noindex || !SITE_URL) {
+	if (
+		input.path === undefined ||
+		input.noindex ||
+		input.alternates === false ||
+		!SITE_URL
+	) {
 		return links;
 	}
 	for (const alt of LOCALES) {

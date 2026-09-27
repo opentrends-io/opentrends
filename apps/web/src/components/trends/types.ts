@@ -145,3 +145,39 @@ export interface EventDetailData {
 	title: string;
 	topicId: string;
 }
+
+export interface ArchivedDigestCitation {
+	n: number;
+	topic?: string;
+	url: string;
+}
+
+export interface ArchivedDigestEntry {
+	citations: ArchivedDigestCitation[];
+	n: number;
+	reason?: string;
+	takeaway: string;
+}
+
+// One archived day of a topic's digest, from /api/trends/:topic/digest/:day.
+export interface ArchivedDigestData {
+	at: number;
+	day: string;
+	entries: ArchivedDigestEntry[];
+	lang: string;
+	markdown: string;
+	topic: string;
+}
+
+// A source's own page, from /api/sources/:id.
+export interface SourceDetailData {
+	card: SourceCardData | null;
+	homeUrl?: string;
+	lang: string;
+	name: string;
+	note?: string;
+	provider: "native" | "rsshub" | "rss";
+	refresh: string;
+	sourceId: string;
+	topics: Array<{ id: string; title: string }>;
+}

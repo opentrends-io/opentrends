@@ -813,6 +813,7 @@ function BriefingView({
 				onCollapsedChange={() => undefined}
 				page={page.data}
 				title={briefing.name}
+				titleTag="span"
 				topicId="mine"
 			/>
 			<div className="border-[var(--border-default)] border-t bg-[var(--surface-card)]">

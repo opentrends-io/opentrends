@@ -18,6 +18,27 @@ const app = await alchemy("opentrends");
 const apiCustomDomain = process.env.API_CUSTOM_DOMAIN?.trim();
 const cloudflareZoneId = process.env.CLOUDFLARE_ZONE_ID?.trim();
 const webCustomDomain = process.env.WEB_CUSTOM_DOMAIN?.trim();
+// The public origin every canonical, hreflang and sitemap entry is built
+// from. A deployer's shell may carry a local preview origin; that must not
+// reach a deployed build, so it is dropped in favour of the custom domain.
+const LOCAL_SITE_URL_RE =
+	/^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?$/i;
+const configuredSiteUrl = process.env.VITE_SITE_URL?.trim();
+const customDomainSiteUrl = webCustomDomain
+	? `https://${webCustomDomain}`
+	: undefined;
+const siteUrl =
+	configuredSiteUrl && !LOCAL_SITE_URL_RE.test(configuredSiteUrl)
+		? configuredSiteUrl
+		: customDomainSiteUrl;
+if (configuredSiteUrl && siteUrl !== configuredSiteUrl) {
+	console.warn(
+		`VITE_SITE_URL=${configuredSiteUrl} is a local origin; deploying with ${siteUrl ?? "no site URL"} instead.`
+	);
+}
+if (siteUrl) {
+	process.env.VITE_SITE_URL = siteUrl;
+}
 const refreshCron = process.env.TRENDS_REFRESH_CRON;
 const emailApiKey = process.env.EMAIL_API_KEY?.trim();
 const emailFrom = process.env.EMAIL_FROM?.trim();
@@ -180,9 +201,7 @@ export const web = await TanStackStart("web", {
 		VITE_SERVER_URL: process.env.VITE_SERVER_URL
 			? required(alchemy.env.VITE_SERVER_URL, "VITE_SERVER_URL")
 			: required(api.url, "api.url"),
-		...(process.env.VITE_SITE_URL
-			? { VITE_SITE_URL: alchemy.env.VITE_SITE_URL }
-			: {}),
+		...(siteUrl ? { VITE_SITE_URL: siteUrl } : {}),
 		...(process.env.VITE_SUPPORTED_LOCALES
 			? { VITE_SUPPORTED_LOCALES: alchemy.env.VITE_SUPPORTED_LOCALES }
 			: {}),

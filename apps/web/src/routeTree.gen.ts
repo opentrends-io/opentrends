@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapArchiveDotxmlRouteImport } from './routes/sitemap-archive[.]xml'
 import { Route as Char123LocaleChar125IndexRouteImport } from './routes/{-$locale}/index'
 import { Route as Char123LocaleChar125SourcesRouteImport } from './routes/{-$locale}/sources'
 import { Route as Char123LocaleChar125LoginRouteImport } from './routes/{-$locale}/login'
@@ -18,6 +19,7 @@ import { Route as Char123LocaleChar125BriefingsRouteImport } from './routes/{-$l
 import { Route as Char123LocaleChar125AgentsRouteImport } from './routes/{-$locale}/agents'
 import { Route as Char123LocaleChar125ViewsRouteImport } from './routes/{-$locale}/_views'
 import { Route as DotwellKnownApiCatalogRouteImport } from './routes/[.]well-known.api-catalog'
+import { Route as Char123LocaleChar125SourcesIdRouteImport } from './routes/{-$locale}/sources_.$id'
 import { Route as Char123LocaleChar125SkillsOpentrendsRouteImport } from './routes/{-$locale}/skills.opentrends'
 import { Route as Char123LocaleChar125EventsFlowRouteImport } from './routes/{-$locale}/events_.flow'
 import { Route as Char123LocaleChar125ViewsTrendsRouteImport } from './routes/{-$locale}/_views/trends'
@@ -25,8 +27,14 @@ import { Route as Char123LocaleChar125ViewsFeedRouteImport } from './routes/{-$l
 import { Route as Char123LocaleChar125ViewsEventsRouteImport } from './routes/{-$locale}/_views/events'
 import { Route as Char123LocaleChar125ViewsCalendarRouteImport } from './routes/{-$locale}/_views/calendar'
 import { Route as Char123LocaleChar125ViewsTrendsIndexRouteImport } from './routes/{-$locale}/_views/trends.index'
+import { Route as Char123LocaleChar125TrendsTopicDayRouteImport } from './routes/{-$locale}/trends.$topic.$day'
 import { Route as Char123LocaleChar125ViewsTrendsTopicRouteImport } from './routes/{-$locale}/_views/trends.$topic'
 
+const SitemapArchiveDotxmlRoute = SitemapArchiveDotxmlRouteImport.update({
+  id: '/sitemap-archive.xml',
+  path: '/sitemap-archive.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const Char123LocaleChar125IndexRoute =
   Char123LocaleChar125IndexRouteImport.update({
     id: '/{-$locale}/',
@@ -80,6 +88,12 @@ const DotwellKnownApiCatalogRoute = DotwellKnownApiCatalogRouteImport.update({
   path: '/.well-known/api-catalog',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char123LocaleChar125SourcesIdRoute =
+  Char123LocaleChar125SourcesIdRouteImport.update({
+    id: '/{-$locale}/sources_/$id',
+    path: '/{-$locale}/sources/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const Char123LocaleChar125SkillsOpentrendsRoute =
   Char123LocaleChar125SkillsOpentrendsRouteImport.update({
     id: '/{-$locale}/skills/opentrends',
@@ -122,6 +136,12 @@ const Char123LocaleChar125ViewsTrendsIndexRoute =
     path: '/',
     getParentRoute: () => Char123LocaleChar125ViewsTrendsRoute,
   } as any)
+const Char123LocaleChar125TrendsTopicDayRoute =
+  Char123LocaleChar125TrendsTopicDayRouteImport.update({
+    id: '/{-$locale}/trends/$topic/$day',
+    path: '/{-$locale}/trends/$topic/$day',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const Char123LocaleChar125ViewsTrendsTopicRoute =
   Char123LocaleChar125ViewsTrendsTopicRouteImport.update({
     id: '/$topic',
@@ -130,6 +150,7 @@ const Char123LocaleChar125ViewsTrendsTopicRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/sitemap-archive.xml': typeof SitemapArchiveDotxmlRoute
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/{-$locale}': typeof Char123LocaleChar125ViewsRouteWithChildren
   '/{-$locale}/agents': typeof Char123LocaleChar125AgentsRoute
@@ -145,10 +166,13 @@ export interface FileRoutesByFullPath {
   '/{-$locale}/trends': typeof Char123LocaleChar125ViewsTrendsRouteWithChildren
   '/{-$locale}/events/flow': typeof Char123LocaleChar125EventsFlowRoute
   '/{-$locale}/skills/opentrends': typeof Char123LocaleChar125SkillsOpentrendsRoute
+  '/{-$locale}/sources/$id': typeof Char123LocaleChar125SourcesIdRoute
   '/{-$locale}/trends/$topic': typeof Char123LocaleChar125ViewsTrendsTopicRoute
+  '/{-$locale}/trends/$topic/$day': typeof Char123LocaleChar125TrendsTopicDayRoute
   '/{-$locale}/trends/': typeof Char123LocaleChar125ViewsTrendsIndexRoute
 }
 export interface FileRoutesByTo {
+  '/sitemap-archive.xml': typeof SitemapArchiveDotxmlRoute
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/{-$locale}': typeof Char123LocaleChar125IndexRoute
   '/{-$locale}/agents': typeof Char123LocaleChar125AgentsRoute
@@ -162,11 +186,14 @@ export interface FileRoutesByTo {
   '/{-$locale}/feed': typeof Char123LocaleChar125ViewsFeedRoute
   '/{-$locale}/events/flow': typeof Char123LocaleChar125EventsFlowRoute
   '/{-$locale}/skills/opentrends': typeof Char123LocaleChar125SkillsOpentrendsRoute
+  '/{-$locale}/sources/$id': typeof Char123LocaleChar125SourcesIdRoute
   '/{-$locale}/trends/$topic': typeof Char123LocaleChar125ViewsTrendsTopicRoute
+  '/{-$locale}/trends/$topic/$day': typeof Char123LocaleChar125TrendsTopicDayRoute
   '/{-$locale}/trends': typeof Char123LocaleChar125ViewsTrendsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/sitemap-archive.xml': typeof SitemapArchiveDotxmlRoute
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/{-$locale}/_views': typeof Char123LocaleChar125ViewsRouteWithChildren
   '/{-$locale}/agents': typeof Char123LocaleChar125AgentsRoute
@@ -182,12 +209,15 @@ export interface FileRoutesById {
   '/{-$locale}/_views/trends': typeof Char123LocaleChar125ViewsTrendsRouteWithChildren
   '/{-$locale}/events_/flow': typeof Char123LocaleChar125EventsFlowRoute
   '/{-$locale}/skills/opentrends': typeof Char123LocaleChar125SkillsOpentrendsRoute
+  '/{-$locale}/sources_/$id': typeof Char123LocaleChar125SourcesIdRoute
   '/{-$locale}/_views/trends/$topic': typeof Char123LocaleChar125ViewsTrendsTopicRoute
+  '/{-$locale}/trends/$topic/$day': typeof Char123LocaleChar125TrendsTopicDayRoute
   '/{-$locale}/_views/trends/': typeof Char123LocaleChar125ViewsTrendsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/sitemap-archive.xml'
     | '/.well-known/api-catalog'
     | '/{-$locale}'
     | '/{-$locale}/agents'
@@ -203,10 +233,13 @@ export interface FileRouteTypes {
     | '/{-$locale}/trends'
     | '/{-$locale}/events/flow'
     | '/{-$locale}/skills/opentrends'
+    | '/{-$locale}/sources/$id'
     | '/{-$locale}/trends/$topic'
+    | '/{-$locale}/trends/$topic/$day'
     | '/{-$locale}/trends/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/sitemap-archive.xml'
     | '/.well-known/api-catalog'
     | '/{-$locale}'
     | '/{-$locale}/agents'
@@ -220,10 +253,13 @@ export interface FileRouteTypes {
     | '/{-$locale}/feed'
     | '/{-$locale}/events/flow'
     | '/{-$locale}/skills/opentrends'
+    | '/{-$locale}/sources/$id'
     | '/{-$locale}/trends/$topic'
+    | '/{-$locale}/trends/$topic/$day'
     | '/{-$locale}/trends'
   id:
     | '__root__'
+    | '/sitemap-archive.xml'
     | '/.well-known/api-catalog'
     | '/{-$locale}/_views'
     | '/{-$locale}/agents'
@@ -239,11 +275,14 @@ export interface FileRouteTypes {
     | '/{-$locale}/_views/trends'
     | '/{-$locale}/events_/flow'
     | '/{-$locale}/skills/opentrends'
+    | '/{-$locale}/sources_/$id'
     | '/{-$locale}/_views/trends/$topic'
+    | '/{-$locale}/trends/$topic/$day'
     | '/{-$locale}/_views/trends/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  SitemapArchiveDotxmlRoute: typeof SitemapArchiveDotxmlRoute
   DotwellKnownApiCatalogRoute: typeof DotwellKnownApiCatalogRoute
   Char123LocaleChar125ViewsRoute: typeof Char123LocaleChar125ViewsRouteWithChildren
   Char123LocaleChar125AgentsRoute: typeof Char123LocaleChar125AgentsRoute
@@ -255,10 +294,19 @@ export interface RootRouteChildren {
   Char123LocaleChar125IndexRoute: typeof Char123LocaleChar125IndexRoute
   Char123LocaleChar125EventsFlowRoute: typeof Char123LocaleChar125EventsFlowRoute
   Char123LocaleChar125SkillsOpentrendsRoute: typeof Char123LocaleChar125SkillsOpentrendsRoute
+  Char123LocaleChar125SourcesIdRoute: typeof Char123LocaleChar125SourcesIdRoute
+  Char123LocaleChar125TrendsTopicDayRoute: typeof Char123LocaleChar125TrendsTopicDayRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sitemap-archive.xml': {
+      id: '/sitemap-archive.xml'
+      path: '/sitemap-archive.xml'
+      fullPath: '/sitemap-archive.xml'
+      preLoaderRoute: typeof SitemapArchiveDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/{-$locale}/': {
       id: '/{-$locale}/'
       path: '/{-$locale}'
@@ -322,6 +370,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DotwellKnownApiCatalogRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/{-$locale}/sources_/$id': {
+      id: '/{-$locale}/sources_/$id'
+      path: '/{-$locale}/sources/$id'
+      fullPath: '/{-$locale}/sources/$id'
+      preLoaderRoute: typeof Char123LocaleChar125SourcesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/{-$locale}/skills/opentrends': {
       id: '/{-$locale}/skills/opentrends'
       path: '/{-$locale}/skills/opentrends'
@@ -370,6 +425,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/{-$locale}/trends/'
       preLoaderRoute: typeof Char123LocaleChar125ViewsTrendsIndexRouteImport
       parentRoute: typeof Char123LocaleChar125ViewsTrendsRoute
+    }
+    '/{-$locale}/trends/$topic/$day': {
+      id: '/{-$locale}/trends/$topic/$day'
+      path: '/{-$locale}/trends/$topic/$day'
+      fullPath: '/{-$locale}/trends/$topic/$day'
+      preLoaderRoute: typeof Char123LocaleChar125TrendsTopicDayRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/{-$locale}/_views/trends/$topic': {
       id: '/{-$locale}/_views/trends/$topic'
@@ -422,6 +484,7 @@ const Char123LocaleChar125ViewsRouteWithChildren =
   )
 
 const rootRouteChildren: RootRouteChildren = {
+  SitemapArchiveDotxmlRoute: SitemapArchiveDotxmlRoute,
   DotwellKnownApiCatalogRoute: DotwellKnownApiCatalogRoute,
   Char123LocaleChar125ViewsRoute: Char123LocaleChar125ViewsRouteWithChildren,
   Char123LocaleChar125AgentsRoute: Char123LocaleChar125AgentsRoute,
@@ -434,6 +497,9 @@ const rootRouteChildren: RootRouteChildren = {
   Char123LocaleChar125EventsFlowRoute: Char123LocaleChar125EventsFlowRoute,
   Char123LocaleChar125SkillsOpentrendsRoute:
     Char123LocaleChar125SkillsOpentrendsRoute,
+  Char123LocaleChar125SourcesIdRoute: Char123LocaleChar125SourcesIdRoute,
+  Char123LocaleChar125TrendsTopicDayRoute:
+    Char123LocaleChar125TrendsTopicDayRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

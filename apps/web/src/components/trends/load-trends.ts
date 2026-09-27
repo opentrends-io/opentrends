@@ -3,9 +3,11 @@ import { env } from "@opentrends/env/web";
 import type { Locale } from "@/lib/i18n";
 import { TRENDS_FULL_ITEMS_PER_SOURCE } from "./trends-limits";
 import type {
+	ArchivedDigestData,
 	EventDetailData,
 	EventFeedData,
 	SourceCardData,
+	SourceDetailData,
 	TrendsPageData,
 } from "./types";
 
@@ -191,4 +193,71 @@ export async function loadTrendEventDetail(
 		throw new Error(`Failed to load trend event (${response.status})`);
 	}
 	return (await response.json()) as EventDetailData;
+}
+
+export async function loadDigestDays(
+	topic: string,
+	locale: Locale
+): Promise<string[]> {
+	const search = new URLSearchParams({ lang: locale });
+	const response = await fetch(
+		`${env.VITE_SERVER_URL}/api/trends/${encodeURIComponent(topic)}/digest-days?${search}`,
+		{ credentials: "omit" }
+	);
+	if (!response.ok) {
+		throw new Error(`Failed to load digest days (${response.status})`);
+	}
+	const body = (await response.json()) as { days?: string[] };
+	return body.days ?? [];
+}
+
+export class ArchivedDigestNotFoundError extends Error {
+	constructor(topic: string, day: string) {
+		super(`No digest archived for ${topic} on ${day}`);
+		this.name = "ArchivedDigestNotFoundError";
+	}
+}
+
+export async function loadArchivedDigest(
+	topic: string,
+	day: string,
+	locale: Locale
+): Promise<ArchivedDigestData> {
+	const search = new URLSearchParams({ lang: locale });
+	const response = await fetch(
+		`${env.VITE_SERVER_URL}/api/trends/${encodeURIComponent(topic)}/digest/${encodeURIComponent(day)}?${search}`,
+		{ credentials: "omit" }
+	);
+	if (response.status === 404) {
+		throw new ArchivedDigestNotFoundError(topic, day);
+	}
+	if (!response.ok) {
+		throw new Error(`Failed to load archived digest (${response.status})`);
+	}
+	return (await response.json()) as ArchivedDigestData;
+}
+
+export class SourceNotFoundError extends Error {
+	constructor(sourceId: string) {
+		super(`Unknown source ${sourceId}`);
+		this.name = "SourceNotFoundError";
+	}
+}
+
+export async function loadSourceDetail(
+	sourceId: string,
+	locale: Locale
+): Promise<SourceDetailData> {
+	const search = new URLSearchParams({ lang: locale });
+	const response = await fetch(
+		`${env.VITE_SERVER_URL}/api/sources/${encodeURIComponent(sourceId)}?${search}`,
+		{ credentials: "omit" }
+	);
+	if (response.status === 404) {
+		throw new SourceNotFoundError(sourceId);
+	}
+	if (!response.ok) {
+		throw new Error(`Failed to load source (${response.status})`);
+	}
+	return (await response.json()) as SourceDetailData;
 }

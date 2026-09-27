@@ -12,10 +12,17 @@ import {
 	useFollowedSources,
 } from "@/components/trends/followed-sources";
 import { TrendsTopicNotFoundError } from "@/components/trends/load-trends";
-import { loadTrendsForSsr } from "@/components/trends/load-trends-ssr";
+import {
+	loadTrendsForSsr,
+	readApiJsonForSsr,
+} from "@/components/trends/load-trends-ssr";
 import { readLocalPreference } from "@/components/trends/source-preferences";
+import { TopicAbout } from "@/components/trends/topic-about";
 import { TrendsPage } from "@/components/trends/trends-page";
-import { trendsPageQueryOptions } from "@/components/trends/trends-query";
+import {
+	digestDaysQueryOptions,
+	trendsPageQueryOptions,
+} from "@/components/trends/trends-query";
 import { SourceGridSkeleton } from "@/components/trends/trends-skeleton";
 import type { TrendsPageData } from "@/components/trends/types";
 import {
@@ -29,6 +36,7 @@ import {
 	useT,
 } from "@/lib/i18n";
 import { buildSeo } from "@/lib/seo";
+import { topicSeo } from "@/lib/topic-seo";
 
 const TOPIC_SLUG_SEPARATOR_RE = /[-_]+/;
 
@@ -129,11 +137,24 @@ export const Route = createFileRoute("/{-$locale}/_views/trends/$topic")({
 			return;
 		}
 		if (import.meta.env.SSR) {
-			const page = await loadTrendsForSsr(params.topic, locale);
+			// The archive day list rides along so the page's footer links are
+			// in the server-rendered HTML.
+			const [page, days] = await Promise.all([
+				loadTrendsForSsr(params.topic, locale),
+				readApiJsonForSsr<{ days?: string[] }>(
+					`/api/trends/${encodeURIComponent(params.topic)}/digest-days?lang=${locale}`
+				),
+			]);
 			if (page) {
 				context.queryClient.setQueryData(
 					trendsPageQueryOptions(params.topic, locale).queryKey,
 					page
+				);
+			}
+			if (days.data?.days) {
+				context.queryClient.setQueryData(
+					digestDaysQueryOptions(params.topic, locale).queryKey,
+					days.data.days
 				);
 			}
 			return;
@@ -147,13 +168,13 @@ export const Route = createFileRoute("/{-$locale}/_views/trends/$topic")({
 		const topic = params.topic;
 		const locale = resolveLocale(params.locale);
 		const topicLabel = getTopicLabel(topic, locale);
-		const title = buildTopicTitle(topicLabel, locale);
-		const description = buildTopicDescription(topicLabel, locale);
+		const seo = topicSeo(topic, locale, topicLabel);
 		return buildSeo({
-			title,
-			description,
+			title: seo?.title ?? buildTopicTitle(topicLabel, locale),
+			description:
+				seo?.description ?? buildTopicDescription(topicLabel, locale),
 			path: `/trends/${topic}`,
-			keywords: buildTopicKeywords(topic, topicLabel, locale),
+			keywords: seo?.keywords ?? buildTopicKeywords(topic, topicLabel, locale),
 			locale,
 		});
 	},
@@ -232,6 +253,9 @@ function TopicComponent({ locale, topic }: { locale: Locale; topic: string }) {
 
 	const page = trends.data;
 	return (
-		<TrendsPage key={`${page.id}:${locale}:${page.updatedAt}`} page={page} />
+		<>
+			<TrendsPage key={`${page.id}:${locale}:${page.updatedAt}`} page={page} />
+			<TopicAbout locale={locale} page={page} topicId={topic} />
+		</>
 	);
 }
