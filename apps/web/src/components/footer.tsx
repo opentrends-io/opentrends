@@ -12,7 +12,7 @@ import {
 } from "@/lib/i18n";
 
 import Logo from "./logo";
-import { TopicAbout } from "./trends/topic-about";
+import { TopicArchiveLinks, TopicSourceLine } from "./trends/topic-about";
 
 // The site footer: brand and contact on the left, three short link columns,
 // and a bottom bar with the copyright and the other language editions.
@@ -135,7 +135,7 @@ export default function Footer() {
 
 	return (
 		<footer className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] text-[12px]">
-			<div className="grid gap-8 px-3 py-7 sm:px-4 md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+			<div className="grid gap-8 px-6 py-7 sm:px-10 md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
 				<div className="min-w-0">
 					<Link
 						aria-label={t("nav.homeAria")}
@@ -170,6 +170,9 @@ export default function Footer() {
 							RSS
 						</a>
 					</div>
+					{aboutTopic ? (
+						<TopicArchiveLinks locale={locale} topicId={aboutTopic} />
+					) : null}
 				</div>
 
 				<nav aria-label={strings.topics}>
@@ -234,7 +237,7 @@ export default function Footer() {
 			</div>
 
 			<div className="border-[var(--border-subtle)] border-t">
-				<div className="flex flex-col gap-2 px-3 py-3 text-[11px] text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between sm:px-4">
+				<div className="flex flex-col gap-2 px-6 py-3 text-[11px] text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between sm:px-10">
 					<p>
 						© {LAUNCH_YEAR} OpenTrends. {strings.rights}
 					</p>
@@ -261,7 +264,9 @@ export default function Footer() {
 					</nav>
 				</div>
 				{aboutTopic ? (
-					<TopicAbout locale={locale} topicId={aboutTopic} />
+					<div className="px-6 pb-3 sm:px-10">
+						<TopicSourceLine locale={locale} topicId={aboutTopic} />
+					</div>
 				) : null}
 			</div>
 		</footer>
