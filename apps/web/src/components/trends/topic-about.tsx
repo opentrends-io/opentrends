@@ -94,17 +94,14 @@ export function TopicAbout({
 
 	return (
 		<section
-			aria-labelledby="topic-about-heading"
+			aria-label={`${strings.about} · ${label}`}
 			className="px-3 pb-3 text-[10.5px] text-[var(--text-muted)] leading-relaxed sm:px-4"
 		>
 			<p>
-				<h2
-					className="inline font-medium text-[10.5px]"
-					id="topic-about-heading"
-				>
+				<span className="font-medium">
 					{strings.about} · {label}
 					{page.data.description ? ` — ${page.data.description}` : ""}
-				</h2>{" "}
+				</span>{" "}
 				{strings.summary(sources.length)} {strings.archive}:{" "}
 				{archiveDays.length > 0
 					? archiveDays.map((day, index) => (
