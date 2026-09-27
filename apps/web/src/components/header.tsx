@@ -128,7 +128,11 @@ function AccountMenu() {
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
 					render={
-						<Link params={{ locale: localeParam }} to="/{-$locale}/history" />
+						<Link
+							params={{ locale: localeParam }}
+							rel="nofollow"
+							to="/{-$locale}/history"
+						/>
 					}
 				>
 					<History aria-hidden className="size-3.5" />
@@ -278,6 +282,7 @@ export default function Header({ initialGithubStats }: HeaderProps) {
 							aria-label={t("nav.history")}
 							className="inline-flex size-7 items-center justify-center rounded text-[var(--text-secondary)] transition-colors hover:bg-[var(--state-hover-subtle)] hover:text-[var(--text-primary)] data-[status=active]:bg-[var(--state-hover-subtle)] data-[status=active]:text-[var(--text-primary)]"
 							params={{ locale: localeParam }}
+							rel="nofollow"
 							title={t("nav.history")}
 							to="/{-$locale}/history"
 						>

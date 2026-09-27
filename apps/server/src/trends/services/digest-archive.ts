@@ -3,8 +3,8 @@ import { type CacheEnvelope, hotCache } from "../cache/hot-cache";
 import type { Citation } from "./get-trends-summary";
 import type { TranslationLanguage } from "./translate-news-items";
 
-// The last "today" digest written on each calendar day, kept for three
-// months, so the calendar can show what the ten lines were on a past day.
+// The last "today" digest written on each calendar day, kept for over a
+// year, so the calendar and the archive pages can show past days.
 // Days are UTC; a reader's local day maps to the UTC day its noon falls in.
 export interface ArchivedDigest {
 	at: number;
@@ -12,7 +12,8 @@ export interface ArchivedDigest {
 	text: string;
 }
 
-const ARCHIVE_TTL_SECONDS = 90 * 24 * 60 * 60;
+// Day pages are indexed, so they must not vanish: kept for 400 days.
+const ARCHIVE_TTL_SECONDS = 400 * 24 * 60 * 60;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function isArchiveDay(value: string): boolean {

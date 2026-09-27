@@ -773,7 +773,6 @@ export function TrendsSummary({
 		title ??
 		topicSeo(topicId, locale, translatedTopic)?.title ??
 		(translatedTopic === topicKey ? page.title : translatedTopic);
-	const digestTitle = `${subject} · ${t(WINDOW_HEADING_KEYS[summaryWindow])}`;
 	const showTopicTags = shouldShowDigestTopicTags(topicId);
 	const [shareOpen, setShareOpen] = useState(false);
 	// Five lines are a glance; the rest are a click away, and the choice
@@ -944,8 +943,11 @@ export function TrendsSummary({
 				<div className="min-w-0 flex-1">
 					<div className="flex h-10 flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
 						<TitleTag className="m-0 font-normal text-[12px] text-[var(--text-primary)]">
-							{digestTitle}
+							{subject}
 						</TitleTag>
+						<span className="text-[12px] text-[var(--text-primary)]">
+							· {t(WINDOW_HEADING_KEYS[summaryWindow])}
+						</span>
 						<span>·</span>
 						<span className="inline-flex min-w-0 flex-wrap items-center gap-1.5 tabular-nums">
 							<span>{t("summary.synthesizedFrom")}</span>
