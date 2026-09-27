@@ -2,6 +2,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { sourcePresets } from "../../server/src/trends/config/sources";
+import { topicPresets } from "../../server/src/trends/config/topics";
+
+const PRODUCTION_SITE_URL = "https://opentrends.io";
+const LOCAL_SITE_URL_RE =
+	/^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?$/i;
 
 const TOPIC_IDS = [
 	"featured",
@@ -59,13 +65,33 @@ function localizedPath(path: string, locale: Locale): string {
 const here = dirname(fileURLToPath(import.meta.url));
 const outPath = resolve(here, "../public/sitemap.xml");
 
-const rawSiteUrl = (process.env.VITE_SITE_URL ?? "").trim().replace(/\/+$/, "");
-if (!rawSiteUrl) {
+const configuredSiteUrl = (process.env.VITE_SITE_URL ?? "")
+	.trim()
+	.replace(/\/+$/, "");
+// The sitemap is deployed with the build, so a missing or local origin must
+// not end up in it: fall back to the public site and say so.
+const rawSiteUrl =
+	!configuredSiteUrl || LOCAL_SITE_URL_RE.test(configuredSiteUrl)
+		? PRODUCTION_SITE_URL
+		: configuredSiteUrl;
+if (rawSiteUrl !== configuredSiteUrl) {
 	console.warn(
-		"[generate-sitemap] VITE_SITE_URL is not set; skipping sitemap.xml generation."
+		`[generate-sitemap] VITE_SITE_URL is ${configuredSiteUrl || "unset"}; writing ${PRODUCTION_SITE_URL} instead.`
 	);
-	process.exit(0);
 }
+
+// Every source that a topic carries has its own page.
+const topicSourceIds = new Set<string>();
+for (const topic of Object.values(topicPresets)) {
+	for (const section of topic.sections) {
+		for (const sourceId of section.sourceIds) {
+			topicSourceIds.add(sourceId);
+		}
+	}
+}
+const SOURCE_IDS = Object.keys(sourcePresets)
+	.filter((id) => topicSourceIds.has(id))
+	.sort();
 
 const basePaths = [
 	...STATIC_PATHS.map((path) => ({
@@ -77,6 +103,11 @@ const basePaths = [
 		path: `/trends/${id}`,
 		changefreq: "hourly",
 		priority: 0.8,
+	})),
+	...SOURCE_IDS.map((id) => ({
+		path: `/sources/${id}`,
+		changefreq: "hourly",
+		priority: 0.5,
 	})),
 ];
 

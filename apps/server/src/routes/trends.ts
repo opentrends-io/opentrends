@@ -5,6 +5,11 @@ import {
 	parseFollowedSourceIds,
 	parseKeywords,
 } from "../trends/config/followed-topic";
+import {
+	isArchiveDay,
+	listArchivedDays,
+	readArchivedDigest,
+} from "../trends/services/digest-archive";
 import { parseDigestEntries } from "../trends/services/digest-json";
 import { EventEmbeddingNotConfiguredError } from "../trends/services/event-embedding";
 import { getEventDetail, getEventFeed } from "../trends/services/event-feed";
@@ -202,6 +207,44 @@ export const trendsRoutes = new Hono()
 			}
 			throw error;
 		}
+	})
+	// The days a topic's digest was archived, for the archive index and the
+	// day pages' previous/next links.
+	.get("/:topic/digest-days", async (c) => {
+		const topic = c.req.param("topic");
+		const lang = normalizeTranslationLanguage(c.req.query("lang"));
+		const days = await listArchivedDays(topic, lang);
+		return c.json({ days, lang, topic }, 200, {
+			"Cache-Control": "public, max-age=600, s-maxage=1800",
+		});
+	})
+	// One archived day of a topic's digest, as data: the ten lines with their
+	// citations resolved to links. A day that was never archived is a 404.
+	.get("/:topic/digest/:day", async (c) => {
+		const topic = c.req.param("topic");
+		const day = c.req.param("day");
+		if (!isArchiveDay(day)) {
+			return c.json({ error: "invalid_day" }, 400);
+		}
+		const lang = normalizeTranslationLanguage(c.req.query("lang"));
+		const archived = await readArchivedDigest(topic, lang, day);
+		if (!archived) {
+			return c.json({ error: "digest_not_found", day, topic }, 404, {
+				"Cache-Control": "public, max-age=300",
+			});
+		}
+		return c.json(
+			{
+				at: archived.at,
+				day,
+				entries: parseDigestEntries(archived.text, archived.citations),
+				lang,
+				markdown: archived.text,
+				topic,
+			},
+			200,
+			{ "Cache-Control": "public, max-age=600, s-maxage=3600" }
+		);
 	})
 	.get("/:topic/summary", async (c) => {
 		const topic = c.req.param("topic");

@@ -524,7 +524,6 @@ export const Route = createFileRoute("/{-$locale}/agents")({
 			title: strings.seoTitle,
 			description: strings.seoDescription,
 			path: "/agents",
-			keywords: ["agent skill", "MCP server", "RSS", "OpenTrends API"],
 			locale,
 		});
 	},

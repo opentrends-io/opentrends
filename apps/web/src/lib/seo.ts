@@ -9,7 +9,7 @@ type MetaDescriptor =
 
 interface LinkDescriptor {
 	href: string;
-	hrefLang?: string;
+	hreflang?: string;
 	rel: string;
 	sizes?: string;
 	type?: string;
@@ -32,32 +32,36 @@ export const DEFAULT_IMAGE_HEIGHT = "630";
 export const DEFAULT_IMAGE_TYPE = "image/png";
 export const DEFAULT_IMAGE_WIDTH = "1200";
 
-export const DEFAULT_KEYWORDS = [
-	"trending news",
-	"AI news",
-	"tech news",
-	"hacker news",
-	"indie hackers",
-	"robotics",
-	"biotechnology news",
-	"RSS aggregator",
-	"OpenTrends",
-];
+export const PRODUCTION_SITE_URL = "https://opentrends.io";
+const LOCAL_SITE_URL_RE =
+	/^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?$/i;
 
-const RAW_SITE_URL = (
-	(import.meta as unknown as { env?: Record<string, string | undefined> }).env
-		?.VITE_SITE_URL ?? ""
-).trim();
+const VITE_ENV = (
+	import.meta as unknown as { env?: Record<string, string | undefined> }
+).env;
+const RAW_SITE_URL = (VITE_ENV?.VITE_SITE_URL ?? "")
+	.trim()
+	.replace(TRAILING_SLASHES_RE, "");
 
-export const SITE_URL = RAW_SITE_URL.replace(TRAILING_SLASHES_RE, "");
+// A production build must never publish a developer's local origin as the
+// canonical address: an unset or loopback VITE_SITE_URL falls back to the
+// public site, the way VITE_SERVER_URL already does.
+export const SITE_URL =
+	VITE_ENV?.PROD && (!RAW_SITE_URL || LOCAL_SITE_URL_RE.test(RAW_SITE_URL))
+		? PRODUCTION_SITE_URL
+		: RAW_SITE_URL;
+
+// A preview deployment must not be indexed as a copy of the site.
+const PRODUCTION_HOST = !VITE_ENV?.PROD || SITE_URL === PRODUCTION_SITE_URL;
 
 export interface SeoInput {
+	/** False for a page that exists in this locale only (a digest archived in
+	 * one language): no hreflang alternates are emitted for it. */
+	alternates?: boolean;
 	description?: string;
 	/** Absolute or site-relative og:image URL. */
 	image?: string;
 	imageAlt?: string;
-	/** Extra keywords appended to the defaults. */
-	keywords?: string[];
 	/** Active locale. Drives og:locale and hreflang alternates. */
 	locale?: Locale;
 	/** Block crawlers for private routes (dashboard, login). */
@@ -87,7 +91,7 @@ function absoluteUrl(path?: string): string | undefined {
 	return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-function localizedPath(
+export function localizedPath(
 	path: string | undefined,
 	locale: Locale
 ): string | undefined {
@@ -146,18 +150,23 @@ function buildSeoLinks(input: SeoInput, url?: string): LinkDescriptor[] {
 	if (url) {
 		links.push({ rel: "canonical", href: url });
 	}
-	if (input.path === undefined || input.noindex || !SITE_URL) {
+	if (
+		input.path === undefined ||
+		input.noindex ||
+		input.alternates === false ||
+		!SITE_URL
+	) {
 		return links;
 	}
 	for (const alt of LOCALES) {
 		const altUrl = absoluteUrl(localizedPath(input.path, alt));
 		if (altUrl) {
-			links.push({ rel: "alternate", hrefLang: alt, href: altUrl });
+			links.push({ rel: "alternate", hreflang: alt, href: altUrl });
 		}
 	}
 	const xDefault = absoluteUrl(localizedPath(input.path, DEFAULT_LOCALE));
 	if (xDefault) {
-		links.push({ rel: "alternate", hrefLang: "x-default", href: xDefault });
+		links.push({ rel: "alternate", hreflang: "x-default", href: xDefault });
 	}
 	return links;
 }
@@ -171,15 +180,15 @@ export function buildSeo(input: SeoInput = {}): SeoHead {
 	const image = absoluteUrl(imagePath);
 	const imageAlt = input.imageAlt ?? DEFAULT_IMAGE_ALT;
 	const type = input.type ?? "website";
-	const keywords = [...DEFAULT_KEYWORDS, ...(input.keywords ?? [])];
-
 	const meta: MetaDescriptor[] = [
 		{ title },
 		{ name: "description", content: description },
-		{ name: "keywords", content: keywords.join(", ") },
 		{
 			name: "robots",
-			content: input.noindex ? "noindex, nofollow" : "index, follow",
+			content:
+				input.noindex || !PRODUCTION_HOST
+					? "noindex, nofollow"
+					: "index, follow",
 		},
 		{ property: "og:site_name", content: SITE_NAME },
 		{ property: "og:title", content: title },

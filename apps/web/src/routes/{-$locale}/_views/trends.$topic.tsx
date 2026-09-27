@@ -12,12 +12,19 @@ import {
 	useFollowedSources,
 } from "@/components/trends/followed-sources";
 import { TrendsTopicNotFoundError } from "@/components/trends/load-trends";
-import { loadTrendsForSsr } from "@/components/trends/load-trends-ssr";
+import {
+	loadTrendsForSsr,
+	readApiJsonForSsr,
+} from "@/components/trends/load-trends-ssr";
 import { readLocalPreference } from "@/components/trends/source-preferences";
 import { TrendsPage } from "@/components/trends/trends-page";
-import { trendsPageQueryOptions } from "@/components/trends/trends-query";
+import {
+	digestDaysQueryOptions,
+	ssrDigestQueryOptions,
+	trendsPageQueryOptions,
+} from "@/components/trends/trends-query";
 import { SourceGridSkeleton } from "@/components/trends/trends-skeleton";
-import type { TrendsPageData } from "@/components/trends/types";
+import type { DigestJsonData, TrendsPageData } from "@/components/trends/types";
 import {
 	isLocale,
 	type Locale,
@@ -28,7 +35,8 @@ import {
 	useLocale,
 	useT,
 } from "@/lib/i18n";
-import { buildSeo } from "@/lib/seo";
+import { buildSeo, localizedPath, SITE_URL } from "@/lib/seo";
+import { topicSeo } from "@/lib/topic-seo";
 
 const TOPIC_SLUG_SEPARATOR_RE = /[-_]+/;
 
@@ -82,21 +90,48 @@ function buildTopicDescription(topicLabel: string, locale: Locale): string {
 	return `Trending ${topicLabel} news aggregated from curated sources, updated continuously by OpenTrends.`;
 }
 
-function buildTopicKeywords(
-	topic: string,
-	topicLabel: string,
-	locale: Locale
-): string[] {
-	if (locale === "zh") {
-		return [topic, topicLabel, `${topicLabel}资讯`, `${topicLabel}热点`];
+// Breadcrumbs for every topic page, and the ten digest lines as an
+// ItemList when the server had them.
+function structuredData(params: {
+	digest: DigestJsonData | null;
+	locale: Locale;
+	title: string;
+	topic: string;
+	topicLabel: string;
+}): Array<{ children: string; type: string }> {
+	const base = `${SITE_URL}${localizedPath(`/trends/${params.topic}`, params.locale)}`;
+	const home = `${SITE_URL}${localizedPath("/", params.locale)}`;
+	const breadcrumbs = {
+		"@context": "https://schema.org",
+		"@type": "BreadcrumbList",
+		itemListElement: [
+			{ "@type": "ListItem", item: home, name: "OpenTrends", position: 1 },
+			{ "@type": "ListItem", item: base, name: params.topicLabel, position: 2 },
+		],
+	};
+	const scripts = [
+		{ children: JSON.stringify(breadcrumbs), type: "application/ld+json" },
+	];
+	if (params.digest && params.digest.entries.length > 0) {
+		const list = {
+			"@context": "https://schema.org",
+			"@type": "ItemList",
+			itemListElement: params.digest.entries.map((entry, index) => ({
+				"@type": "ListItem",
+				name: entry.takeaway,
+				position: index + 1,
+				...(entry.citations[0] ? { url: entry.citations[0].url } : {}),
+			})),
+			name: params.title,
+			numberOfItems: params.digest.entries.length,
+			url: base,
+		};
+		scripts.push({
+			children: JSON.stringify(list),
+			type: "application/ld+json",
+		});
 	}
-	if (locale === "zh-Hant") {
-		return [topic, topicLabel, `${topicLabel}資訊`, `${topicLabel}熱點`];
-	}
-	if (locale === "ru") {
-		return [topic, topicLabel, `${topicLabel} новости`, `${topicLabel} тренды`];
-	}
-	return [topic, topicLabel, `${topicLabel} news`, `${topicLabel} trending`];
+	return scripts;
 }
 
 export const Route = createFileRoute("/{-$locale}/_views/trends/$topic")({
@@ -129,33 +164,74 @@ export const Route = createFileRoute("/{-$locale}/_views/trends/$topic")({
 			return;
 		}
 		if (import.meta.env.SSR) {
-			const page = await loadTrendsForSsr(params.topic, locale);
+			// The archive day list rides along so the page's footer links are
+			// in the server-rendered HTML.
+			// The finished digest is read alongside the page so its ten lines
+			// are in the first HTML; a digest still being written is skipped.
+			const [page, days, digest] = await Promise.all([
+				loadTrendsForSsr(params.topic, locale),
+				readApiJsonForSsr<{ days?: string[] }>(
+					`/api/trends/${encodeURIComponent(params.topic)}/digest-days?lang=${locale}`
+				),
+				readApiJsonForSsr<DigestJsonData>(
+					`/api/trends/${encodeURIComponent(params.topic)}/summary?format=json&window=today&lang=${locale}`
+				),
+			]);
+			const ssrDigest =
+				digest.status === 200 && Array.isArray(digest.data?.entries)
+					? digest.data
+					: null;
+			if (ssrDigest) {
+				context.queryClient.setQueryData(
+					ssrDigestQueryOptions(params.topic, locale).queryKey,
+					ssrDigest
+				);
+			}
 			if (page) {
 				context.queryClient.setQueryData(
 					trendsPageQueryOptions(params.topic, locale).queryKey,
 					page
 				);
 			}
-			return;
+			if (days.data?.days) {
+				context.queryClient.setQueryData(
+					digestDaysQueryOptions(params.topic, locale).queryKey,
+					days.data.days
+				);
+			}
+			return { digest: ssrDigest };
 		}
 
 		await context.queryClient.ensureQueryData(
 			trendsPageQueryOptions(params.topic, locale)
 		);
+		return { digest: null };
 	},
-	head: ({ params }) => {
+	head: ({ loaderData, params }) => {
 		const topic = params.topic;
 		const locale = resolveLocale(params.locale);
 		const topicLabel = getTopicLabel(topic, locale);
-		const title = buildTopicTitle(topicLabel, locale);
-		const description = buildTopicDescription(topicLabel, locale);
-		return buildSeo({
+		const seo = topicSeo(topic, locale, topicLabel);
+		const title = seo?.title ?? buildTopicTitle(topicLabel, locale);
+		const head = buildSeo({
 			title,
-			description,
+			description:
+				seo?.description ?? buildTopicDescription(topicLabel, locale),
 			path: `/trends/${topic}`,
-			keywords: buildTopicKeywords(topic, topicLabel, locale),
 			locale,
+			// A reader's own page: nothing there for a crawler.
+			noindex: topic === FOLLOWED_TOPIC_ID,
 		});
+		return {
+			...head,
+			scripts: structuredData({
+				digest: loaderData?.digest ?? null,
+				locale,
+				title,
+				topic,
+				topicLabel,
+			}),
+		};
 	},
 });
 

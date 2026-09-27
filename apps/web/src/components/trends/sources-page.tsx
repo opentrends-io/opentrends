@@ -1,8 +1,9 @@
 import { ScrollArea } from "@opentrends/ui/components/scroll-area";
+import { Link } from "@tanstack/react-router";
 import { ExternalLink } from "lucide-react";
 import type * as React from "react";
 
-import { type Translator, useT } from "@/lib/i18n";
+import { localePathParam, type Translator, useLocale, useT } from "@/lib/i18n";
 
 import { formatRelativeTime } from "./relative-time";
 import { SourceFavicon, SourceLogoStack } from "./source-favicon";
@@ -194,9 +195,7 @@ function SourceMobileCard({
 				<div className="min-w-0 flex-1">
 					<div className="flex min-w-0 items-center gap-1.5">
 						<SourceFavicon homeUrl={entry.homeUrl} />
-						<span className="min-w-0 truncate font-medium text-[var(--text-primary)]">
-							{entry.name}
-						</span>
+						<SourceNameLink entry={entry} />
 						{entry.homeUrl ? (
 							<a
 								aria-label={t("sources.openLabel", { name: entry.name })}
@@ -288,6 +287,19 @@ function SourceMobileMeta({
 	);
 }
 
+function SourceNameLink({ entry }: { entry: SourceStatusEntry }) {
+	const locale = useLocale();
+	return (
+		<Link
+			className="min-w-0 truncate font-medium text-[var(--text-primary)] hover:underline"
+			params={{ id: entry.sourceId, locale: localePathParam(locale) }}
+			to="/{-$locale}/sources/$id"
+		>
+			{entry.name}
+		</Link>
+	);
+}
+
 function SourceRow({ entry, t }: { entry: SourceStatusEntry; t: Translator }) {
 	return (
 		<tr className="border-[var(--border-subtle)] border-t hover:bg-[var(--state-hover-subtle)]">
@@ -297,9 +309,7 @@ function SourceRow({ entry, t }: { entry: SourceStatusEntry; t: Translator }) {
 					<div className="min-w-0">
 						<div className="flex items-center gap-1.5">
 							<SourceFavicon homeUrl={entry.homeUrl} />
-							<span className="font-medium text-[var(--text-primary)]">
-								{entry.name}
-							</span>
+							<SourceNameLink entry={entry} />
 							<EventEligibilityBadge eligible={entry.eventEligible} t={t} />
 							{entry.homeUrl ? (
 								<a

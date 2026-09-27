@@ -17,7 +17,6 @@ export const Route = createFileRoute("/{-$locale}/sources")({
 			description:
 				"Live status for every source OpenTrends aggregates — feed freshness, last update time and any fetch errors across native adapters, RSSHub routes and RSS feeds.",
 			path: "/sources",
-			keywords: ["RSS sources", "feed status", "data sources"],
 			locale,
 		});
 	},
