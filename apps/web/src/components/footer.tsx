@@ -135,7 +135,7 @@ export default function Footer() {
 
 	return (
 		<footer className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] text-[12px]">
-			<div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+			<div className="grid gap-8 px-3 py-7 sm:px-4 md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
 				<div className="min-w-0">
 					<Link
 						aria-label={t("nav.homeAria")}
@@ -170,9 +170,6 @@ export default function Footer() {
 							RSS
 						</a>
 					</div>
-					{aboutTopic ? (
-						<TopicAbout locale={locale} topicId={aboutTopic} />
-					) : null}
 				</div>
 
 				<nav aria-label={strings.topics}>
@@ -237,7 +234,7 @@ export default function Footer() {
 			</div>
 
 			<div className="border-[var(--border-subtle)] border-t">
-				<div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3.5 text-[11px] text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between sm:px-6">
+				<div className="flex flex-col gap-2 px-3 py-3 text-[11px] text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between sm:px-4">
 					<p>
 						© {LAUNCH_YEAR} OpenTrends. {strings.rights}
 					</p>
@@ -263,6 +260,9 @@ export default function Footer() {
 						))}
 					</nav>
 				</div>
+				{aboutTopic ? (
+					<TopicAbout locale={locale} topicId={aboutTopic} />
+				) : null}
 			</div>
 		</footer>
 	);

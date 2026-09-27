@@ -68,8 +68,6 @@ function topicLabel(topic: string, locale: Locale): string {
 	return label === key ? topic : label;
 }
 
-const LINK_CLASS = "text-[var(--accent-blue)] hover:underline";
-
 // Rendered inside the site footer on a topic page. The page data is
 // already in the query cache (the route loader put it there, on the server
 // too), so this never fetches on its own.
@@ -97,59 +95,50 @@ export function TopicAbout({
 	return (
 		<section
 			aria-labelledby="topic-about-heading"
-			className="mt-4 border-[var(--border-subtle)] border-t pt-3 text-[12px] text-[var(--text-secondary)] leading-relaxed"
+			className="px-3 pb-3 text-[10.5px] text-[var(--text-muted)] leading-relaxed sm:px-4"
 		>
-			<h2
-				className="font-semibold text-[12px] text-[var(--text-primary)]"
-				id="topic-about-heading"
-			>
-				{strings.about} · {label}
-				{page.data.description ? (
-					<span className="font-normal text-[var(--text-muted)]">
-						{" "}
-						— {page.data.description}
-					</span>
-				) : null}
-			</h2>
-			<p className="mt-1">
-				{strings.summary(sources.length)}{" "}
-				<span className="text-[var(--text-muted)]">{strings.archive}:</span>{" "}
-				{archiveDays.length > 0 ? (
-					archiveDays.map((day, index) => (
-						<span key={day}>
-							<Link
-								className={`${LINK_CLASS} tabular-nums`}
-								params={{ day, locale: localeParam, topic: topicId }}
-								to="/{-$locale}/trends/$topic/$day"
-							>
-								{day}
-							</Link>
-							{index < archiveDays.length - 1 ? " · " : ""}
-						</span>
-					))
-				) : (
-					<span className="text-[var(--text-muted)]">
-						{strings.archiveEmpty}
-					</span>
-				)}
+			<p>
+				<h2
+					className="inline font-medium text-[10.5px]"
+					id="topic-about-heading"
+				>
+					{strings.about} · {label}
+					{page.data.description ? ` — ${page.data.description}` : ""}
+				</h2>{" "}
+				{strings.summary(sources.length)} {strings.archive}:{" "}
+				{archiveDays.length > 0
+					? archiveDays.map((day, index) => (
+							<span key={day}>
+								<Link
+									className="tabular-nums hover:text-[var(--text-primary)] hover:underline"
+									params={{ day, locale: localeParam, topic: topicId }}
+									to="/{-$locale}/trends/$topic/$day"
+								>
+									{day}
+								</Link>
+								{index < archiveDays.length - 1 ? " · " : ""}
+							</span>
+						))
+					: strings.archiveEmpty}
 			</p>
-			<details className="mt-1">
-				<summary className="cursor-pointer select-none text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+			<details>
+				<summary className="cursor-pointer select-none hover:text-[var(--text-primary)]">
 					{strings.allSources(sources.length)}
 				</summary>
-				<ul className="mt-1.5 columns-2 gap-x-4">
-					{sources.map((source) => (
-						<li className="truncate" key={source.sourceId}>
+				<p className="mt-0.5">
+					{sources.map((source, index) => (
+						<span key={source.sourceId}>
 							<Link
-								className="text-[var(--text-secondary)] hover:text-[var(--accent-blue)] hover:underline"
+								className="hover:text-[var(--text-primary)] hover:underline"
 								params={{ id: source.sourceId, locale: localeParam }}
 								to="/{-$locale}/sources/$id"
 							>
 								{source.title}
 							</Link>
-						</li>
+							{index < sources.length - 1 ? " · " : ""}
+						</span>
 					))}
-				</ul>
+				</p>
 			</details>
 		</section>
 	);
