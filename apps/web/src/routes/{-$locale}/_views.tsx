@@ -16,7 +16,10 @@ import {
 	FOLLOWED_TOPIC_ID,
 	useFollowedSources,
 } from "@/components/trends/followed-sources";
-import { trendsPageQueryOptions } from "@/components/trends/trends-query";
+import {
+	ssrDigestQueryOptions,
+	trendsPageQueryOptions,
+} from "@/components/trends/trends-query";
 import { TrendsSummary } from "@/components/trends/trends-summary";
 import { ViewsScrollContext } from "@/components/trends/views-scroll";
 import { useLocale } from "@/lib/i18n";
@@ -42,6 +45,7 @@ function TopicDigest({ topicId }: { topicId: string }) {
 		),
 		enabled: !followed || followedIds.length > 0,
 	});
+	const ssrDigest = useQuery(ssrDigestQueryOptions(topicId, locale));
 	if (!page.data) {
 		return (
 			<div className="h-10 border-[var(--border-default)] border-b bg-[var(--surface-sidebar)]" />
@@ -50,6 +54,7 @@ function TopicDigest({ topicId }: { topicId: string }) {
 	return (
 		<TrendsSummary
 			collapsed={settings.summaryCollapsed}
+			initialDigest={ssrDigest.data}
 			onCollapsedChange={(collapsed) =>
 				setDisplaySetting("summaryCollapsed", collapsed)
 			}

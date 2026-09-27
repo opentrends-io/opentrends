@@ -181,3 +181,13 @@ export interface SourceDetailData {
 	sourceId: string;
 	topics: Array<{ id: string; title: string }>;
 }
+
+// A finished digest as the JSON endpoint returns it; read once on the
+// server so the ten lines are in the first HTML.
+export interface DigestJsonData {
+	entries: ArchivedDigestEntry[];
+	lang: string;
+	markdown: string;
+	topic: string;
+	window: string;
+}

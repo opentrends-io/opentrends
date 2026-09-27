@@ -12,7 +12,7 @@ import {
 } from "@/lib/i18n";
 
 import Logo from "./logo";
-import { TopicArchiveLinks, TopicSourceLine } from "./trends/topic-about";
+import { TopicArchiveLinks } from "./trends/topic-about";
 
 // The site footer: brand and contact on the left, three short link columns,
 // and a bottom bar with the copyright and the other language editions.
@@ -45,7 +45,9 @@ const LANGUAGE_NAMES: Record<Locale, string> = {
 interface Strings {
 	agents: string;
 	api: string;
+	archive: string;
 	explore: string;
+	guide: string;
 	languages: string;
 	llms: string;
 	rights: string;
@@ -56,6 +58,8 @@ interface Strings {
 const EN: Strings = {
 	agents: "For agents",
 	api: "JSON API",
+	archive: "Digest archive",
+	guide: "Setup guide",
 	explore: "Explore",
 	languages: "Languages",
 	llms: "llms.txt",
@@ -67,6 +71,8 @@ const EN: Strings = {
 const ZH: Strings = {
 	agents: "Agent 接入",
 	api: "JSON 接口",
+	archive: "摘要归档",
+	guide: "接入指南",
 	explore: "浏览",
 	languages: "语言",
 	llms: "llms.txt",
@@ -78,6 +84,8 @@ const ZH: Strings = {
 const ZH_HANT: Strings = {
 	agents: "Agent 接入",
 	api: "JSON 介面",
+	archive: "摘要歸檔",
+	guide: "接入指南",
 	explore: "瀏覽",
 	languages: "語言",
 	llms: "llms.txt",
@@ -114,17 +122,16 @@ export default function Footer() {
 			? topicMatch.params.topic
 			: undefined;
 	const exploreLinks = [
-		{
-			to: "/{-$locale}/trends/$topic",
-			params: { topic: "mine" },
-			label: t("topic.mine"),
-		},
 		{ to: "/{-$locale}/events", label: t("nav.events") },
 		{ to: "/{-$locale}/sources", label: t("nav.sources") },
-		{ to: "/{-$locale}/history", label: t("nav.history") },
+		{
+			to: "/{-$locale}/trends/$topic/archive",
+			params: { topic: "featured" },
+			label: strings.archive,
+		},
 	] as const;
 	const agentLinks = [
-		{ href: undefined, to: "/{-$locale}/agents", label: strings.agents },
+		{ href: undefined, to: "/{-$locale}/agents", label: strings.guide },
 		{
 			href: `${env.VITE_SERVER_URL}/api/trends/featured/feed.xml`,
 			to: undefined,
@@ -263,11 +270,6 @@ export default function Footer() {
 						))}
 					</nav>
 				</div>
-				{aboutTopic ? (
-					<div className="px-6 pb-3 sm:px-10">
-						<TopicSourceLine locale={locale} topicId={aboutTopic} />
-					</div>
-				) : null}
 			</div>
 		</footer>
 	);

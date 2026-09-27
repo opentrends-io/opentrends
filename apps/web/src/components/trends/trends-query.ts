@@ -15,6 +15,7 @@ import { pageNeedsTranslationWarmup } from "./translation-status";
 import { TRENDS_FULL_ITEMS_PER_SOURCE } from "./trends-limits";
 import type {
 	ArchivedDigestData,
+	DigestJsonData,
 	EventDetailData,
 	EventFeedData,
 	SourceCardData,
@@ -125,5 +126,16 @@ export function sourceDetailQueryOptions(sourceId: string, locale: Locale) {
 		queryFn: () => loadSourceDetail(sourceId, locale),
 		retry: false,
 		staleTime: ARCHIVE_STALE_MS,
+	});
+}
+
+// Holds the digest the server rendered with the page; never fetched on the
+// client, which streams the live digest itself.
+export function ssrDigestQueryOptions(topic: string, locale: Locale) {
+	return queryOptions<DigestJsonData, Error>({
+		queryKey: ["ssr-digest", topic, locale],
+		queryFn: () => Promise.reject(new Error("The SSR digest is read-only.")),
+		enabled: false,
+		staleTime: Number.POSITIVE_INFINITY,
 	});
 }

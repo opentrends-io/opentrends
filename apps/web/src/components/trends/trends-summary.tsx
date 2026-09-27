@@ -26,6 +26,7 @@ import {
 	useLocale,
 	useT,
 } from "@/lib/i18n";
+import { topicSeo } from "@/lib/topic-seo";
 
 import {
 	CitationLinkPopover,
@@ -44,10 +45,17 @@ import { FOLLOWED_TOPIC_ID } from "./followed-sources";
 import { parseDigest } from "./share-image";
 import { SourceLogoStack, type SourceLogoStackItem } from "./source-favicon";
 import { SummaryShareDialog } from "./summary-share-dialog";
-import type { TrendsPageData } from "./types";
+import type {
+	ArchivedDigestEntry,
+	DigestJsonData,
+	TrendsPageData,
+} from "./types";
 
 interface TrendsSummaryProps {
 	collapsed: boolean;
+	/** A finished "today" digest rendered by the server, shown at once and
+	 * replaced whole once the live one has streamed in. */
+	initialDigest?: DigestJsonData;
 	/** A briefing narrows the followed sources to items mentioning these. */
 	keywords?: readonly string[];
 	onCollapsedChange: (collapsed: boolean) => void;
@@ -170,6 +178,26 @@ const TOPIC_TAG_CLASS: Record<string, string> = {
 };
 const DEFAULT_TAG_CLASS =
 	"bg-[var(--accent-blue-bg)] text-[var(--accent-blue)]";
+
+// The JSON digest carries citations per entry; the stream carries one list.
+function citationsFromEntries(
+	entries: readonly ArchivedDigestEntry[]
+): CitationMap {
+	const map = new Map<number, Citation>();
+	for (const entry of entries) {
+		for (const citation of entry.citations) {
+			if (!map.has(citation.n)) {
+				map.set(
+					citation.n,
+					citation.topic
+						? { topic: citation.topic, url: citation.url }
+						: { url: citation.url }
+				);
+			}
+		}
+	}
+	return map;
+}
 
 function toCitationMap(parsed: unknown): CitationMap {
 	const map = new Map<number, Citation>();
@@ -694,6 +722,7 @@ function digestMemoKey(
 
 export function TrendsSummary({
 	collapsed,
+	initialDigest,
 	keywords,
 	onCollapsedChange,
 	title,
@@ -703,10 +732,16 @@ export function TrendsSummary({
 }: TrendsSummaryProps) {
 	const locale = useLocale();
 	const t = useT();
-	const [text, setText] = useState("");
-	const [status, setStatus] = useState<SummaryStatus>("loading");
+	const [text, setText] = useState(initialDigest?.markdown ?? "");
+	const [status, setStatus] = useState<SummaryStatus>(
+		initialDigest ? "done" : "loading"
+	);
 	const [error, setError] = useState<string | null>(null);
-	const [citations, setCitations] = useState<CitationMap>(EMPTY_CITATIONS);
+	const [citations, setCitations] = useState<CitationMap>(() =>
+		initialDigest
+			? citationsFromEntries(initialDigest.entries)
+			: EMPTY_CITATIONS
+	);
 	const [summaryWindow, setSummaryWindow] = useState<SummaryWindow>("today");
 	const [retryNonce, setRetryNonce] = useState(0);
 	const metadata = useMemo(() => buildMetadataMap(page), [page]);
@@ -732,7 +767,13 @@ export function TrendsSummary({
 	// first thing on the page and the share image carries the same heading.
 	const topicKey = `topic.${topicId}` as TranslationKey;
 	const translatedTopic = t(topicKey);
-	const digestTitle = `${title ?? (translatedTopic === topicKey ? page.title : translatedTopic)} · ${t(WINDOW_HEADING_KEYS[summaryWindow])}`;
+	// The heading names the page's subject the way the title tag does
+	// ("AI 资讯今日热点"), and the period.
+	const subject =
+		title ??
+		topicSeo(topicId, locale, translatedTopic)?.title ??
+		(translatedTopic === topicKey ? page.title : translatedTopic);
+	const digestTitle = `${subject} · ${t(WINDOW_HEADING_KEYS[summaryWindow])}`;
 	const showTopicTags = shouldShowDigestTopicTags(topicId);
 	const [shareOpen, setShareOpen] = useState(false);
 	// Five lines are a glance; the rest are a click away, and the choice
@@ -764,6 +805,19 @@ export function TrendsSummary({
 			let cancelled = false;
 			let retryTimer: number | undefined;
 
+			// The server-rendered digest counts as a stale memo: it stays on
+			// screen while the live one streams in behind it.
+			if (
+				initialDigest &&
+				summaryWindow === "today" &&
+				!DIGEST_MEMO.has(memoKey)
+			) {
+				DIGEST_MEMO.set(memoKey, {
+					at: 0,
+					citations: citationsFromEntries(initialDigest.entries),
+					text: initialDigest.markdown,
+				});
+			}
 			const memo = DIGEST_MEMO.get(memoKey);
 			// A memoised digest stays on screen while a newer one streams in
 			// behind it and replaces it whole when done; watching the list

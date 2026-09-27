@@ -9,7 +9,7 @@ type MetaDescriptor =
 
 interface LinkDescriptor {
 	href: string;
-	hrefLang?: string;
+	hreflang?: string;
 	rel: string;
 	sizes?: string;
 	type?: string;
@@ -32,10 +32,6 @@ export const DEFAULT_IMAGE_HEIGHT = "630";
 export const DEFAULT_IMAGE_TYPE = "image/png";
 export const DEFAULT_IMAGE_WIDTH = "1200";
 
-// One brand word. Each page names its own subject in its title and
-// description; a shared list of big terms only dilutes them.
-export const DEFAULT_KEYWORDS = ["OpenTrends"];
-
 export const PRODUCTION_SITE_URL = "https://opentrends.io";
 const LOCAL_SITE_URL_RE =
 	/^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?$/i;
@@ -55,6 +51,9 @@ export const SITE_URL =
 		? PRODUCTION_SITE_URL
 		: RAW_SITE_URL;
 
+// A preview deployment must not be indexed as a copy of the site.
+const PRODUCTION_HOST = !VITE_ENV?.PROD || SITE_URL === PRODUCTION_SITE_URL;
+
 export interface SeoInput {
 	/** False for a page that exists in this locale only (a digest archived in
 	 * one language): no hreflang alternates are emitted for it. */
@@ -63,8 +62,6 @@ export interface SeoInput {
 	/** Absolute or site-relative og:image URL. */
 	image?: string;
 	imageAlt?: string;
-	/** Extra keywords appended to the defaults. */
-	keywords?: string[];
 	/** Active locale. Drives og:locale and hreflang alternates. */
 	locale?: Locale;
 	/** Block crawlers for private routes (dashboard, login). */
@@ -94,7 +91,7 @@ function absoluteUrl(path?: string): string | undefined {
 	return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-function localizedPath(
+export function localizedPath(
 	path: string | undefined,
 	locale: Locale
 ): string | undefined {
@@ -164,12 +161,12 @@ function buildSeoLinks(input: SeoInput, url?: string): LinkDescriptor[] {
 	for (const alt of LOCALES) {
 		const altUrl = absoluteUrl(localizedPath(input.path, alt));
 		if (altUrl) {
-			links.push({ rel: "alternate", hrefLang: alt, href: altUrl });
+			links.push({ rel: "alternate", hreflang: alt, href: altUrl });
 		}
 	}
 	const xDefault = absoluteUrl(localizedPath(input.path, DEFAULT_LOCALE));
 	if (xDefault) {
-		links.push({ rel: "alternate", hrefLang: "x-default", href: xDefault });
+		links.push({ rel: "alternate", hreflang: "x-default", href: xDefault });
 	}
 	return links;
 }
@@ -183,15 +180,15 @@ export function buildSeo(input: SeoInput = {}): SeoHead {
 	const image = absoluteUrl(imagePath);
 	const imageAlt = input.imageAlt ?? DEFAULT_IMAGE_ALT;
 	const type = input.type ?? "website";
-	const keywords = [...DEFAULT_KEYWORDS, ...(input.keywords ?? [])];
-
 	const meta: MetaDescriptor[] = [
 		{ title },
 		{ name: "description", content: description },
-		{ name: "keywords", content: keywords.join(", ") },
 		{
 			name: "robots",
-			content: input.noindex ? "noindex, nofollow" : "index, follow",
+			content:
+				input.noindex || !PRODUCTION_HOST
+					? "noindex, nofollow"
+					: "index, follow",
 		},
 		{ property: "og:site_name", content: SITE_NAME },
 		{ property: "og:title", content: title },

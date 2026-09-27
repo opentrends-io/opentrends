@@ -27,6 +27,7 @@ import { Route as Char123LocaleChar125ViewsFeedRouteImport } from './routes/{-$l
 import { Route as Char123LocaleChar125ViewsEventsRouteImport } from './routes/{-$locale}/_views/events'
 import { Route as Char123LocaleChar125ViewsCalendarRouteImport } from './routes/{-$locale}/_views/calendar'
 import { Route as Char123LocaleChar125ViewsTrendsIndexRouteImport } from './routes/{-$locale}/_views/trends.index'
+import { Route as Char123LocaleChar125TrendsTopicArchiveRouteImport } from './routes/{-$locale}/trends.$topic.archive'
 import { Route as Char123LocaleChar125TrendsTopicDayRouteImport } from './routes/{-$locale}/trends.$topic.$day'
 import { Route as Char123LocaleChar125ViewsTrendsTopicRouteImport } from './routes/{-$locale}/_views/trends.$topic'
 
@@ -136,6 +137,12 @@ const Char123LocaleChar125ViewsTrendsIndexRoute =
     path: '/',
     getParentRoute: () => Char123LocaleChar125ViewsTrendsRoute,
   } as any)
+const Char123LocaleChar125TrendsTopicArchiveRoute =
+  Char123LocaleChar125TrendsTopicArchiveRouteImport.update({
+    id: '/{-$locale}/trends/$topic/archive',
+    path: '/{-$locale}/trends/$topic/archive',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const Char123LocaleChar125TrendsTopicDayRoute =
   Char123LocaleChar125TrendsTopicDayRouteImport.update({
     id: '/{-$locale}/trends/$topic/$day',
@@ -169,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/{-$locale}/sources/$id': typeof Char123LocaleChar125SourcesIdRoute
   '/{-$locale}/trends/$topic': typeof Char123LocaleChar125ViewsTrendsTopicRoute
   '/{-$locale}/trends/$topic/$day': typeof Char123LocaleChar125TrendsTopicDayRoute
+  '/{-$locale}/trends/$topic/archive': typeof Char123LocaleChar125TrendsTopicArchiveRoute
   '/{-$locale}/trends/': typeof Char123LocaleChar125ViewsTrendsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -189,6 +197,7 @@ export interface FileRoutesByTo {
   '/{-$locale}/sources/$id': typeof Char123LocaleChar125SourcesIdRoute
   '/{-$locale}/trends/$topic': typeof Char123LocaleChar125ViewsTrendsTopicRoute
   '/{-$locale}/trends/$topic/$day': typeof Char123LocaleChar125TrendsTopicDayRoute
+  '/{-$locale}/trends/$topic/archive': typeof Char123LocaleChar125TrendsTopicArchiveRoute
   '/{-$locale}/trends': typeof Char123LocaleChar125ViewsTrendsIndexRoute
 }
 export interface FileRoutesById {
@@ -212,6 +221,7 @@ export interface FileRoutesById {
   '/{-$locale}/sources_/$id': typeof Char123LocaleChar125SourcesIdRoute
   '/{-$locale}/_views/trends/$topic': typeof Char123LocaleChar125ViewsTrendsTopicRoute
   '/{-$locale}/trends/$topic/$day': typeof Char123LocaleChar125TrendsTopicDayRoute
+  '/{-$locale}/trends/$topic/archive': typeof Char123LocaleChar125TrendsTopicArchiveRoute
   '/{-$locale}/_views/trends/': typeof Char123LocaleChar125ViewsTrendsIndexRoute
 }
 export interface FileRouteTypes {
@@ -236,6 +246,7 @@ export interface FileRouteTypes {
     | '/{-$locale}/sources/$id'
     | '/{-$locale}/trends/$topic'
     | '/{-$locale}/trends/$topic/$day'
+    | '/{-$locale}/trends/$topic/archive'
     | '/{-$locale}/trends/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -256,6 +267,7 @@ export interface FileRouteTypes {
     | '/{-$locale}/sources/$id'
     | '/{-$locale}/trends/$topic'
     | '/{-$locale}/trends/$topic/$day'
+    | '/{-$locale}/trends/$topic/archive'
     | '/{-$locale}/trends'
   id:
     | '__root__'
@@ -278,6 +290,7 @@ export interface FileRouteTypes {
     | '/{-$locale}/sources_/$id'
     | '/{-$locale}/_views/trends/$topic'
     | '/{-$locale}/trends/$topic/$day'
+    | '/{-$locale}/trends/$topic/archive'
     | '/{-$locale}/_views/trends/'
   fileRoutesById: FileRoutesById
 }
@@ -296,6 +309,7 @@ export interface RootRouteChildren {
   Char123LocaleChar125SkillsOpentrendsRoute: typeof Char123LocaleChar125SkillsOpentrendsRoute
   Char123LocaleChar125SourcesIdRoute: typeof Char123LocaleChar125SourcesIdRoute
   Char123LocaleChar125TrendsTopicDayRoute: typeof Char123LocaleChar125TrendsTopicDayRoute
+  Char123LocaleChar125TrendsTopicArchiveRoute: typeof Char123LocaleChar125TrendsTopicArchiveRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -426,6 +440,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char123LocaleChar125ViewsTrendsIndexRouteImport
       parentRoute: typeof Char123LocaleChar125ViewsTrendsRoute
     }
+    '/{-$locale}/trends/$topic/archive': {
+      id: '/{-$locale}/trends/$topic/archive'
+      path: '/{-$locale}/trends/$topic/archive'
+      fullPath: '/{-$locale}/trends/$topic/archive'
+      preLoaderRoute: typeof Char123LocaleChar125TrendsTopicArchiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/{-$locale}/trends/$topic/$day': {
       id: '/{-$locale}/trends/$topic/$day'
       path: '/{-$locale}/trends/$topic/$day'
@@ -500,6 +521,8 @@ const rootRouteChildren: RootRouteChildren = {
   Char123LocaleChar125SourcesIdRoute: Char123LocaleChar125SourcesIdRoute,
   Char123LocaleChar125TrendsTopicDayRoute:
     Char123LocaleChar125TrendsTopicDayRoute,
+  Char123LocaleChar125TrendsTopicArchiveRoute:
+    Char123LocaleChar125TrendsTopicArchiveRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
