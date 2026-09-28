@@ -2,8 +2,7 @@ import { createHash } from "node:crypto";
 
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { env } from "@opentrends/env/server";
-import { generateText, Output } from "ai";
-import { z } from "zod";
+import { generateText } from "ai";
 import {
 	type CachedItemTranslation,
 	readItemTranslations,
@@ -12,6 +11,10 @@ import {
 import type { NewsItem, SourceCardData, TrendsPageData } from "../types";
 import { llmProviderOptions, translationModelId } from "./llm";
 import { isSiliconFlow, trackSiliconFlowModel } from "./llm-usage";
+import {
+	requestTranslatedBatch,
+	TRANSLATED_BATCH_SHAPE,
+} from "./translation-json";
 
 export const TRANSLATION_LANGUAGES = [
 	"en",
@@ -46,15 +49,6 @@ const SYNC_TRANSLATION_STRAGGLER_MS = 25_000;
 const MAX_SYNC_TRANSLATION_CANDIDATES = 48;
 const CJK_RE = /[\u3400-\u9fff]/;
 const CYRILLIC_RE = /\p{Script=Cyrillic}/u;
-const TRANSLATED_BATCH_SCHEMA = z.object({
-	items: z.array(
-		z.object({
-			description: z.string().nullable(),
-			id: z.string(),
-			title: z.string(),
-		})
-	),
-});
 
 class TranslationCacheReadTimeoutError extends Error {
 	constructor() {
@@ -277,25 +271,33 @@ async function translateBatch(
 		id: String(index),
 		title: candidate.item.title,
 	}));
-	const { output } = await generateText({
-		abortSignal,
-		model: providerModel(),
-		providerOptions: llmProviderOptions(),
-		output: Output.object({
-			schema: TRANSLATED_BATCH_SCHEMA,
-		}),
-		prompt: [
-			`Translate these news titles and short descriptions into ${targetLanguageName(lang)}.`,
-			"Preserve names, product names, company names, code identifiers, model names, ticker symbols, and URLs exactly when appropriate.",
-			"Do not add facts, commentary, markdown, citations, or surrounding prose.",
-			"Return every input id exactly once. Keep description as null when the input description is null.",
-			"",
-			JSON.stringify({ items: inputs }),
-		].join("\n"),
-	});
+	const prompt = [
+		`Translate these news titles and short descriptions into ${targetLanguageName(lang)}.`,
+		"Preserve names, product names, company names, code identifiers, model names, ticker symbols, and URLs exactly when appropriate.",
+		"Do not add facts, commentary, markdown, citations, or surrounding prose.",
+		"Return every input id exactly once. Keep description as null when the input description is null.",
+		`Answer with one JSON object and nothing else, in this shape: ${TRANSLATED_BATCH_SHAPE}`,
+		"",
+		JSON.stringify({ items: inputs }),
+	].join("\n");
+	// The provider does not support schema-constrained output, so the answer
+	// is parsed and checked here (see translation-json.ts).
+	const rows = await requestTranslatedBatch(
+		async (request) => {
+			const { text } = await generateText({
+				abortSignal,
+				model: providerModel(),
+				prompt: request,
+				providerOptions: llmProviderOptions(),
+			});
+			return text;
+		},
+		prompt,
+		inputs.map((input) => input.id)
+	);
 
 	const translations: WritableTranslation[] = [];
-	for (const row of output.items) {
+	for (const row of rows) {
 		const index = Number.parseInt(row.id, 10);
 		const candidate = candidates[index];
 		const title = row.title.trim();
@@ -360,6 +362,7 @@ export function shouldSplitTranslationFailure(error: unknown): boolean {
 		return false;
 	}
 	return (
+		error.name === "TranslationOutputError" ||
 		error.name === "AI_NoObjectGeneratedError" ||
 		error.name === "AI_TypeValidationError" ||
 		error.name === "AI_JSONParseError"
