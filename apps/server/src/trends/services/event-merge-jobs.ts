@@ -4,7 +4,10 @@ import { getTopicPreset, topicPresets } from "../config/topics";
 import type { SourceId, TopicId } from "../types";
 import type { EventSourceItemRef } from "./event-content-enrichment";
 import { rebuildTopicEvents } from "./event-feed";
-import { takeEventContentBatch } from "./event-work-budget";
+import {
+	spareContentCapacity,
+	takeEventContentBatch,
+} from "./event-work-budget";
 
 export interface EventSourceRefreshMessage {
 	items: EventSourceItemRef[];
@@ -54,8 +57,29 @@ export async function runEventMergeJob(
 		});
 		return;
 	}
+	await retryLegacyFailures(message.sourceId, itemBatch.current.length);
 	for (const topicId of getTopicsForSource(message.sourceId)) {
 		await scheduleOrRun({ task: "rebuild-topic", topicId });
+	}
+}
+
+// The last batch of a source's content work lends its spare room to rows
+// that failed under the old extractor, before the topic rebuild reads them.
+async function retryLegacyFailures(
+	sourceId: SourceId,
+	currentCount: number
+): Promise<void> {
+	const spare = spareContentCapacity(currentCount);
+	if (spare === 0) {
+		return;
+	}
+	try {
+		const { retryLegacyContentFailures } = await import(
+			"./event-content-retry"
+		);
+		await retryLegacyContentFailures(sourceId, spare);
+	} catch (error) {
+		console.warn("[event-merge] legacy content retry failed", error);
 	}
 }
 

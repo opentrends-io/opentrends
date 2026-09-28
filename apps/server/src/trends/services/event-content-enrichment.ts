@@ -13,6 +13,12 @@ import { extractArticleText, MIN_ARTICLE_TEXT_LENGTH } from "./article-text";
 const { sourceItem } = schema;
 const MAX_CONTENT_ERROR_LENGTH = 300;
 
+// Every failure this module records starts with "<stage>: ". Failed rows
+// without such a prefix were written by the old jsdom path (see
+// event-content-retry.ts).
+export const CONTENT_ERROR_STAGES = ["fetch", "extract"] as const;
+type ContentErrorStage = (typeof CONTENT_ERROR_STAGES)[number];
+
 export interface EventSourceItemRef {
 	itemId: string;
 	sourceId: SourceId;
@@ -40,7 +46,7 @@ function getFallbackText(row: {
 	return [row.title, row.description ?? ""].filter(Boolean).join("\n\n");
 }
 
-function describeError(stage: "extract" | "fetch", error: unknown): string {
+function describeError(stage: ContentErrorStage, error: unknown): string {
 	const message =
 		error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 	return `${stage}: ${message}`.slice(0, MAX_CONTENT_ERROR_LENGTH);

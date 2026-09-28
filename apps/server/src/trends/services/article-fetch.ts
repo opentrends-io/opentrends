@@ -5,6 +5,9 @@ export const CONTENT_FETCH_TIMEOUT_MS = 12_000;
 // inline scripts. Anything past this is cut off rather than buffered whole.
 export const MAX_ARTICLE_HTML_BYTES = 3 * 1024 * 1024;
 
+// The contact URL still names the old opentrends.x-cmd.com domain. It is
+// left as is on purpose: sites may already allow or block this exact string,
+// and changing it could shift which pages come back "restricted".
 const USER_AGENT =
 	"OpenTrendsBot/1.0 (+https://opentrends.x-cmd.com; event aggregation)";
 const HTML_CONTENT_TYPE = /^\s*(?:text\/html|application\/xhtml\+xml)\b/i;
