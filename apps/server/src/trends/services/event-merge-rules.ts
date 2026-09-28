@@ -1,17 +1,17 @@
 // When two reports belong to one event. The similarity thresholds are
-// calibrated for Qwen/Qwen3-VL-Embedding-8B vectors of the text that
-// buildCanonicalEmbeddingText() produces (metadata first, then title and
+// calibrated for 1024-dimension Qwen/Qwen3-VL-Embedding-8B vectors of the text
+// that buildCanonicalEmbeddingText() produces (metadata first, then title and
 // description). On 2026-09-28 production items, reports of one story from two
-// publishers scored 0.51-0.82 on that text, while 99% of unrelated
-// cross-publisher pairs inside the 72 h window scored below 0.44 (max 0.60).
-// Changing the model or the embedding text means measuring these again.
+// publishers scored 0.47-0.81, while 99% of unrelated cross-publisher pairs
+// inside the 72 h window scored below 0.42 (max 0.59). The closer a pair is to
+// that overlap, the more shared keywords it needs. Changing the model, the
+// dimensions or the embedding text means measuring these again.
 export const EVENT_SIMILARITY_THRESHOLD = 0.5;
 export const EVENT_RELATED_SIMILARITY_THRESHOLD = 0.46;
 export const EVENT_STRONG_SIMILARITY_THRESHOLD = 0.62;
 
 const EVENT_MIN_KEYWORD_MATCHES = 3;
-const EVENT_RELATED_MIN_KEYWORD_MATCHES = 8;
-const EVENT_RELATED_MIN_KEYWORD_RATIO = 0.45;
+const EVENT_RELATED_MIN_KEYWORD_MATCHES = 5;
 
 const KEYWORD_TOKEN_RE = /[\p{L}\p{N}][\p{L}\p{N}-]{2,}/gu;
 const HAN_TEXT_RE = /\p{Script=Han}{2,}/gu;
@@ -100,7 +100,6 @@ const KEYWORD_STOP_WORDS = new Set([
 
 export interface EventMergeSignal {
 	keywordMatches: number;
-	keywordRatio: number;
 	similarity: number;
 }
 
@@ -136,31 +135,18 @@ export function keywordOverlapCount(
 	return count;
 }
 
-export function keywordOverlapRatio(
-	a: ReadonlySet<string>,
-	b: ReadonlySet<string>
-): number {
-	const base = Math.min(a.size, b.size);
-	return base > 0 ? keywordOverlapCount(a, b) / base : 0;
-}
-
 export function isSameEventSignal({
 	keywordMatches,
-	keywordRatio,
 	similarity,
 }: EventMergeSignal): boolean {
-	if (
-		similarity >= EVENT_SIMILARITY_THRESHOLD &&
-		keywordMatches >= EVENT_MIN_KEYWORD_MATCHES
-	) {
-		return true;
+	if (similarity >= EVENT_STRONG_SIMILARITY_THRESHOLD) {
+		return keywordMatches >= 1;
 	}
-	if (similarity >= EVENT_STRONG_SIMILARITY_THRESHOLD && keywordMatches >= 1) {
-		return true;
+	if (similarity >= EVENT_SIMILARITY_THRESHOLD) {
+		return keywordMatches >= EVENT_MIN_KEYWORD_MATCHES;
 	}
 	return (
 		similarity >= EVENT_RELATED_SIMILARITY_THRESHOLD &&
-		keywordMatches >= EVENT_RELATED_MIN_KEYWORD_MATCHES &&
-		keywordRatio >= EVENT_RELATED_MIN_KEYWORD_RATIO
+		keywordMatches >= EVENT_RELATED_MIN_KEYWORD_MATCHES
 	);
 }

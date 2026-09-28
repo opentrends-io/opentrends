@@ -1,10 +1,21 @@
 import { env } from "@opentrends/env/server";
+import { normalizeEventText } from "./event-text";
 import { recordEmbeddingUsage } from "./model-usage";
 
 const SILICONFLOW_EMBEDDINGS_URL = "https://api.siliconflow.cn/v1/embeddings";
 // SiliconFlow numbers `index` from 0 again after every 8 inputs, so a larger
 // batch could not be matched back to its texts by index.
 const SILICONFLOW_EMBEDDING_BATCH_SIZE = 8;
+// Qwen3 embeddings are trained so that the first N dimensions work on their
+// own. 1024 of the 4096 dimensions separate same-story reports as well as all
+// of them (AUC 0.9997 vs 0.9998 on 2026-09-28 production items) at a quarter
+// of the size, which keeps a rebuild over every event source within one
+// Worker invocation. Five decimals keep the stored JSON small without
+// changing any similarity by more than 1e-4.
+export const EVENT_EMBEDDING_DIMENSIONS = 1024;
+const EMBEDDING_VALUE_DECIMALS = 5;
+// Part of the text hash, so vectors made with other settings are replaced.
+const EMBEDDING_TEXT_VERSION = `v2-d${EVENT_EMBEDDING_DIMENSIONS}`;
 
 export interface EventEmbeddingInput {
 	description?: string | null;
@@ -63,13 +74,21 @@ export function buildCanonicalEmbeddingText(
 		input.publishedAt
 			? `Published: ${input.publishedAt.toISOString().slice(0, 10)}`
 			: "",
-		input.title,
-		input.description ?? "",
+		normalizeEventText(input.title),
+		normalizeEventText(input.description),
 	];
 	return parts
 		.map((part) => part.trim())
 		.filter(Boolean)
 		.join("\n\n");
+}
+
+export function hashEmbeddingText(text: string): string {
+	return hashText(`${EMBEDDING_TEXT_VERSION}\n${text}`);
+}
+
+function compactVector(vector: readonly number[]): number[] {
+	return vector.map((value) => Number(value.toFixed(EMBEDDING_VALUE_DECIMALS)));
 }
 
 async function embedTextBatch(texts: string[]): Promise<number[][]> {
@@ -80,6 +99,7 @@ async function embedTextBatch(texts: string[]): Promise<number[][]> {
 	try {
 		const response = await fetch(SILICONFLOW_EMBEDDINGS_URL, {
 			body: JSON.stringify({
+				dimensions: EVENT_EMBEDDING_DIMENSIONS,
 				input: texts,
 				model: env.SILICONFLOW_EMBEDDING_MODEL,
 				truncate: "right",
@@ -109,7 +129,7 @@ async function embedTextBatch(texts: string[]): Promise<number[][]> {
 					`SiliconFlow embedding response missing vector at index ${index}`
 				);
 			}
-			return vector;
+			return compactVector(vector);
 		});
 		outcome = "ok";
 		return result;
