@@ -27,30 +27,30 @@ interface Strings {
 
 const EN: Strings = {
 	description: (topic) =>
-		`Every day's ${topic} digest, kept for three months: the ten stories the most sources reported, with links to the reporting.`,
+		`Every day's ${topic} digest: the ten stories the most sources reported, with links to the reporting.`,
 	empty: "Nothing archived yet; the first digest is kept at the end of today.",
 	intro: (topic) =>
-		`One page per day: the ten ${topic} stories the most sources reported, with the reports each was drawn from. Kept for three months.`,
+		`One page per day: the ten ${topic} stories the most sources reported, with the reports each was drawn from.`,
 	live: (topic) => `Today's ${topic} page`,
 	title: (topic) => `${topic} digest archive`,
 };
 
 const ZH: Strings = {
 	description: (topic) =>
-		`${topic}每日摘要归档，保留三个月：被最多来源报道的十条新闻，附原始报道链接。`,
+		`${topic}每日摘要归档：被最多来源报道的十条新闻，附原始报道链接。`,
 	empty: "还没有归档；今天的摘要会在今天结束时保存。",
 	intro: (topic) =>
-		`每天一页：被最多来源报道的十条${topic}新闻，每条附它所依据的报道。保留三个月。`,
+		`每天一页：被最多来源报道的十条${topic}新闻，每条附它所依据的报道。`,
 	live: (topic) => `今天的${topic}页面`,
 	title: (topic) => `${topic}摘要归档`,
 };
 
 const ZH_HANT: Strings = {
 	description: (topic) =>
-		`${topic}每日摘要歸檔，保留三個月：被最多來源報導的十條新聞，附原始報導連結。`,
+		`${topic}每日摘要歸檔：被最多來源報導的十條新聞，附原始報導連結。`,
 	empty: "還沒有歸檔；今天的摘要會在今天結束時保存。",
 	intro: (topic) =>
-		`每天一頁：被最多來源報導的十條${topic}新聞，每條附它所依據的報導。保留三個月。`,
+		`每天一頁：被最多來源報導的十條${topic}新聞，每條附它所依據的報導。`,
 	live: (topic) => `今天的${topic}頁面`,
 	title: (topic) => `${topic}摘要歸檔`,
 };
