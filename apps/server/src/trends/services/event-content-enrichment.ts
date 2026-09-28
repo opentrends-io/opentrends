@@ -2,19 +2,29 @@ import { db, schema } from "@opentrends/db";
 import { and, eq, or } from "drizzle-orm";
 
 import type { SourceId } from "../types";
-import { EVENT_CONTENT_REDIRECT_LIMIT } from "./event-work-budget";
+import {
+	ArticleFetchError,
+	type ArticlePage,
+	type FetchArticleOptions,
+	fetchArticleHtml,
+} from "./article-fetch";
+import { extractArticleText, MIN_ARTICLE_TEXT_LENGTH } from "./article-text";
 
 const { sourceItem } = schema;
-const CONTENT_FETCH_TIMEOUT_MS = 12_000;
-const MIN_CONTENT_TEXT_LENGTH = 280;
-const MAX_CONTENT_TEXT_LENGTH = 12_000;
+const MAX_CONTENT_ERROR_LENGTH = 300;
+
+// Every failure this module records starts with "<stage>: ". Failed rows
+// without such a prefix were written by the old jsdom path (see
+// event-content-retry.ts).
+export const CONTENT_ERROR_STAGES = ["fetch", "extract"] as const;
+type ContentErrorStage = (typeof CONTENT_ERROR_STAGES)[number];
 
 export interface EventSourceItemRef {
 	itemId: string;
 	sourceId: SourceId;
 }
 
-interface ContentExtractionResult {
+export interface ContentExtractionResult {
 	error?: string;
 	status: "failed" | "ok" | "restricted" | "too_short";
 	text?: string;
@@ -36,83 +46,37 @@ function getFallbackText(row: {
 	return [row.title, row.description ?? ""].filter(Boolean).join("\n\n");
 }
 
-async function fetchHtml(url: string): Promise<string> {
-	let currentUrl = url;
-	for (
-		let redirectCount = 0;
-		redirectCount <= EVENT_CONTENT_REDIRECT_LIMIT;
-		redirectCount += 1
-	) {
-		const controller = new AbortController();
-		const timeout = setTimeout(
-			() => controller.abort(),
-			CONTENT_FETCH_TIMEOUT_MS
-		);
-		try {
-			const response = await fetch(currentUrl, {
-				headers: {
-					"User-Agent":
-						"OpenTrendsBot/1.0 (+https://opentrends.x-cmd.com; event aggregation)",
-				},
-				redirect: "manual",
-				signal: controller.signal,
-			});
-			if (response.status === 401 || response.status === 403) {
-				throw new Error("restricted");
-			}
-			if (response.status >= 300 && response.status < 400) {
-				const location = response.headers.get("Location");
-				if (!(location && redirectCount < EVENT_CONTENT_REDIRECT_LIMIT)) {
-					throw new Error("redirect_limit");
-				}
-				currentUrl = new URL(location, currentUrl).toString();
-				continue;
-			}
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}`);
-			}
-			return await response.text();
-		} finally {
-			clearTimeout(timeout);
-		}
-	}
-	throw new Error("redirect_limit");
+function describeError(stage: ContentErrorStage, error: unknown): string {
+	const message =
+		error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+	return `${stage}: ${message}`.slice(0, MAX_CONTENT_ERROR_LENGTH);
 }
 
-async function extractContentText(
-	url: string
+/**
+ * Fetches one article and extracts its body. Every failure is folded into
+ * the result (never thrown) with the stage it happened in, so the row keeps
+ * a useful content_error.
+ */
+export async function extractContentText(
+	url: string,
+	options: FetchArticleOptions = {}
 ): Promise<ContentExtractionResult> {
+	let page: ArticlePage;
 	try {
-		const html = await fetchHtml(url);
-		const [{ Defuddle }, { JSDOM }] = await Promise.all([
-			import("defuddle/node"),
-			import("jsdom"),
-		]);
-		const dom = new JSDOM(html, { url });
-		const result = await Defuddle(dom.window.document, url, {
-			markdown: true,
-			useAsync: false,
-		});
-		const text = String(result.contentMarkdown ?? result.content ?? "")
-			.replace(/\s+\n/g, "\n")
-			.replace(/\n{3,}/g, "\n\n")
-			.trim();
-		if (text.length < MIN_CONTENT_TEXT_LENGTH) {
+		page = await fetchArticleHtml(url, options);
+	} catch (error) {
+		if (error instanceof ArticleFetchError) {
 			return {
-				status: "too_short",
-				text: text.slice(0, MAX_CONTENT_TEXT_LENGTH),
+				status: error.restricted ? "restricted" : "failed",
+				error: error.restricted ? "restricted" : `fetch: ${error.message}`,
 			};
 		}
-		return {
-			status: "ok",
-			text: text.slice(0, MAX_CONTENT_TEXT_LENGTH),
-		};
+		return { status: "failed", error: describeError("fetch", error) };
+	}
+	try {
+		return extractArticleText(page.html, page.url);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		return {
-			status: message === "restricted" ? "restricted" : "failed",
-			error: message,
-		};
+		return { status: "failed", error: describeError("extract", error) };
 	}
 }
 
@@ -146,7 +110,7 @@ export async function enrichEventSourceItems(
 		const extracted = await extractContentText(row.url);
 		const fallback = getFallbackText(row);
 		const text =
-			extracted.text && extracted.text.length >= MIN_CONTENT_TEXT_LENGTH
+			extracted.text && extracted.text.length >= MIN_ARTICLE_TEXT_LENGTH
 				? extracted.text
 				: fallback;
 		await db

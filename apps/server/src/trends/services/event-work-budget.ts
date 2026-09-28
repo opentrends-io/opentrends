@@ -14,6 +14,9 @@ const EVENT_REBUILD_BASE_QUERY_COUNT = 2;
 const EVENT_REBUILD_BASE_WRITE_COUNT = 5;
 const QUEUE_CONTINUATION_SUBREQUEST_COUNT = 1;
 const CONTENT_READ_QUERY_COUNT = 1;
+// Legacy-failure retry (event-content-retry.ts): one claiming UPDATE plus one
+// more content read. Its items come out of the same EVENT_CONTENT_ITEM_LIMIT.
+const LEGACY_RETRY_QUERY_COUNT = 2;
 
 function batches(itemCount: number, batchSize: number): number {
 	return Math.ceil(Math.max(itemCount, 0) / batchSize);
@@ -35,6 +38,7 @@ export function estimateContentEnrichmentSubrequests(
 	const fetchesPerItem = EVENT_CONTENT_REDIRECT_LIMIT + 1;
 	return (
 		CONTENT_READ_QUERY_COUNT +
+		LEGACY_RETRY_QUERY_COUNT +
 		(fetchesPerItem + 1) * itemCount +
 		topicCount +
 		QUEUE_CONTINUATION_SUBREQUEST_COUNT
@@ -49,6 +53,11 @@ export function takeEventContentBatch<T>(items: readonly T[]): {
 		current: items.slice(0, EVENT_CONTENT_ITEM_LIMIT),
 		remaining: items.slice(EVENT_CONTENT_ITEM_LIMIT),
 	};
+}
+
+/** Room left in a content batch of `currentCount` items. */
+export function spareContentCapacity(currentCount: number): number {
+	return Math.max(0, EVENT_CONTENT_ITEM_LIMIT - currentCount);
 }
 
 export function estimateEventRebuildD1Queries(input: {
