@@ -32,7 +32,13 @@ export const Route = createFileRoute("/{-$locale}/_views")({
 	component: ViewsLayout,
 });
 
-function TopicDigest({ topicId }: { topicId: string }) {
+function TopicDigest({
+	titleTag,
+	topicId,
+}: {
+	titleTag: "h1" | "span";
+	topicId: string;
+}) {
 	const locale = useLocale();
 	const settings = useDisplaySettings();
 	const { followedIds } = useFollowedSources();
@@ -59,6 +65,7 @@ function TopicDigest({ topicId }: { topicId: string }) {
 				setDisplaySetting("summaryCollapsed", collapsed)
 			}
 			page={page.data}
+			titleTag={titleTag}
 			topicId={topicId}
 		/>
 	);
@@ -69,22 +76,18 @@ function ViewsLayout() {
 	const search = useSearch({ strict: false }) as { topic?: string };
 	const location = useLocation();
 	const scrollRef = useRef<HTMLDivElement>(null);
-	// The events view without a topic is the all-topics feed; it has no
-	// digest of its own.
+	// The events view without a topic is the all-topics feed; it shows the
+	// Featured digest, which is itself drawn from every topic. On the events
+	// view the digest is not the page's heading.
 	const onEvents = location.pathname.includes("/events");
-	const topic =
-		params.topic ?? search.topic ?? (onEvents ? undefined : "featured");
+	const topic = params.topic ?? search.topic ?? "featured";
 	return (
 		<ViewsScrollContext.Provider value={scrollRef}>
 			<div
 				className="min-w-0 flex-1 overflow-auto bg-[var(--surface-app)] text-[var(--text-primary)]"
 				ref={scrollRef}
 			>
-				{topic ? (
-					<TopicDigest topicId={topic} />
-				) : (
-					<div className="h-10 border-[var(--border-default)] border-b bg-[var(--surface-sidebar)]" />
-				)}
+				<TopicDigest titleTag={onEvents ? "span" : "h1"} topicId={topic} />
 				<Outlet />
 			</div>
 		</ViewsScrollContext.Provider>
