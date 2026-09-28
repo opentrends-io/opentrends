@@ -20,6 +20,9 @@ const serverEnvSchema = z
 		// "send" endpoint and a bearer/basic token (Forward Email, Resend).
 		EMAIL_API_URL: z.url().default("https://api.forwardemail.net/v1/emails"),
 		EMAIL_API_KEY: z.string().min(1).optional(),
+		// Bearer token for the event page admin API; absent means the admin
+		// routes answer 503.
+		EVENT_PAGES_ADMIN_TOKEN: z.string().min(24).optional(),
 		EMAIL_FROM: z.string().min(3).optional(),
 		EMAIL_PROVIDER: z
 			.enum(["forward-email", "resend"])

@@ -6,3 +6,4 @@ Allow: /
 
 Sitemap: https://opentrends.io/sitemap.xml
 Sitemap: https://opentrends.io/sitemap-archive.xml
+Sitemap: https://opentrends.io/sitemap-events.xml

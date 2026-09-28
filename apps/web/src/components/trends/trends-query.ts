@@ -5,6 +5,8 @@ import type { Locale } from "@/lib/i18n";
 import {
 	loadArchivedDigest,
 	loadDigestDays,
+	loadEventPage,
+	loadEventPages,
 	loadSourceDetail,
 	loadTrendEventDetail,
 	loadTrendEvents,
@@ -18,6 +20,8 @@ import type {
 	DigestJsonData,
 	EventDetailData,
 	EventFeedData,
+	EventPageSummary,
+	EventPageView,
 	SourceCardData,
 	SourceDetailData,
 	TrendsPageData,
@@ -139,3 +143,20 @@ export function ssrDigestQueryOptions(topic: string, locale: Locale) {
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 }
+
+const EVENT_PAGE_STALE_MS = 5 * 60_000;
+
+export function eventPageQueryOptions(slug: string) {
+	return queryOptions<EventPageView, Error>({
+		queryKey: ["event-page", slug],
+		queryFn: () => loadEventPage(slug),
+		retry: false,
+		staleTime: EVENT_PAGE_STALE_MS,
+	});
+}
+
+export const eventPagesQueryOptions = queryOptions<EventPageSummary[], Error>({
+	queryKey: ["event-pages"],
+	queryFn: () => loadEventPages(),
+	staleTime: EVENT_PAGE_STALE_MS,
+});
