@@ -36,6 +36,11 @@ import {
 	useT,
 } from "@/lib/i18n";
 import { buildSeo, localizedPath, SITE_URL } from "@/lib/seo";
+import {
+	breadcrumbList,
+	digestItemList,
+	type JsonLdScript,
+} from "@/lib/structured-data";
 import { topicSeo } from "@/lib/topic-seo";
 
 const TOPIC_SLUG_SEPARATOR_RE = /[-_]+/;
@@ -98,40 +103,22 @@ function structuredData(params: {
 	title: string;
 	topic: string;
 	topicLabel: string;
-}): Array<{ children: string; type: string }> {
-	const base = `${SITE_URL}${localizedPath(`/trends/${params.topic}`, params.locale)}`;
-	const home = `${SITE_URL}${localizedPath("/", params.locale)}`;
-	const breadcrumbs = {
-		"@context": "https://schema.org",
-		"@type": "BreadcrumbList",
-		itemListElement: [
-			{ "@type": "ListItem", item: home, name: "OpenTrends", position: 1 },
-			{ "@type": "ListItem", item: base, name: params.topicLabel, position: 2 },
-		],
-	};
-	const scripts = [
-		{ children: JSON.stringify(breadcrumbs), type: "application/ld+json" },
+}): JsonLdScript[] {
+	const url = (path: string) =>
+		`${SITE_URL}${localizedPath(path, params.locale) ?? path}`;
+	const base = url(`/trends/${params.topic}`);
+	const list = digestItemList({
+		entries: params.digest?.entries ?? [],
+		name: params.title,
+		url: base,
+	});
+	return [
+		breadcrumbList([
+			{ name: "OpenTrends", url: url("/") },
+			{ name: params.topicLabel, url: base },
+		]),
+		...(list ? [list] : []),
 	];
-	if (params.digest && params.digest.entries.length > 0) {
-		const list = {
-			"@context": "https://schema.org",
-			"@type": "ItemList",
-			itemListElement: params.digest.entries.map((entry, index) => ({
-				"@type": "ListItem",
-				name: entry.takeaway,
-				position: index + 1,
-				...(entry.citations[0] ? { url: entry.citations[0].url } : {}),
-			})),
-			name: params.title,
-			numberOfItems: params.digest.entries.length,
-			url: base,
-		};
-		scripts.push({
-			children: JSON.stringify(list),
-			type: "application/ld+json",
-		});
-	}
-	return scripts;
 }
 
 export const Route = createFileRoute("/{-$locale}/_views/trends/$topic")({

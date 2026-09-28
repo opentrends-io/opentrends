@@ -22,10 +22,10 @@ export type SeoTopicId =
 
 const EN: Record<SeoTopicId, TopicSeo> = {
 	featured: {
-		title: "Trending Tech News Today",
+		title: "Tech News Today",
 		description:
 			"Today's most-cited technology stories from Hacker News, The Verge, TechCrunch, Reuters and twenty more sources, distilled into a ten-line digest with citations. Refreshed every five minutes.",
-		keywords: ["trending tech news", "tech news today"],
+		keywords: ["tech news", "tech news today"],
 	},
 	ai: {
 		title: "AI News Today",
