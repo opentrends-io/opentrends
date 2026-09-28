@@ -5,9 +5,9 @@ import {
 	parseFollowedSourceIds,
 	parseKeywords,
 } from "../trends/config/followed-topic";
+import { archivedDaysFor } from "../trends/services/archive-index";
 import {
 	isArchiveDay,
-	listArchivedDays,
 	readArchivedDigest,
 } from "../trends/services/digest-archive";
 import { parseDigestEntries } from "../trends/services/digest-json";
@@ -213,7 +213,7 @@ export const trendsRoutes = new Hono()
 	.get("/:topic/digest-days", async (c) => {
 		const topic = c.req.param("topic");
 		const lang = normalizeTranslationLanguage(c.req.query("lang"));
-		const days = await listArchivedDays(topic, lang);
+		const days = await archivedDaysFor(topic, lang, getWaitUntil(c));
 		return c.json({ days, lang, topic }, 200, {
 			"Cache-Control": "public, max-age=600, s-maxage=1800",
 		});

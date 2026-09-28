@@ -3,86 +3,89 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { readApiJsonForSsr } from "@/components/trends/load-trends-ssr";
+import { buildArchiveSitemapXml, isArchiveIndex } from "@/lib/archive-sitemap";
 import { SITE_URL } from "@/lib/seo";
 
-// The digest archive as a sitemap: one URL per topic per archived day, in
-// the languages the digest is generated in. The static sitemap cannot list
-// these because a new one appears every day.
+// The digest archive as a sitemap. The day list comes from the API's
+// archive index (itself cached in memory and KV). If the API cannot answer,
+// the last sitemap this edge served is sent again; with no copy at all the
+// answer is a 503 so a crawler retries, never an empty list that would read
+// as "every archive page is gone".
 
-const TOPIC_IDS = [
-	"featured",
-	"ai",
-	"embodied",
-	"hardware",
-	"biotech",
-	"programming",
-	"cn",
-] as const;
+// Kept in the edge cache under the page's own origin; the Cache API does
+// nothing on workers.dev, so there this layer is simply skipped.
+const LAST_GOOD_PATH = "/sitemap-archive.xml?last-good=1";
+const LAST_GOOD_SECONDS = 30 * 24 * 60 * 60;
 
-// Digests are produced on demand in the reader's language; these two are
-// generated every day by the scheduler and so always have an archive.
-const ARCHIVE_LANGS = [
-	{ lang: "en", prefix: "" },
-	{ lang: "zh", prefix: "/zh" },
-] as const;
-
-function xmlEscape(value: string): string {
-	return value
-		.replaceAll("&", "&amp;")
-		.replaceAll("<", "&lt;")
-		.replaceAll(">", "&gt;")
-		.replaceAll('"', "&quot;");
+function edgeCache(): Cache | undefined {
+	return (globalThis as { caches?: { default?: Cache } }).caches?.default;
 }
 
-// A plain fetch of the public API: this handler runs outside the SSR
-// render, where the service-binding helper is not available.
-// Read over the service binding: a worker cannot fetch another workers.dev
-// host in its own account (error 1042).
-async function readDays(topic: string, lang: string): Promise<string[]> {
-	const result = await readApiJsonForSsr<{ days?: string[] }>(
-		`/api/trends/${topic}/digest-days?lang=${lang}`
-	);
-	return result.data?.days ?? [];
-}
-
-async function buildArchiveSitemap(): Promise<string> {
-	const lists = await Promise.all(
-		TOPIC_IDS.flatMap((topic) =>
-			ARCHIVE_LANGS.map(async ({ lang, prefix }) => {
-				const days = await readDays(topic, lang);
-				return days.map((day) => ({
-					day,
-					path: `${prefix}/trends/${topic}/${day}`,
-				}));
-			})
-		)
-	);
-	const entries = lists
-		.flat()
-		.map(
-			({ day, path }) =>
-				`  <url>\n    <loc>${xmlEscape(`${SITE_URL}${path}`)}</loc>\n    <lastmod>${day}</lastmod>\n    <changefreq>never</changefreq>\n    <priority>0.4</priority>\n  </url>`
-		)
-		.join("\n");
-	return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
-}
-
-function headers(): Headers {
+function sitemapHeaders(source: string): Headers {
 	return new Headers({
 		"cache-control": "public, max-age=1800, s-maxage=3600",
 		"content-type": "application/xml; charset=utf-8",
+		"x-sitemap-source": source,
+	});
+}
+
+async function rememberLastGood(origin: string, xml: string): Promise<void> {
+	const cache = edgeCache();
+	if (!cache) {
+		return;
+	}
+	await cache
+		.put(
+			new Request(new URL(LAST_GOOD_PATH, origin)),
+			new Response(xml, {
+				headers: {
+					"cache-control": `public, max-age=${LAST_GOOD_SECONDS}`,
+					"content-type": "application/xml; charset=utf-8",
+				},
+			})
+		)
+		.catch(() => undefined);
+}
+
+async function readLastGood(origin: string): Promise<string | null> {
+	const cache = edgeCache();
+	if (!cache) {
+		return null;
+	}
+	const hit = await cache
+		.match(new Request(new URL(LAST_GOOD_PATH, origin)))
+		.catch(() => undefined);
+	return hit ? hit.text() : null;
+}
+
+async function archiveSitemap(request: Request): Promise<Response> {
+	const origin = new URL(request.url).origin;
+	const result = await readApiJsonForSsr<unknown>("/api/archive/index");
+	if (result.status === 200 && isArchiveIndex(result.data)) {
+		const xml = buildArchiveSitemapXml(SITE_URL, result.data);
+		await rememberLastGood(origin, xml);
+		return new Response(xml, { headers: sitemapHeaders("index") });
+	}
+	const lastGood = await readLastGood(origin);
+	if (lastGood) {
+		return new Response(lastGood, { headers: sitemapHeaders("last-good") });
+	}
+	return new Response("Archive sitemap temporarily unavailable.\n", {
+		headers: {
+			"cache-control": "no-store",
+			"content-type": "text/plain; charset=utf-8",
+			"retry-after": "3600",
+		},
+		status: 503,
 	});
 }
 
 export const Route = createFileRoute("/sitemap-archive.xml")({
 	server: {
 		handlers: {
-			GET: async () =>
-				new Response(await buildArchiveSitemap(), {
-					headers: headers(),
-					status: 200,
-				}),
-			HEAD: () => new Response(null, { headers: headers(), status: 200 }),
+			GET: ({ request }) => archiveSitemap(request),
+			HEAD: () =>
+				new Response(null, { headers: sitemapHeaders("head"), status: 200 }),
 		},
 	},
 });
