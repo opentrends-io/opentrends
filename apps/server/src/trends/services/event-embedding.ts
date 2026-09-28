@@ -2,11 +2,11 @@ import { env } from "@opentrends/env/server";
 import { recordEmbeddingUsage } from "./model-usage";
 
 const SILICONFLOW_EMBEDDINGS_URL = "https://api.siliconflow.cn/v1/embeddings";
+// SiliconFlow numbers `index` from 0 again after every 8 inputs, so a larger
+// batch could not be matched back to its texts by index.
 const SILICONFLOW_EMBEDDING_BATCH_SIZE = 8;
-const EMBEDDING_INPUT_MAX_CHARS = 4200;
 
 export interface EventEmbeddingInput {
-	contentText?: string | null;
 	description?: string | null;
 	publishedAt?: Date | null;
 	sourceName: string;
@@ -49,17 +49,22 @@ export function getEventEmbeddingModel(): string {
 	return env.SILICONFLOW_EMBEDDING_MODEL;
 }
 
+// Qwen3 embedding models pool the last token, so the end of the text weighs
+// most in the vector. With "Source:"/"Published:" at the end, vectors grouped
+// by publisher and date instead of by story, and no report ever matched one
+// from another publisher. The metadata therefore goes first and the report's
+// own words last. The fetched article body is left out: it matched reports of
+// one story worse than title + description did.
 export function buildCanonicalEmbeddingText(
 	input: EventEmbeddingInput
 ): string {
 	const parts = [
-		input.title,
-		input.description ?? "",
-		(input.contentText ?? "").slice(0, EMBEDDING_INPUT_MAX_CHARS),
 		`Source: ${input.sourceName}`,
 		input.publishedAt
 			? `Published: ${input.publishedAt.toISOString().slice(0, 10)}`
 			: "",
+		input.title,
+		input.description ?? "",
 	];
 	return parts
 		.map((part) => part.trim())

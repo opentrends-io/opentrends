@@ -17,6 +17,13 @@ import {
 	hashText,
 } from "./event-embedding";
 import {
+	EVENT_SIMILARITY_THRESHOLD,
+	isSameEventSignal,
+	keywordOverlapCount,
+	keywordOverlapRatio,
+	keywordsForText,
+} from "./event-merge-rules";
+import {
 	D1_EVENT_WRITE_BATCH_SIZE,
 	D1_SOURCE_LINK_WRITE_BATCH_SIZE,
 	D1_TOPIC_LINK_WRITE_BATCH_SIZE,
@@ -46,13 +53,9 @@ const EVENT_LOOKBACK_MS = 7 * 24 * 60 * 60_000;
 const EVENT_FEED_DEFAULT_LIMIT = 30;
 const EVENT_FEED_MAX_LIMIT = 80;
 const EVENT_DETAIL_SOURCE_LIMIT = 160;
-const EVENT_SIMILARITY_THRESHOLD = 0.72;
-const EVENT_RELATED_SIMILARITY_THRESHOLD = 0.68;
-const EVENT_STRONG_SIMILARITY_THRESHOLD = 0.84;
 const EVENT_TIME_WINDOW_MS = 72 * 60 * 60_000;
 const LEADING_WWW_RE = /^www\./;
 const TRAILING_SLASH_RE = /\/$/;
-const HAN_TEXT_RE = /\p{Script=Han}{2,}/gu;
 const HOT_NUMBER_RE = /(\d+(?:\.\d+)?)/;
 const VERSION_TITLE_RE = /^v?\d+(?:\.\d+){1,3}(?:\b|$)/i;
 const TECHNICAL_RESEARCH_TITLE_RE =
@@ -457,44 +460,6 @@ function normalizeUrl(value: string): string {
 	}
 }
 
-function keywordsForText(text: string): Set<string> {
-	const words =
-		text.toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}-]{2,}/gu) ?? [];
-	const stop = new Set([
-		"the",
-		"and",
-		"for",
-		"with",
-		"from",
-		"that",
-		"this",
-		"into",
-		"over",
-		"after",
-		"about",
-		"will",
-		"new",
-		"news",
-		"how",
-		"are",
-		"what",
-		"why",
-	]);
-	const keywords = new Set(
-		words.filter((word) => !stop.has(word)).slice(0, 28)
-	);
-	const hanChunks = text.match(HAN_TEXT_RE) ?? [];
-	for (const chunk of hanChunks) {
-		for (let index = 0; index < chunk.length - 1; index += 1) {
-			keywords.add(chunk.slice(index, index + 2));
-			if (keywords.size >= 80) {
-				return keywords;
-			}
-		}
-	}
-	return keywords;
-}
-
 function cosineSimilarity(a: readonly number[], b: readonly number[]): number {
 	const length = Math.min(a.length, b.length);
 	let dot = 0;
@@ -508,30 +473,6 @@ function cosineSimilarity(a: readonly number[], b: readonly number[]): number {
 		bNorm += bv * bv;
 	}
 	return dot / (Math.sqrt(aNorm) * Math.sqrt(bNorm) || 1);
-}
-
-function hasKeywordOverlap(a: Set<string>, b: Set<string>): boolean {
-	for (const word of a) {
-		if (b.has(word)) {
-			return true;
-		}
-	}
-	return false;
-}
-
-function keywordOverlapCount(a: Set<string>, b: Set<string>): number {
-	let count = 0;
-	for (const word of a) {
-		if (b.has(word)) {
-			count += 1;
-		}
-	}
-	return count;
-}
-
-function keywordOverlapRatio(a: Set<string>, b: Set<string>): number {
-	const base = Math.min(a.size, b.size);
-	return base > 0 ? keywordOverlapCount(a, b) / base : 0;
 }
 
 function itemTime(item: CurrentItemRow): Date {
@@ -811,15 +752,12 @@ function findCluster(
 			continue;
 		}
 		const similarity = cosineSimilarity(item.embedding, cluster.vector);
-		const keywordMatches = keywordOverlapCount(keywords, cluster.keywords);
-		const keywordRatio = keywordOverlapRatio(keywords, cluster.keywords);
 		if (
-			(similarity >= EVENT_SIMILARITY_THRESHOLD && keywordMatches >= 3) ||
-			(similarity >= EVENT_STRONG_SIMILARITY_THRESHOLD &&
-				hasKeywordOverlap(keywords, cluster.keywords)) ||
-			(similarity >= EVENT_RELATED_SIMILARITY_THRESHOLD &&
-				keywordMatches >= 8 &&
-				keywordRatio >= 0.45)
+			isSameEventSignal({
+				keywordMatches: keywordOverlapCount(keywords, cluster.keywords),
+				keywordRatio: keywordOverlapRatio(keywords, cluster.keywords),
+				similarity,
+			})
 		) {
 			return {
 				cluster,
@@ -936,7 +874,6 @@ async function ensureEmbeddings(
 		const text = buildCanonicalEmbeddingText({
 			title: item.title,
 			description: item.description,
-			contentText: item.contentText,
 			publishedAt: item.publishedAt,
 			sourceName: sourceName(item.sourceId),
 		});
