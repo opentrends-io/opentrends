@@ -15,6 +15,7 @@ import type {
 	ArchivedDigestData,
 	ArchivedDigestEntry,
 } from "@/components/trends/types";
+import { archiveDayEditions, isArchiveIndex } from "@/lib/archive-sitemap";
 import {
 	isLocale,
 	type Locale,
@@ -141,13 +142,16 @@ export const Route = createFileRoute("/{-$locale}/trends/$topic/$day")({
 		);
 		const daysOptions = digestDaysQueryOptions(params.topic, locale);
 		if (import.meta.env.SSR) {
-			const [digest, days] = await Promise.all([
+			// The archive index says which languages have this day, so the page
+			// can name its other editions.
+			const [digest, days, archiveIndex] = await Promise.all([
 				readApiJsonForSsr<ArchivedDigestData>(
 					`/api/trends/${encodeURIComponent(params.topic)}/digest/${params.day}?lang=${locale}`
 				),
 				readApiJsonForSsr<{ days?: string[] }>(
 					`/api/trends/${encodeURIComponent(params.topic)}/digest-days?lang=${locale}`
 				),
+				readApiJsonForSsr<unknown>("/api/archive/index"),
 			]);
 			if (digest.status === 404) {
 				throw notFound();
@@ -158,11 +162,19 @@ export const Route = createFileRoute("/{-$locale}/trends/$topic/$day")({
 			if (days.data?.days) {
 				context.queryClient.setQueryData(daysOptions.queryKey, days.data.days);
 			}
-			return { digest: digest.data };
+			const editions = isArchiveIndex(archiveIndex.data)
+				? archiveDayEditions(
+						archiveIndex.data,
+						params.topic,
+						params.day,
+						locale
+					).filter(isLocale)
+				: [];
+			return { digest: digest.data, editions };
 		}
 		try {
 			const digest = await context.queryClient.ensureQueryData(digestOptions);
-			return { digest };
+			return { digest, editions: [] as Locale[] };
 		} catch (error) {
 			if (
 				error instanceof ArchivedDigestNotFoundError ||
@@ -181,9 +193,9 @@ export const Route = createFileRoute("/{-$locale}/trends/$topic/$day")({
 		const summary = describe(entries);
 		const title = strings.title(label, params.day);
 		const head = buildSeo({
-			// Each language's archive is its own record: a day may exist in one
-			// language and not another, so no alternates are claimed.
-			alternates: false,
+			// A day may exist in one language and not another: only the
+			// editions that exist are named.
+			alternateLocales: loaderData?.editions ?? [],
 			description: summary || strings.description(label, params.day),
 			locale,
 			path: `/trends/${params.topic}/${params.day}`,
@@ -230,6 +242,9 @@ function DayNav({
 	const newer = index > 0 ? days[index - 1] : undefined;
 	const older = index >= 0 ? days[index + 1] : undefined;
 	const linkClass = "text-[12px] text-[var(--accent-blue)] hover:underline";
+	if (!(newer || older)) {
+		return null;
+	}
 	return (
 		<nav className="flex items-center justify-between gap-4 text-[12px] text-[var(--text-muted)]">
 			<span>

@@ -55,8 +55,12 @@ export const SITE_URL =
 const PRODUCTION_HOST = !VITE_ENV?.PROD || SITE_URL === PRODUCTION_SITE_URL;
 
 export interface SeoInput {
-	/** False for a page that exists in this locale only (a digest archived in
-	 * one language): no hreflang alternates are emitted for it. */
+	/** The locales this page exists in, when not all of them do (an archived
+	 * digest exists in the languages it was generated in). Fewer than two
+	 * means no alternates. */
+	alternateLocales?: readonly Locale[];
+	/** False for a page that exists in this locale only: no hreflang
+	 * alternates are emitted for it. */
 	alternates?: boolean;
 	description?: string;
 	/** Absolute or site-relative og:image URL. */
@@ -150,21 +154,25 @@ function buildSeoLinks(input: SeoInput, url?: string): LinkDescriptor[] {
 	if (url) {
 		links.push({ rel: "canonical", href: url });
 	}
+	const editions =
+		input.alternateLocales ?? (input.alternates === false ? [] : LOCALES);
 	if (
 		input.path === undefined ||
 		input.noindex ||
-		input.alternates === false ||
+		editions.length < 2 ||
 		!SITE_URL
 	) {
 		return links;
 	}
-	for (const alt of LOCALES) {
+	for (const alt of editions) {
 		const altUrl = absoluteUrl(localizedPath(input.path, alt));
 		if (altUrl) {
 			links.push({ rel: "alternate", hreflang: alt, href: altUrl });
 		}
 	}
-	const xDefault = absoluteUrl(localizedPath(input.path, DEFAULT_LOCALE));
+	const xDefault = editions.includes(DEFAULT_LOCALE)
+		? absoluteUrl(localizedPath(input.path, DEFAULT_LOCALE))
+		: undefined;
 	if (xDefault) {
 		links.push({ rel: "alternate", hreflang: "x-default", href: xDefault });
 	}

@@ -39,11 +39,11 @@ export interface SsrRead<T> {
 // (Kept non-generic: the server-only transform strips the body only from a
 // plain function expression.)
 const readApiJson = createServerOnlyFn(
-	async (path: string): Promise<SsrRead<unknown>> => {
+	async (path: string, timeoutMs: number): Promise<SsrRead<unknown>> => {
 		const bindings = workerEnv as unknown as WebWorkerBindings;
 		const url = new URL(path, bindings.VITE_SERVER_URL);
 		const controller = new AbortController();
-		const timer = setTimeout(() => controller.abort(), SSR_API_TIMEOUT_MS);
+		const timer = setTimeout(() => controller.abort(), timeoutMs);
 		try {
 			const response = await bindings.API.fetch(
 				new Request(url, { credentials: "omit", signal: controller.signal })
@@ -65,6 +65,9 @@ const readApiJson = createServerOnlyFn(
 	}
 );
 
-export function readApiJsonForSsr<T>(path: string): Promise<SsrRead<T>> {
-	return readApiJson(path) as Promise<SsrRead<T>>;
+export function readApiJsonForSsr<T>(
+	path: string,
+	timeoutMs = SSR_API_TIMEOUT_MS
+): Promise<SsrRead<T>> {
+	return readApiJson(path, timeoutMs) as Promise<SsrRead<T>>;
 }
