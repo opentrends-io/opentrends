@@ -27,7 +27,7 @@ export function EventPagesStrip() {
 			<h2 className="border-[var(--border-subtle)] border-b px-4 py-2 font-semibold text-[12px] text-[var(--text-muted)]">
 				{edition === "zh" ? "事件专题" : "Event pages"}
 			</h2>
-			<ul className="grid sm:grid-cols-2">
+			<ul className={pages.length > 1 ? "grid sm:grid-cols-2" : "grid"}>
 				{pages.map((page) => (
 					<li
 						className="border-[var(--border-subtle)] border-t px-4 py-3 first:border-t-0 sm:odd:border-r sm:[&:nth-child(2)]:border-t-0"
