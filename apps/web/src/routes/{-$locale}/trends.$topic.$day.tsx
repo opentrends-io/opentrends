@@ -23,7 +23,8 @@ import {
 	type TranslationKey,
 	translate,
 } from "@/lib/i18n";
-import { buildSeo } from "@/lib/seo";
+import { buildSeo, localizedPath, SITE_URL } from "@/lib/seo";
+import { breadcrumbList, digestItemList } from "@/lib/structured-data";
 
 // One day of a topic's digest, at a permanent address: the ten lines and
 // their citations as they stood at the end of that day. This is the page
@@ -34,6 +35,7 @@ const DESCRIPTION_LIMIT = 160;
 const WWW_PREFIX_RE = /^www\./;
 
 interface Strings {
+	archive: (topic: string) => string;
 	back: (topic: string) => string;
 	description: (topic: string, day: string) => string;
 	empty: string;
@@ -45,6 +47,7 @@ interface Strings {
 }
 
 const EN: Strings = {
+	archive: (topic) => `${topic} digest archive`,
 	back: (topic) => `Today's ${topic} page`,
 	description: (topic, day) =>
 		`The ${topic} stories most cited across sources on ${day}, with links to the original reporting.`,
@@ -58,6 +61,7 @@ const EN: Strings = {
 };
 
 const ZH: Strings = {
+	archive: (topic) => `${topic}摘要归档`,
 	back: (topic) => `今天的${topic}页面`,
 	description: (topic, day) =>
 		`${day} 被最多来源报道的${topic}新闻，每条附原始报道链接。`,
@@ -71,6 +75,7 @@ const ZH: Strings = {
 };
 
 const ZH_HANT: Strings = {
+	archive: (topic) => `${topic}摘要歸檔`,
 	back: (topic) => `今天的${topic}頁面`,
 	description: (topic, day) =>
 		`${day} 被最多來源報導的${topic}新聞，每條附原始報導連結。`,
@@ -174,16 +179,36 @@ export const Route = createFileRoute("/{-$locale}/trends/$topic/$day")({
 		const label = topicLabel(params.topic, locale);
 		const entries = loaderData?.digest?.entries ?? [];
 		const summary = describe(entries);
-		return buildSeo({
+		const title = strings.title(label, params.day);
+		const head = buildSeo({
 			// Each language's archive is its own record: a day may exist in one
 			// language and not another, so no alternates are claimed.
 			alternates: false,
 			description: summary || strings.description(label, params.day),
 			locale,
 			path: `/trends/${params.topic}/${params.day}`,
-			title: strings.title(label, params.day),
+			title,
 			type: "article",
 		});
+		const url = (path: string) =>
+			`${SITE_URL}${localizedPath(path, locale) ?? path}`;
+		const pageUrl = url(`/trends/${params.topic}/${params.day}`);
+		const list = digestItemList({ entries, name: title, url: pageUrl });
+		return {
+			...head,
+			scripts: [
+				breadcrumbList([
+					{ name: "OpenTrends", url: url("/") },
+					{ name: label, url: url(`/trends/${params.topic}`) },
+					{
+						name: strings.archive(label),
+						url: url(`/trends/${params.topic}/archive`),
+					},
+					{ name: params.day, url: pageUrl },
+				]),
+				...(list ? [list] : []),
+			],
+		};
 	},
 });
 
@@ -293,6 +318,14 @@ function ArchiveRoute() {
 							to="/{-$locale}/trends/$topic"
 						>
 							{strings.back(label)}
+						</Link>
+						{" · "}
+						<Link
+							className="hover:underline"
+							params={{ locale: localePathParam(locale), topic: params.topic }}
+							to="/{-$locale}/trends/$topic/archive"
+						>
+							{strings.archive(label)}
 						</Link>
 					</p>
 					<h1 className="font-bold text-2xl text-[var(--text-heading)] tracking-tight">

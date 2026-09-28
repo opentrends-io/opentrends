@@ -24,6 +24,9 @@ export const Route = createFileRoute("/{-$locale}/_views/events")({
 			description: translate(locale, "events.seoDescription"),
 			path: "/events",
 			locale,
+			// The event list is rendered in the browser; until it is rendered on
+			// the server a crawler would index an empty shell.
+			noindex: true,
 		});
 	},
 });

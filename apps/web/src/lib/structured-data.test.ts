@@ -1,0 +1,78 @@
+import { describe, expect, it } from "bun:test";
+
+import { breadcrumbList, digestItemList } from "./structured-data";
+
+function parse(script: { children: string }): Record<string, unknown> {
+	return JSON.parse(script.children) as Record<string, unknown>;
+}
+
+describe("structured data", () => {
+	it("numbers breadcrumbs from one", () => {
+		const script = breadcrumbList([
+			{ name: "OpenTrends", url: "https://opentrends.io/zh" },
+			{ name: "AI", url: "https://opentrends.io/zh/trends/ai" },
+		]);
+		expect(script.type).toBe("application/ld+json");
+		expect(parse(script)).toEqual({
+			"@context": "https://schema.org",
+			"@type": "BreadcrumbList",
+			itemListElement: [
+				{
+					"@type": "ListItem",
+					item: "https://opentrends.io/zh",
+					name: "OpenTrends",
+					position: 1,
+				},
+				{
+					"@type": "ListItem",
+					item: "https://opentrends.io/zh/trends/ai",
+					name: "AI",
+					position: 2,
+				},
+			],
+		});
+	});
+
+	it("lists digest lines with their first citation", () => {
+		const script = digestItemList({
+			entries: [
+				{ citations: [{ url: "https://a.test/1" }], takeaway: "One" },
+				{ citations: [], takeaway: "Two" },
+			],
+			name: "AI digest",
+			url: "https://opentrends.io/trends/ai",
+		});
+		const data = parse(script as { children: string });
+		expect(data.numberOfItems).toBe(2);
+		expect(data.itemListElement).toEqual([
+			{
+				"@type": "ListItem",
+				name: "One",
+				position: 1,
+				url: "https://a.test/1",
+			},
+			{ "@type": "ListItem", name: "Two", position: 2 },
+		]);
+	});
+
+	it("has no list for an empty digest", () => {
+		expect(digestItemList({ entries: [], name: "x", url: "y" })).toBeNull();
+	});
+
+	it("cannot close the script tag it is written into", () => {
+		const script = digestItemList({
+			entries: [{ citations: [], takeaway: "</script><img src=x>" }],
+			name: "x",
+			url: "y",
+		});
+		expect(script?.children).not.toContain("</script>");
+		expect(script?.children).not.toContain("<");
+		expect(
+			(
+				parse(script as { children: string }).itemListElement as {
+					name: string;
+				}[]
+			)[0]?.name
+		).toBe("</script><img src=x>");
+	});
+});

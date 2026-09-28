@@ -16,6 +16,9 @@ export const Route = createFileRoute("/{-$locale}/events_/flow")({
 				: "A visual map of how OpenTrends turns source refreshes, article extraction, embeddings, merging, and scoring into the event feed.",
 			path: "/events/flow",
 			locale,
+			// The event list is rendered in the browser; until it is rendered on
+			// the server a crawler would index an empty shell.
+			noindex: true,
 		});
 	},
 });

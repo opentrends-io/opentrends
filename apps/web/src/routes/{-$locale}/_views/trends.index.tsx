@@ -7,7 +7,10 @@ export const Route = createFileRoute("/{-$locale}/_views/trends/")({
 		if (params.locale && !isLocale(params.locale)) {
 			throw notFound();
 		}
+		// Permanent: the target depends only on the URL's locale, so search
+		// engines can fold the root into the default topic page.
 		throw redirect({
+			statusCode: 301,
 			to: "/{-$locale}/trends/$topic",
 			params: {
 				...params,
