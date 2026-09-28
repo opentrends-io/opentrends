@@ -2,6 +2,7 @@ import { ScrollArea } from "@opentrends/ui/components/scroll-area";
 import { Link } from "@tanstack/react-router";
 import { ExternalLink } from "lucide-react";
 import type * as React from "react";
+import { createContext, useContext } from "react";
 
 import { localePathParam, type Translator, useLocale, useT } from "@/lib/i18n";
 
@@ -15,25 +16,32 @@ import type {
 
 interface SourcesPageProps {
 	data: SourcesStatusResponse;
+	statusPending?: boolean;
 }
 
-export function SourcesPage({ data }: SourcesPageProps) {
+// True while only the configured sources are known and their live status
+// is still on its way: status, counts and fetch times show as "—".
+const StatusPendingContext = createContext(false);
+
+export function SourcesPage({ data, statusPending = false }: SourcesPageProps) {
 	const t = useT();
 	return (
-		<ScrollArea className="min-w-0 flex-1 overflow-hidden bg-[var(--surface-app)] text-[var(--text-primary)]">
-			<div className="flex flex-col">
-				<SummaryBar
-					generatedAt={data.generatedAt}
-					sources={data.sources}
-					t={t}
-					totals={data.totals}
-				/>
-				<div className="hidden sm:block">
-					<SourceTable sources={data.sources} t={t} />
+		<StatusPendingContext.Provider value={statusPending}>
+			<ScrollArea className="min-w-0 flex-1 overflow-hidden bg-[var(--surface-app)] text-[var(--text-primary)]">
+				<div className="flex flex-col">
+					<SummaryBar
+						generatedAt={data.generatedAt}
+						sources={data.sources}
+						t={t}
+						totals={data.totals}
+					/>
+					<div className="hidden sm:block">
+						<SourceTable sources={data.sources} t={t} />
+					</div>
+					<SourceMobileList sources={data.sources} t={t} />
 				</div>
-				<SourceMobileList sources={data.sources} t={t} />
-			</div>
-		</ScrollArea>
+			</ScrollArea>
+		</StatusPendingContext.Provider>
 	);
 }
 
@@ -48,6 +56,9 @@ function SummaryBar({
 	sources: SourceStatusEntry[];
 	t: Translator;
 }) {
+	// Only the counts that do not depend on live status are shown until it
+	// arrives: the total and the event-eligible sources come first below.
+	const pending = useContext(StatusPendingContext);
 	const chips: Array<{ label: string; value: number; color: string }> = [
 		{
 			label: t("sources.totalsTotal"),
@@ -99,7 +110,7 @@ function SummaryBar({
 				</span>
 			</div>
 			<div className="flex flex-wrap items-center gap-2">
-				{chips.map((chip) => (
+				{(pending ? chips.slice(0, 2) : chips).map((chip) => (
 					<span
 						className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-card)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]"
 						key={chip.label}
@@ -115,12 +126,14 @@ function SummaryBar({
 					</span>
 				))}
 			</div>
-			<span
-				className="w-full text-[11px] text-[var(--text-muted)] sm:ml-auto sm:w-auto"
-				suppressHydrationWarning
-			>
-				{t("sources.updated", { time: formatRelativeTime(generatedAt, t) })}
-			</span>
+			{pending ? null : (
+				<span
+					className="w-full text-[11px] text-[var(--text-muted)] sm:ml-auto sm:w-auto"
+					suppressHydrationWarning
+				>
+					{t("sources.updated", { time: formatRelativeTime(generatedAt, t) })}
+				</span>
+			)}
 		</div>
 	);
 }
@@ -224,7 +237,7 @@ function SourceMobileCard({
 					</span>
 				</SourceMobileMeta>
 				<SourceMobileMeta label={t("sources.colItems")}>
-					<span className="font-mono tabular-nums">{entry.itemCount}</span>
+					<ItemCount value={entry.itemCount} />
 				</SourceMobileMeta>
 				<SourceMobileMeta label={t("sources.colEventItems")}>
 					<EventItemCount value={entry.eventItemCount} />
@@ -361,7 +374,7 @@ function SourceRow({ entry, t }: { entry: SourceStatusEntry; t: Translator }) {
 			<td
 				className={`${COL_CELL} border-[var(--border-subtle)] border-t text-right font-mono text-[var(--text-secondary)] tabular-nums`}
 			>
-				{entry.itemCount}
+				<ItemCount value={entry.itemCount} />
 			</td>
 			<td
 				className={`${COL_CELL} border-[var(--border-subtle)] border-t text-right`}
@@ -397,7 +410,18 @@ function SourceRow({ entry, t }: { entry: SourceStatusEntry; t: Translator }) {
 	);
 }
 
+function ItemCount({ value }: { value: number }) {
+	const pending = useContext(StatusPendingContext);
+	return (
+		<span className="font-mono tabular-nums">{pending ? "—" : value}</span>
+	);
+}
+
 function EventItemCount({ value }: { value: number }) {
+	const pending = useContext(StatusPendingContext);
+	if (pending) {
+		return <span className="text-[var(--text-muted)]">—</span>;
+	}
 	return (
 		<span
 			className={
@@ -445,6 +469,15 @@ function statusColor(status: SourceLifecycleStatus): string {
 }
 
 function StatusDot({ status }: { status: SourceLifecycleStatus }) {
+	const pending = useContext(StatusPendingContext);
+	if (pending) {
+		return (
+			<span
+				aria-hidden
+				className="mt-1.5 inline-block size-1.5 shrink-0 rounded-full bg-[var(--border-default)]"
+			/>
+		);
+	}
 	return (
 		<span
 			aria-hidden
@@ -462,6 +495,10 @@ function StatusBadge({
 	status: SourceLifecycleStatus;
 	errorCount: number;
 }) {
+	const pending = useContext(StatusPendingContext);
+	if (pending) {
+		return <span className="text-[11px] text-[var(--text-muted)]">—</span>;
+	}
 	const color = statusColor(status);
 	return (
 		<span
