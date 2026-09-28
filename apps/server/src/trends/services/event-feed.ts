@@ -23,6 +23,7 @@ import {
 	keywordOverlapRatio,
 	keywordsForText,
 } from "./event-merge-rules";
+import { independentSourceCount, sourceFamilyId } from "./event-source-family";
 import {
 	D1_EVENT_WRITE_BATCH_SIZE,
 	D1_SOURCE_LINK_WRITE_BATCH_SIZE,
@@ -316,24 +317,6 @@ function sourceName(sourceId: string): string {
 	return getSourcePreset(sourceId)?.name ?? sourceId;
 }
 
-function sourceFamilyId(sourceId: string): string {
-	if (sourceId.startsWith("github-trending")) {
-		return "github-trending";
-	}
-	if (sourceId.startsWith("hackernews")) {
-		return "hackernews";
-	}
-	if (sourceId.startsWith("bilibili-")) {
-		return "bilibili";
-	}
-	for (const suffix of ["-weekly", "-daily", "-ai"]) {
-		if (sourceId.endsWith(suffix)) {
-			return sourceId.slice(0, -suffix.length);
-		}
-	}
-	return sourceId;
-}
-
 function itemAudienceText(item: CurrentItemRow): string {
 	return `${item.title}\n${item.description ?? ""}`;
 }
@@ -429,12 +412,6 @@ function isSingleSourceEventSource(sourceId: string): boolean {
 		isEventEligibleSource(sourceId) ||
 		SINGLE_SOURCE_NEWS_EVENT_FAMILIES.has(sourceFamilyId(sourceId))
 	);
-}
-
-function independentSourceCount(
-	items: Pick<CurrentItemRow, "sourceId">[]
-): number {
-	return new Set(items.map((item) => sourceFamilyId(item.sourceId))).size;
 }
 
 function normalizeUrl(value: string): string {
@@ -1167,7 +1144,7 @@ function toFeedItem(
 						imageUrl: imageUrl ?? undefined,
 					}
 				: undefined,
-		selectionReason: getSelectionReason(row, sources.length),
+		selectionReason: getSelectionReason(row, independentSourceCount(sources)),
 	};
 }
 
