@@ -45,6 +45,7 @@ import { FOLLOWED_TOPIC_ID } from "./followed-sources";
 import { parseDigest } from "./share-image";
 import { SourceLogoStack, type SourceLogoStackItem } from "./source-favicon";
 import { SummaryShareDialog } from "./summary-share-dialog";
+import { topicDigestHref } from "./topic-digest-href";
 import type {
 	ArchivedDigestEntry,
 	DigestJsonData,
@@ -784,7 +785,7 @@ export function TrendsSummary({
 	}, [memoKey]);
 	const localeParam = localePathParam(locale);
 	const topicHref = useCallback(
-		(id: string) => `${localeParam ? `/${localeParam}` : ""}/feed?topic=${id}`,
+		(id: string) => topicDigestHref(id, localeParam),
 		[localeParam]
 	);
 	// Sharing is offered once the whole digest has arrived, so the image never
