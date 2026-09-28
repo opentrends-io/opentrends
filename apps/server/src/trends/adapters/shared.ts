@@ -75,15 +75,21 @@ const NAMED_ENTITIES: Record<string, string> = {
 	ldquo: "“",
 };
 
-function decodeEntities(input: string): string {
+const MAX_CODE_POINT = 0x10_ff_ff;
+
+function fromCodePoint(code: number): string {
+	return Number.isInteger(code) && code >= 0 && code <= MAX_CODE_POINT
+		? String.fromCodePoint(code)
+		: "";
+}
+
+export function decodeEntities(input: string): string {
 	return input.replace(HTML_ENTITY_RE, (_match, dec, hex, name) => {
 		if (dec) {
-			const code = Number.parseInt(dec, 10);
-			return Number.isFinite(code) ? String.fromCodePoint(code) : "";
+			return fromCodePoint(Number.parseInt(dec, 10));
 		}
 		if (hex) {
-			const code = Number.parseInt(hex, 16);
-			return Number.isFinite(code) ? String.fromCodePoint(code) : "";
+			return fromCodePoint(Number.parseInt(hex, 16));
 		}
 		return NAMED_ENTITIES[String(name).toLowerCase()] ?? "";
 	});

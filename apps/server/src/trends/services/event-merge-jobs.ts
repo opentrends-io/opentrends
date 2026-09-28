@@ -1,9 +1,8 @@
 import { getWorkerBindings } from "../../runtime";
 import { isEventEligibleSource } from "../config/sources";
-import { getTopicPreset, topicPresets } from "../config/topics";
 import type { SourceId, TopicId } from "../types";
 import type { EventSourceItemRef } from "./event-content-enrichment";
-import { rebuildTopicEvents } from "./event-feed";
+import { rebuildEvents } from "./event-rebuild";
 import {
 	spareContentCapacity,
 	takeEventContentBatch,
@@ -16,30 +15,18 @@ export interface EventSourceRefreshMessage {
 
 export type EventMergeMessage =
 	| (EventSourceRefreshMessage & { task?: "enrich-source-items" })
+	| { task: "rebuild-events" }
+	// Queued before events were rebuilt across all topics at once; handled
+	// as a full rebuild so messages in flight at deploy time are not lost.
 	| { task: "rebuild-topic"; topicId: TopicId };
-
-function getTopicsForSource(sourceId: SourceId): TopicId[] {
-	const topicIds: TopicId[] = [];
-	for (const [topicId, topic] of Object.entries(topicPresets)) {
-		if (
-			getTopicPreset(topicId) &&
-			topic.sections.some((section) =>
-				(section.sourceIds as readonly string[]).includes(sourceId)
-			)
-		) {
-			topicIds.push(topicId as TopicId);
-		}
-	}
-	return topicIds;
-}
 
 export async function runEventMergeJob(
 	message: EventMergeMessage
 ): Promise<void> {
-	if (message.task === "rebuild-topic") {
-		const complete = await rebuildTopicEvents(message.topicId);
+	if (message.task === "rebuild-events" || message.task === "rebuild-topic") {
+		const complete = await rebuildEvents();
 		if (!complete) {
-			await scheduleOrRun({ task: "rebuild-topic", topicId: message.topicId });
+			await scheduleOrRun({ task: "rebuild-events" });
 		}
 		return;
 	}
@@ -58,9 +45,7 @@ export async function runEventMergeJob(
 		return;
 	}
 	await retryLegacyFailures(message.sourceId, itemBatch.current.length);
-	for (const topicId of getTopicsForSource(message.sourceId)) {
-		await scheduleOrRun({ task: "rebuild-topic", topicId });
-	}
+	await scheduleOrRun({ task: "rebuild-events" });
 }
 
 // The last batch of a source's content work lends its spare room to rows
