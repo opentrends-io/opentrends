@@ -41,7 +41,7 @@ import {
 	digestItemList,
 	type JsonLdScript,
 } from "@/lib/structured-data";
-import { topicSeo } from "@/lib/topic-seo";
+import { isSeoTopicId, topicSeo } from "@/lib/topic-seo";
 
 const TOPIC_SLUG_SEPARATOR_RE = /[-_]+/;
 
@@ -121,18 +121,28 @@ function structuredData(params: {
 	];
 }
 
+// Throws for a URL that is not a topic page: an unknown locale, the retired
+// "brain" topic (moved to biotech), and anything but the known topics, which
+// is a real 404 rather than an empty page that answers 200.
+function checkTopicParams(params: { locale?: string; topic: string }): void {
+	if (params.locale && !isLocale(params.locale)) {
+		throw notFound();
+	}
+	if (params.topic === "brain") {
+		throw redirect({
+			to: "/{-$locale}/trends/$topic",
+			params: { locale: params.locale, topic: "biotech" },
+		});
+	}
+	if (params.topic !== FOLLOWED_TOPIC_ID && !isSeoTopicId(params.topic)) {
+		throw notFound();
+	}
+}
+
 export const Route = createFileRoute("/{-$locale}/_views/trends/$topic")({
 	component: TrendsTopicComponent,
 	loader: async ({ context, params }) => {
-		if (params.locale && !isLocale(params.locale)) {
-			throw notFound();
-		}
-		if (params.topic === "brain") {
-			throw redirect({
-				to: "/{-$locale}/trends/$topic",
-				params: { ...params, topic: "biotech" },
-			});
-		}
+		checkTopicParams(params);
 
 		const locale = resolveLocale(params.locale);
 		// The followed page depends on the reader's own list, which only the
@@ -206,8 +216,9 @@ export const Route = createFileRoute("/{-$locale}/_views/trends/$topic")({
 				seo?.description ?? buildTopicDescription(topicLabel, locale),
 			path: `/trends/${topic}`,
 			locale,
-			// A reader's own page: nothing there for a crawler.
-			noindex: topic === FOLLOWED_TOPIC_ID,
+			// A reader's own page has nothing for a crawler; an unknown topic is
+			// a 404.
+			noindex: topic === FOLLOWED_TOPIC_ID || !isSeoTopicId(topic),
 		});
 		return {
 			...head,

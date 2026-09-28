@@ -5,6 +5,7 @@ import {
 	DIGEST_FOLD,
 	digestLines,
 	foldDigest,
+	foldStartIndex,
 	shouldExpandGeneratedSummary,
 	shouldShowDigestTopicTags,
 } from "./digest-fold";
@@ -21,6 +22,22 @@ describe("foldDigest", () => {
 		expect(countDigestLines(folded)).toBe(5);
 		expect(folded.endsWith("[5]")).toBe(true);
 		expect(foldDigest("1. only one", DIGEST_FOLD)).toBe("1. only one");
+	});
+});
+
+describe("foldStartIndex", () => {
+	test("hides from the first line of the entry past the fold", () => {
+		const lines = digestLines(TEN, new Map());
+		const start = foldStartIndex(lines, DIGEST_FOLD);
+		expect(lines[start]).toMatchObject({ kind: "entry", n: 6 });
+		expect(
+			lines.slice(0, start).filter((l) => l.kind === "entry")
+		).toHaveLength(DIGEST_FOLD);
+	});
+
+	test("hides nothing when the digest fits", () => {
+		const lines = digestLines("1. a\n2. b", new Map());
+		expect(foldStartIndex(lines, DIGEST_FOLD)).toBe(lines.length);
 	});
 });
 

@@ -68,6 +68,26 @@ export function foldDigest(text: string, limit: number): string {
 	return text;
 }
 
+// Where the fold starts in a laid-out digest: the index of the first line of
+// the entry past the limit, or the number of lines when everything fits.
+// Folded lines are still rendered, only hidden, so the whole digest is in
+// the page's HTML.
+export function foldStartIndex(
+	lines: readonly DigestLine[],
+	limit: number
+): number {
+	let seen = 0;
+	for (const [index, line] of lines.entries()) {
+		if (line.kind === "entry") {
+			seen += 1;
+			if (seen > limit) {
+				return index;
+			}
+		}
+	}
+	return lines.length;
+}
+
 export function countDigestLines(text: string): number {
 	return text.split("\n").filter((line) => LIST_LINE_RE.test(line)).length;
 }
