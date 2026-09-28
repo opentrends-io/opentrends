@@ -20,6 +20,7 @@ import {
 } from "./event-embedding";
 import { keywordsForText } from "./event-merge-rules";
 import { isPromotionalItem } from "./event-promotions";
+import { isRoundupItem } from "./event-roundups";
 import {
 	choosePrimary,
 	type EventCandidate,
@@ -198,7 +199,9 @@ async function readCandidates(
 	return [
 		...currentRows.map((row) => toCandidate(row, true)),
 		...recentRows.map((row) => toCandidate(row, false)),
-	].filter((candidate) => !isPromotionalItem(candidate));
+	].filter(
+		(candidate) => !(isPromotionalItem(candidate) || isRoundupItem(candidate))
+	);
 }
 
 interface EmbeddingResult {
