@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { breadcrumbList, digestItemList } from "./structured-data";
+import {
+	breadcrumbList,
+	digestItemList,
+	faqPage,
+	newsArticle,
+} from "./structured-data";
 
 function parse(script: { children: string }): Record<string, unknown> {
 	return JSON.parse(script.children) as Record<string, unknown>;
@@ -74,5 +79,42 @@ describe("structured data", () => {
 				}[]
 			)[0]?.name
 		).toBe("</script><img src=x>");
+	});
+});
+
+describe("event page structured data", () => {
+	it("describes the page as a news article by OpenTrends citing its reports", () => {
+		const data = parse(
+			newsArticle({
+				citations: ["https://a.test/1"],
+				dateModified: "2026-09-28T10:00:00.000Z",
+				datePublished: "2026-09-27T10:00:00.000Z",
+				description: "d",
+				headline: "Suno lawsuit: labels sue again",
+				inLanguage: "en",
+				url: "https://opentrends.io/events/suno-lawsuit",
+			})
+		);
+		expect(data["@type"]).toBe("NewsArticle");
+		expect(data.headline).toBe("Suno lawsuit: labels sue again");
+		expect(data.datePublished).toBe("2026-09-27T10:00:00.000Z");
+		expect(data.mainEntityOfPage).toBe(
+			"https://opentrends.io/events/suno-lawsuit"
+		);
+		expect((data.publisher as { name: string }).name).toBe("OpenTrends");
+		expect(data.citation).toEqual(["https://a.test/1"]);
+	});
+
+	it("lists questions and answers, escaping markup", () => {
+		const script = faqPage([{ answer: "No </script>", question: "Is it?" }]);
+		expect(script?.children).not.toContain("<");
+		expect(parse(script as { children: string }).mainEntity).toEqual([
+			{
+				"@type": "Question",
+				acceptedAnswer: { "@type": "Answer", text: "No </script>" },
+				name: "Is it?",
+			},
+		]);
+		expect(faqPage([])).toBeNull();
 	});
 });

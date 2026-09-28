@@ -6,6 +6,8 @@ import type {
 	ArchivedDigestData,
 	EventDetailData,
 	EventFeedData,
+	EventPageSummary,
+	EventPageView,
 	SourceCardData,
 	SourceDetailData,
 	TrendsPageData,
@@ -260,4 +262,36 @@ export async function loadSourceDetail(
 		throw new Error(`Failed to load source (${response.status})`);
 	}
 	return (await response.json()) as SourceDetailData;
+}
+
+export class EventPageNotFoundError extends Error {
+	constructor(slug: string) {
+		super(`No event page ${slug}`);
+		this.name = "EventPageNotFoundError";
+	}
+}
+
+export async function loadEventPage(slug: string): Promise<EventPageView> {
+	const response = await fetch(
+		`${env.VITE_SERVER_URL}/api/event-pages/${encodeURIComponent(slug)}`,
+		{ credentials: "omit" }
+	);
+	if (response.status === 404) {
+		throw new EventPageNotFoundError(slug);
+	}
+	if (!response.ok) {
+		throw new Error(`Failed to load event page (${response.status})`);
+	}
+	return (await response.json()) as EventPageView;
+}
+
+export async function loadEventPages(): Promise<EventPageSummary[]> {
+	const response = await fetch(`${env.VITE_SERVER_URL}/api/event-pages`, {
+		credentials: "omit",
+	});
+	if (!response.ok) {
+		throw new Error(`Failed to load event pages (${response.status})`);
+	}
+	const body = (await response.json()) as { pages?: EventPageSummary[] };
+	return body.pages ?? [];
 }

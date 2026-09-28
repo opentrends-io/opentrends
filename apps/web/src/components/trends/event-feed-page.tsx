@@ -25,6 +25,7 @@ import { toolButtonClassName } from "@/components/chrome-styles";
 import { localePathParam, type Translator, useLocale, useT } from "@/lib/i18n";
 
 import { CoverImage } from "./cover-image";
+import { EventPagesStrip } from "./event-pages-strip";
 import {
 	loadTrendEvents,
 	TrendEventsEmbeddingNotConfiguredError,
@@ -246,7 +247,10 @@ export function EventFeedPage({ selectedTopic }: EventFeedPageProps) {
 					</Link>
 				</div>
 			</div>
-			<div className="p-3 sm:p-4">{eventContent}</div>
+			<div className="p-3 sm:p-4">
+				<EventPagesStrip />
+				{eventContent}
+			</div>
 			<EventDetailDialog
 				event={selectedEvent}
 				onOpenChange={(open) => {

@@ -62,3 +62,51 @@ export function digestItemList(params: {
 		url: params.url,
 	});
 }
+
+const PUBLISHER = {
+	"@type": "Organization",
+	name: "OpenTrends",
+	url: "https://opentrends.io",
+} as const;
+
+// An event page: written by OpenTrends from the reports it cites.
+export function newsArticle(params: {
+	citations: readonly string[];
+	dateModified: string;
+	datePublished: string;
+	description: string;
+	headline: string;
+	inLanguage: string;
+	url: string;
+}): JsonLdScript {
+	return jsonLd({
+		"@context": "https://schema.org",
+		"@type": "NewsArticle",
+		author: PUBLISHER,
+		citation: params.citations,
+		dateModified: params.dateModified,
+		datePublished: params.datePublished,
+		description: params.description,
+		headline: params.headline,
+		inLanguage: params.inLanguage,
+		mainEntityOfPage: params.url,
+		publisher: PUBLISHER,
+	});
+}
+
+export function faqPage(
+	entries: ReadonlyArray<{ answer: string; question: string }>
+): JsonLdScript | null {
+	if (entries.length === 0) {
+		return null;
+	}
+	return jsonLd({
+		"@context": "https://schema.org",
+		"@type": "FAQPage",
+		mainEntity: entries.map((entry) => ({
+			"@type": "Question",
+			acceptedAnswer: { "@type": "Answer", text: entry.answer },
+			name: entry.question,
+		})),
+	});
+}

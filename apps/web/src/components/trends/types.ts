@@ -191,3 +191,48 @@ export interface DigestJsonData {
 	topic: string;
 	window: string;
 }
+
+export type EventPageLang = "en" | "zh";
+
+export interface EventPageSource {
+	publishedAt?: string;
+	publisher: string;
+	publisherName: string;
+	sourceId: string;
+	title: string;
+	url: string;
+}
+
+export interface EventPageContent {
+	description: string;
+	divergence: string;
+	faq: Array<{ answer: string; question: string }>;
+	headline: string;
+	summary: string;
+	timeline: Array<{ date: string; sourceUrls: string[]; text: string }>;
+	title: string;
+}
+
+// A published event page, from /api/event-pages/:slug.
+export interface EventPageView {
+	content: Record<EventPageLang, EventPageContent>;
+	firstReportedAt: string;
+	keyword: string;
+	lastReportedAt: string;
+	publishedAt: string;
+	slug: string;
+	sources: EventPageSource[];
+	topicIds: string[];
+	updatedAt: string;
+}
+
+// One entry of /api/event-pages.
+export interface EventPageSummary {
+	description: Record<EventPageLang, string>;
+	keyword: string;
+	publishedAt: string;
+	slug: string;
+	title: Record<EventPageLang, string>;
+	topicIds: string[];
+	updatedAt: string;
+}
