@@ -50,6 +50,7 @@ interface Strings {
 	guide: string;
 	languages: string;
 	llms: string;
+	privacy: string;
 	rights: string;
 	rss: string;
 	topics: string;
@@ -63,6 +64,7 @@ const EN: Strings = {
 	explore: "Explore",
 	languages: "Languages",
 	llms: "llms.txt",
+	privacy: "Privacy",
 	rights: "All rights reserved.",
 	rss: "RSS feed",
 	topics: "Topics",
@@ -76,6 +78,7 @@ const ZH: Strings = {
 	explore: "浏览",
 	languages: "语言",
 	llms: "llms.txt",
+	privacy: "隐私政策",
 	rights: "保留所有权利。",
 	rss: "RSS 订阅",
 	topics: "板块",
@@ -89,6 +92,7 @@ const ZH_HANT: Strings = {
 	explore: "瀏覽",
 	languages: "語言",
 	llms: "llms.txt",
+	privacy: "隱私政策",
 	rights: "保留所有權利。",
 	rss: "RSS 訂閱",
 	topics: "板塊",
@@ -248,27 +252,35 @@ export default function Footer() {
 					<p>
 						© {LAUNCH_YEAR} OpenTrends. {strings.rights}
 					</p>
-					<nav
-						aria-label={strings.languages}
-						className="flex flex-wrap gap-x-3 gap-y-1"
-					>
-						{LOCALES.map((code) => (
-							<Link
-								aria-current={code === locale ? "true" : undefined}
-								className={
-									code === locale
-										? "text-[var(--text-primary)]"
-										: "transition-colors hover:text-[var(--text-primary)]"
-								}
-								hrefLang={code}
-								key={code}
-								params={{ locale: localePathParam(code) }}
-								to="/{-$locale}"
-							>
-								{LANGUAGE_NAMES[code]}
-							</Link>
-						))}
-					</nav>
+					<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+						<a
+							className="transition-colors hover:text-[var(--text-primary)]"
+							href="/privacy"
+						>
+							{strings.privacy}
+						</a>
+						<nav
+							aria-label={strings.languages}
+							className="flex flex-wrap gap-x-3 gap-y-1"
+						>
+							{LOCALES.map((code) => (
+								<Link
+									aria-current={code === locale ? "true" : undefined}
+									className={
+										code === locale
+											? "text-[var(--text-primary)]"
+											: "transition-colors hover:text-[var(--text-primary)]"
+									}
+									hrefLang={code}
+									key={code}
+									params={{ locale: localePathParam(code) }}
+									to="/{-$locale}"
+								>
+									{LANGUAGE_NAMES[code]}
+								</Link>
+							))}
+						</nav>
+					</div>
 				</div>
 			</div>
 		</footer>
