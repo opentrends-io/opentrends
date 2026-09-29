@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapEventsDotxmlRouteImport } from './routes/sitemap-events[.]xml'
 import { Route as SitemapArchiveDotxmlRouteImport } from './routes/sitemap-archive[.]xml'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as Char123LocaleChar125IndexRouteImport } from './routes/{-$locale}/index'
 import { Route as Char123LocaleChar125SourcesRouteImport } from './routes/{-$locale}/sources'
 import { Route as Char123LocaleChar125LoginRouteImport } from './routes/{-$locale}/login'
@@ -41,6 +42,11 @@ const SitemapEventsDotxmlRoute = SitemapEventsDotxmlRouteImport.update({
 const SitemapArchiveDotxmlRoute = SitemapArchiveDotxmlRouteImport.update({
   id: '/sitemap-archive.xml',
   path: '/sitemap-archive.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Char123LocaleChar125IndexRoute =
@@ -170,6 +176,7 @@ const Char123LocaleChar125ViewsTrendsTopicRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/privacy': typeof PrivacyRoute
   '/sitemap-archive.xml': typeof SitemapArchiveDotxmlRoute
   '/sitemap-events.xml': typeof SitemapEventsDotxmlRoute
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
@@ -195,6 +202,7 @@ export interface FileRoutesByFullPath {
   '/{-$locale}/trends/': typeof Char123LocaleChar125ViewsTrendsIndexRoute
 }
 export interface FileRoutesByTo {
+  '/privacy': typeof PrivacyRoute
   '/sitemap-archive.xml': typeof SitemapArchiveDotxmlRoute
   '/sitemap-events.xml': typeof SitemapEventsDotxmlRoute
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
@@ -219,6 +227,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/privacy': typeof PrivacyRoute
   '/sitemap-archive.xml': typeof SitemapArchiveDotxmlRoute
   '/sitemap-events.xml': typeof SitemapEventsDotxmlRoute
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
@@ -246,6 +255,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/privacy'
     | '/sitemap-archive.xml'
     | '/sitemap-events.xml'
     | '/.well-known/api-catalog'
@@ -271,6 +281,7 @@ export interface FileRouteTypes {
     | '/{-$locale}/trends/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/privacy'
     | '/sitemap-archive.xml'
     | '/sitemap-events.xml'
     | '/.well-known/api-catalog'
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '/{-$locale}/trends'
   id:
     | '__root__'
+    | '/privacy'
     | '/sitemap-archive.xml'
     | '/sitemap-events.xml'
     | '/.well-known/api-catalog'
@@ -320,6 +332,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  PrivacyRoute: typeof PrivacyRoute
   SitemapArchiveDotxmlRoute: typeof SitemapArchiveDotxmlRoute
   SitemapEventsDotxmlRoute: typeof SitemapEventsDotxmlRoute
   DotwellKnownApiCatalogRoute: typeof DotwellKnownApiCatalogRoute
@@ -353,6 +366,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap-archive.xml'
       fullPath: '/sitemap-archive.xml'
       preLoaderRoute: typeof SitemapArchiveDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/{-$locale}/': {
@@ -546,6 +566,7 @@ const Char123LocaleChar125ViewsRouteWithChildren =
   )
 
 const rootRouteChildren: RootRouteChildren = {
+  PrivacyRoute: PrivacyRoute,
   SitemapArchiveDotxmlRoute: SitemapArchiveDotxmlRoute,
   SitemapEventsDotxmlRoute: SitemapEventsDotxmlRoute,
   DotwellKnownApiCatalogRoute: DotwellKnownApiCatalogRoute,
