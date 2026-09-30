@@ -274,6 +274,8 @@ async function translateBatch(
 	const prompt = [
 		`Translate these news titles and short descriptions into ${targetLanguageName(lang)}.`,
 		"Preserve names, product names, company names, code identifiers, model names, ticker symbols, and URLs exactly when appropriate.",
+		// "$4,000 in tokens" once came back as "4000 个 token".
+		'Keep every number with its currency and unit: "$4,000 in tokens" is money spent on tokens, not a number of tokens.',
 		"Do not add facts, commentary, markdown, citations, or surrounding prose.",
 		"Return every input id exactly once. Keep description as null when the input description is null.",
 		`Answer with one JSON object and nothing else, in this shape: ${TRANSLATED_BATCH_SHAPE}`,

@@ -5,7 +5,7 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { archiveRoutes } from "./routes/archive";
@@ -98,11 +98,12 @@ app.on(["POST", "GET"], "/api/auth/*", async (context) => {
 	return getAuth().handler(context.req.raw);
 });
 
-// Public trend pages are the same bytes for everyone for a minute or five
-// (their Cache-Control says how long), so the edge keeps a copy per URL and
-// answers repeat requests without touching KV or building the JSON again.
-// The Cache API is a no-op on workers.dev and works on custom domains.
-app.use("/api/trends/*", async (c, next) => {
+// Public trend pages and event lists are the same bytes for everyone for a
+// minute or five (their Cache-Control says how long), so the edge keeps a
+// copy per URL and answers repeat requests without touching KV or building
+// the JSON again. The Cache API is a no-op on workers.dev and works on
+// custom domains.
+const edgeCache: MiddlewareHandler = async (c, next) => {
 	const cache = (globalThis as { caches?: { default?: Cache } }).caches
 		?.default;
 	if (c.req.method !== "GET" || !cache) {
@@ -130,7 +131,10 @@ app.use("/api/trends/*", async (c, next) => {
 			await cache.put(key, copy);
 		}
 	}
-});
+};
+app.use("/api/trends/*", edgeCache);
+app.use("/api/events", edgeCache);
+app.use("/api/events/*", edgeCache);
 
 app.route("/api/image", imageRoutes);
 app.route("/api/events", eventsRoutes);

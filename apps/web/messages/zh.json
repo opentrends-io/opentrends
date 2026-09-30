@@ -222,5 +222,17 @@
   "calendar_seo_description": "一个主题一个月里，每天各来源的头条。",
   "calendar_previous_month": "上一月",
   "calendar_next_month": "下一月",
-  "nav_history": "浏览历史"
+  "nav_history": "浏览历史",
+  "events_stories": "多家在报",
+  "events_stories_hint": "两家以上媒体在报道的事，此刻报道最多的在前。",
+  "events_stories_empty": "还没有两家以上在报的事。",
+  "events_briefs": "单源快讯",
+  "events_briefs_hint": "目前只有一家在报，按时间排列。",
+  "events_show_briefs": "展开全部快讯",
+  "events_publisher_count": "{count} 家",
+  "events_latest_follow_up": "最新：{publisher} {time}跟进",
+  "events_first_reported": "首发 {time}",
+  "events_reports": "各家报道",
+  "events_first_report": "首发",
+  "events_story_count": "{count} 件多家在报"
 }

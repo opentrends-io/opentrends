@@ -16,6 +16,27 @@ afterEach(() => {
 	mock.restore();
 });
 
+function createFailingApp() {
+	const app = new Hono<{
+		Bindings: { IMAGES: ImagesBinding };
+	}>();
+	app.route("/api/image", imageRoutes);
+	const images = {
+		input() {
+			return {
+				transform() {
+					return {
+						output() {
+							return Promise.reject(new Error("transformation limit"));
+						},
+					};
+				},
+			};
+		},
+	} as unknown as ImagesBinding;
+	return { app, images };
+}
+
 function createApp(transformCalls: TransformCall[]) {
 	const app = new Hono<{
 		Bindings: { IMAGES: ImagesBinding };
@@ -150,5 +171,56 @@ describe("image thumbnail route", () => {
 
 		expect(response.status).toBe(204);
 		expect(calls).toHaveLength(0);
+	});
+
+	test("serves the original when the thumbnail service fails", async () => {
+		globalThis.fetch = mock(() =>
+			Promise.resolve(
+				new Response("original-bytes", {
+					headers: { "Content-Length": "14", "Content-Type": "image/jpeg" },
+				})
+			)
+		) as unknown as typeof fetch;
+		const { app, images } = createFailingApp();
+
+		const response = await app.request(
+			"/api/image?variant=card&url=https%3A%2F%2Fcdn.example.com%2Fphoto.jpg",
+			undefined,
+			{ IMAGES: images }
+		);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("Content-Type")).toBe("image/jpeg");
+		expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+		expect(response.headers.get("Content-Security-Policy")).toContain(
+			"sandbox"
+		);
+		// Short, so thumbnails come back once the service works again.
+		expect(response.headers.get("Cache-Control")).not.toContain(
+			"s-maxage=2592000"
+		);
+		expect(await response.text()).toBe("original-bytes");
+	});
+
+	test("does not pass through a large original when thumbnails fail", async () => {
+		globalThis.fetch = mock(() =>
+			Promise.resolve(
+				new Response("x", {
+					headers: {
+						"Content-Length": String(12 * 1024 * 1024),
+						"Content-Type": "image/png",
+					},
+				})
+			)
+		) as unknown as typeof fetch;
+		const { app, images } = createFailingApp();
+
+		const response = await app.request(
+			"/api/image?variant=card&url=https%3A%2F%2Fcdn.example.com%2Fhuge.png",
+			undefined,
+			{ IMAGES: images }
+		);
+
+		expect(response.status).toBe(204);
 	});
 });
