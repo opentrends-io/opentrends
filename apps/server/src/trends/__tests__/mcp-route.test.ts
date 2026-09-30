@@ -32,6 +32,19 @@ test("MCP tools read the API within the Worker instead of fetching their own dom
 			title: "Test source",
 		});
 	});
+	app.get("/api/trends/:topic/sources/:sourceId/article", (context) => {
+		requestedPaths.push(new URL(context.req.url).pathname);
+		expect(context.req.query("itemId")).toBe("item-1");
+		return context.json({
+			itemId: "item-1",
+			sourceId: context.req.param("sourceId"),
+			status: "ok",
+			text: "The extracted article body",
+			textLimitChars: 12_000,
+			title: "AI test item",
+			url: "https://example.com/item",
+		});
+	});
 	app.get("/api/trends/:topic", (context) => {
 		requestedPaths.push(new URL(context.req.url).pathname);
 		return context.json({
@@ -82,6 +95,7 @@ test("MCP tools read the API within the Worker instead of fetching their own dom
 			["get_digest", { topic: "ai" }],
 			["get_topic", { topic: "ai", itemsPerSource: 1 }],
 			["get_source", { topic: "ai", sourceId: "source-1" }],
+			["get_article", { topic: "ai", sourceId: "source-1", itemId: "item-1" }],
 			["search", { topic: "ai", query: "test" }],
 		] as const) {
 			const response = await app.request(
@@ -106,6 +120,13 @@ test("MCP tools read the API within the Worker instead of fetching their own dom
 			const result = await response.json();
 			expect(result.result.isError).not.toBe(true);
 			expect(result.result.content[0].type).toBe("text");
+			const data = JSON.parse(result.result.content[0].text);
+			if (name === "get_topic") {
+				expect(data.sources[0].items[0].itemId).toBe("item-1");
+			}
+			if (name === "get_article") {
+				expect(data.text).toBe("The extracted article body");
+			}
 		}
 	} finally {
 		globalThis.fetch = originalFetch;
@@ -116,6 +137,7 @@ test("MCP tools read the API within the Worker instead of fetching their own dom
 		"/api/trends/ai/summary",
 		"/api/trends/ai",
 		"/api/trends/ai/sources/source-1",
+		"/api/trends/ai/sources/source-1/article",
 		"/api/trends/ai",
 	]);
 });

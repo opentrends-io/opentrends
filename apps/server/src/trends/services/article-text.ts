@@ -14,6 +14,7 @@ export const MAX_ARTICLE_TEXT_LENGTH = 12_000;
 export interface ArticleTextResult {
 	status: "ok" | "too_short";
 	text: string;
+	truncated: boolean;
 }
 
 const ELEMENT_NODE = 1;
@@ -215,12 +216,11 @@ export function extractArticleText(
 		url,
 		useAsync: false,
 	}).parse();
-	const text = truncateText(
-		htmlToPlainText(result.content ?? ""),
-		MAX_ARTICLE_TEXT_LENGTH
-	);
+	const fullText = htmlToPlainText(result.content ?? "");
+	const text = truncateText(fullText, MAX_ARTICLE_TEXT_LENGTH);
 	return {
 		status: text.length >= MIN_ARTICLE_TEXT_LENGTH ? "ok" : "too_short",
 		text,
+		truncated: fullText.length > MAX_ARTICLE_TEXT_LENGTH,
 	};
 }

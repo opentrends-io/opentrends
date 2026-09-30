@@ -12,6 +12,8 @@ const USER_AGENT =
 	"OpenTrendsBot/1.0 (+https://opentrends.x-cmd.com; event aggregation)";
 const HTML_CONTENT_TYPE = /^\s*(?:text\/html|application\/xhtml\+xml)\b/i;
 const HTTP_PROTOCOL = /^https?:$/;
+const IPV4_HOST = /^\d{1,3}(?:\.\d{1,3}){3}$/;
+const TRAILING_DOT = /\.$/;
 
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -79,7 +81,31 @@ function toHttpUrl(url: string, base?: string): string {
 	if (!HTTP_PROTOCOL.test(parsed.protocol)) {
 		throw new ArticleFetchError(`unsupported scheme ${parsed.protocol}`);
 	}
+	const hostname = parsed.hostname.toLowerCase().replace(TRAILING_DOT, "");
+	if (
+		!hostname.includes(".") ||
+		hostname.startsWith("[") ||
+		IPV4_HOST.test(hostname) ||
+		[".localhost", ".local", ".internal"].some((suffix) =>
+			hostname.endsWith(suffix)
+		) ||
+		hostname === "api.opentrends.io" ||
+		parsed.username ||
+		parsed.password ||
+		(parsed.port && parsed.port !== "80" && parsed.port !== "443")
+	) {
+		throw new ArticleFetchError("unsafe destination");
+	}
 	return parsed.toString();
+}
+
+export function isAllowedArticleUrl(url: string): boolean {
+	try {
+		toHttpUrl(url);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 function isAbort(error: unknown): boolean {

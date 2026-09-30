@@ -28,6 +28,7 @@ export interface ContentExtractionResult {
 	error?: string;
 	status: "failed" | "ok" | "restricted" | "too_short";
 	text?: string;
+	truncated?: boolean;
 }
 
 function buildItemPredicates(items: readonly EventSourceItemRef[]) {
@@ -74,7 +75,8 @@ export async function extractContentText(
 		return { status: "failed", error: describeError("fetch", error) };
 	}
 	try {
-		return extractArticleText(page.html, page.url);
+		const extracted = extractArticleText(page.html, page.url);
+		return { ...extracted, truncated: page.truncated || extracted.truncated };
 	} catch (error) {
 		return { status: "failed", error: describeError("extract", error) };
 	}

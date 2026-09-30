@@ -187,4 +187,26 @@ describe("fetchArticleHtml", () => {
 		expect(error.message).toBe("unsupported scheme ftp:");
 		expect(calls).toHaveLength(0);
 	});
+
+	test.each([
+		"http://localhost/story",
+		"http://127.0.0.1/story",
+		"http://169.254.169.254/latest/meta-data",
+		"http://[::1]/story",
+		"http://metadata.google.internal/story",
+	])("rejects private destination %s", async (url) => {
+		const { calls, fetchImpl } = fakeFetch(() => htmlResponse(HTML));
+		const error = await fetchError(fetchArticleHtml(url, { fetchImpl }));
+		expect(error.message).toBe("unsafe destination");
+		expect(calls).toHaveLength(0);
+	});
+
+	test("rejects a redirect to a private destination", async () => {
+		const { calls, fetchImpl } = fakeFetch(() =>
+			redirect("http://127.0.0.1/private")
+		);
+		const error = await fetchError(fetchArticleHtml(PAGE_URL, { fetchImpl }));
+		expect(error.message).toBe("unsafe destination");
+		expect(calls).toHaveLength(1);
+	});
 });

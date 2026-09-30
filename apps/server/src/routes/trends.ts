@@ -6,6 +6,7 @@ import {
 	parseKeywords,
 } from "../trends/config/followed-topic";
 import { archivedDaysFor } from "../trends/services/archive-index";
+import { getArticleContent } from "../trends/services/article-content";
 import {
 	isArchiveDay,
 	readArchivedDigest,
@@ -442,6 +443,21 @@ export const trendsRoutes = new Hono()
 			}
 			throw error;
 		}
+	})
+	.get("/:topic/sources/:sourceId/article", async (c) => {
+		const itemId = c.req.query("itemId");
+		if (!itemId) {
+			return c.json({ error: "item_id_required" }, 400);
+		}
+		const article = await getArticleContent({
+			itemId,
+			sourceId: c.req.param("sourceId"),
+			topic: c.req.param("topic"),
+		});
+		if (!article) {
+			return c.json({ error: "article_not_found" }, 404);
+		}
+		return c.json(article, 200, { "Cache-Control": "no-store" });
 	})
 	.get("/:topic", async (c) => {
 		const topic = c.req.param("topic");

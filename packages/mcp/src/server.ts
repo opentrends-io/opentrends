@@ -84,6 +84,18 @@ interface Digest {
 	window: string;
 }
 
+interface ArticleContent {
+	itemId: string;
+	source?: "cache" | "fetched";
+	sourceId: string;
+	status: "failed" | "ok" | "pending" | "restricted" | "too_short";
+	text?: string;
+	textLimitChars: number;
+	title: string;
+	truncated?: boolean | "unknown";
+	url: string;
+}
+
 async function getJson<T>(
 	baseUrl: string,
 	path: string,
@@ -113,6 +125,7 @@ function isoDate(timestamp?: number) {
 
 function compactItem(item: Item) {
 	return {
+		itemId: item.id,
 		hotValue: item.hotValue,
 		originalTitle:
 			item.original?.title === item.title ? undefined : item.original?.title,
@@ -268,6 +281,28 @@ export function createOpenTrendsMcpServer(
 				sourceId: data.sourceId,
 				title: data.title,
 			});
+		}
+	);
+
+	server.registerTool(
+		"get_article",
+		{
+			description:
+				"Read the extracted body of a current OpenTrends item. Get sourceId and itemId from get_topic or get_source. Some pages are restricted or cannot be extracted; text is capped and truncation is reported.",
+			inputSchema: {
+				itemId: z.string().min(1),
+				sourceId: z.string().min(1),
+				topic,
+			},
+		},
+		async ({ itemId, sourceId, topic: id }) => {
+			const { data } = await getJson<ArticleContent>(
+				baseUrl,
+				`/api/trends/${id}/sources/${encodeURIComponent(sourceId)}/article`,
+				{ itemId },
+				fetcher
+			);
+			return text(data);
 		}
 	);
 
