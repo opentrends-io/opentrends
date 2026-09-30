@@ -31,6 +31,7 @@ import {
 } from "./event-scoring";
 import { independentSourceCount } from "./event-source-family";
 import { normalizeEventText } from "./event-text";
+import { eventTopicIds } from "./event-topics";
 import {
 	CLOUDFLARE_FREE_SUBREQUEST_LIMIT,
 	D1_EMBEDDING_WRITE_BATCH_SIZE,
@@ -314,10 +315,7 @@ function eventTopics(
 	topicsBySource: ReadonlyMap<string, readonly string[]>,
 	topicOrder: readonly string[]
 ): string[] {
-	const topics = new Set(
-		cluster.items.flatMap((item) => topicsBySource.get(item.sourceId) ?? [])
-	);
-	return topicOrder.filter((topicId) => topics.has(topicId));
+	return eventTopicIds(cluster.items, topicsBySource, topicOrder);
 }
 
 // The events, topic links and source links the current reports call for.

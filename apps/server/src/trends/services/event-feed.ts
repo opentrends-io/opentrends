@@ -10,6 +10,7 @@ import {
 	assertEventEmbeddingConfigured,
 	getEventEmbeddingModel,
 } from "./event-embedding";
+import { isEvergreenText } from "./event-evergreen";
 import { EVENT_SIMILARITY_THRESHOLD } from "./event-merge-rules";
 import { isLowValuePromotionText } from "./event-promotions";
 import { EVENT_LOOKBACK_MS } from "./event-rebuild";
@@ -193,6 +194,9 @@ function isLowValueSingleSourceFeedRow(row: EventFeedRow): boolean {
 	}
 	const text = `${row.title}\n${row.summary ?? ""}\n${row.primaryDescription ?? ""}`;
 	if (LOW_VALUE_SINGLE_SOURCE_RE.test(text) && row.score < 150) {
+		return true;
+	}
+	if (isEvergreenText(row.title)) {
 		return true;
 	}
 	if (row.score >= 135 || sourceSignalTier(row.primarySourceId) !== "t2") {

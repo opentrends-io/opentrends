@@ -10,6 +10,17 @@ export const EVENT_SIMILARITY_THRESHOLD = 0.5;
 export const EVENT_RELATED_SIMILARITY_THRESHOLD = 0.46;
 export const EVENT_STRONG_SIMILARITY_THRESHOLD = 0.62;
 
+// A report can join an event through one of its later reports, not only
+// its first, but only on a strong match, and only when the first report is
+// not unrelated: middling matches through members (0.50-0.55) joined
+// different stories as often as the same one on 2026-09-29 data.
+export const EVENT_MEMBER_ANCHOR_FLOOR = 0.4;
+// Two events a report matches are one story when their first reports are
+// this close, share this many keywords and came out within two days.
+export const EVENT_BRIDGE_ANCHOR_SIMILARITY = 0.45;
+export const EVENT_BRIDGE_MIN_KEYWORDS = 3;
+export const EVENT_BRIDGE_MAX_GAP_MS = 48 * 60 * 60_000;
+
 const EVENT_MIN_KEYWORD_MATCHES = 3;
 const EVENT_RELATED_MIN_KEYWORD_MATCHES = 5;
 
@@ -149,4 +160,11 @@ export function isSameEventSignal({
 		similarity >= EVENT_RELATED_SIMILARITY_THRESHOLD &&
 		keywordMatches >= EVENT_RELATED_MIN_KEYWORD_MATCHES
 	);
+}
+
+export function isStrongEventSignal({
+	keywordMatches,
+	similarity,
+}: EventMergeSignal): boolean {
+	return similarity >= EVENT_STRONG_SIMILARITY_THRESHOLD && keywordMatches >= 1;
 }
