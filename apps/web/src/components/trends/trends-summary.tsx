@@ -36,8 +36,10 @@ import {
 import {
 	countDigestLines,
 	DIGEST_FOLD,
+	type DigestLine,
 	digestLines,
 	foldDigest,
+	foldStartIndex,
 	shouldExpandGeneratedSummary,
 	shouldShowDigestTopicTags,
 } from "./digest-fold";
@@ -475,6 +477,62 @@ function summaryNotice(
 	return null;
 }
 
+// The finished digest, one entry per line. When folded, the lines past the
+// fold are still rendered, so they are in the HTML, but hidden.
+function DigestList({
+	citations,
+	contentKey,
+	folded,
+	lines,
+	showTopicTags,
+	t,
+	topicHref,
+}: {
+	citations: CitationMap;
+	contentKey: string;
+	folded: boolean;
+	lines: DigestLine[];
+	showTopicTags: boolean;
+	t: Translator;
+	topicHref: (id: string) => string;
+}) {
+	const hiddenFrom = folded ? foldStartIndex(lines, DIGEST_FOLD) : lines.length;
+	return (
+		<ol className="space-y-1">
+			{lines.map((line, index) =>
+				line.kind === "entry" ? (
+					<li
+						className={index >= hiddenFrom ? "hidden" : "flex gap-2"}
+						key={`${contentKey}:${line.n}`}
+					>
+						<span className="w-4 shrink-0 text-right text-[var(--text-muted)] tabular-nums">
+							{line.n}.
+						</span>
+						<span className="min-w-0 flex-1 [&>div]:inline [&_p]:inline">
+							{showTopicTags && line.topic ? (
+								<a
+									className={`mr-1.5 inline-block rounded-[4px] px-1.5 align-[1px] font-medium text-[10px] leading-[1.6] no-underline ${TOPIC_TAG_CLASS[line.topic] ?? DEFAULT_TAG_CLASS}`}
+									href={topicHref(line.topic)}
+								>
+									{t(`topic.${line.topic}` as TranslationKey)}
+								</a>
+							) : null}
+							<DigestLineBody body={line.body} citations={citations} />
+						</span>
+					</li>
+				) : (
+					<li
+						className={index >= hiddenFrom ? "hidden" : "list-none"}
+						key={`${contentKey}:text:${line.text}`}
+					>
+						<Streamdown linkSafety={LINK_SAFETY}>{line.text}</Streamdown>
+					</li>
+				)
+			)}
+		</ol>
+	);
+}
+
 function SummaryBody({
 	citations,
 	contentKey,
@@ -490,7 +548,8 @@ function SummaryBody({
 }: SummaryBodyProps) {
 	const total = countDigestLines(text);
 	const foldable = status === "done" && total > DIGEST_FOLD;
-	const shown = foldable && !expanded ? foldDigest(text, DIGEST_FOLD) : text;
+	const folded = foldable && !expanded;
+	const shown = folded ? foldDigest(text, DIGEST_FOLD) : text;
 	const linkified = useMemo(
 		() => linkifyCitations(shown, citations),
 		[shown, citations]
@@ -498,9 +557,11 @@ function SummaryBody({
 	// Once the digest is complete it is laid out line by line, so each entry
 	// can carry a topic tag in front of its text; while streaming, the whole
 	// Markdown goes through one renderer.
+	// All lines are laid out, including the folded ones, which are hidden
+	// with CSS: the full digest is in the HTML crawlers read.
 	const lines = useMemo(
-		() => (status === "done" ? digestLines(shown, citations) : null),
-		[status, shown, citations]
+		() => (status === "done" ? digestLines(text, citations) : null),
+		[status, text, citations]
 	);
 	// Hover-driven citation popover. Streamdown's `linkSafety` only fires on
 	// click, so we drive the preview ourselves: pointer enters a chip → open;
@@ -590,35 +651,15 @@ function SummaryBody({
 					onPointerOver={handlePointerOver}
 				>
 					{lines ? (
-						<ol className="space-y-1">
-							{lines.map((line, index) =>
-								line.kind === "entry" ? (
-									<li className="flex gap-2" key={`${contentKey}:${line.n}`}>
-										<span className="w-4 shrink-0 text-right text-[var(--text-muted)] tabular-nums">
-											{line.n}.
-										</span>
-										<span className="min-w-0 flex-1 [&>div]:inline [&_p]:inline">
-											{showTopicTags && line.topic ? (
-												<a
-													className={`mr-1.5 inline-block rounded-[4px] px-1.5 align-[1px] font-medium text-[10px] leading-[1.6] no-underline ${TOPIC_TAG_CLASS[line.topic] ?? DEFAULT_TAG_CLASS}`}
-													href={topicHref(line.topic)}
-												>
-													{t(`topic.${line.topic}` as TranslationKey)}
-												</a>
-											) : null}
-											<DigestLineBody body={line.body} citations={citations} />
-										</span>
-									</li>
-								) : (
-									// biome-ignore lint/suspicious/noArrayIndexKey: prose lines have no id
-									<li className="list-none" key={`${contentKey}:text:${index}`}>
-										<Streamdown linkSafety={LINK_SAFETY}>
-											{line.text}
-										</Streamdown>
-									</li>
-								)
-							)}
-						</ol>
+						<DigestList
+							citations={citations}
+							contentKey={contentKey}
+							folded={folded}
+							lines={lines}
+							showTopicTags={showTopicTags}
+							t={t}
+							topicHref={topicHref}
+						/>
 					) : (
 						<Suspense fallback={<DigestSkeleton rows={DIGEST_FOLD} />}>
 							<Streamdown key={contentKey} linkSafety={LINK_SAFETY}>
