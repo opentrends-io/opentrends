@@ -32,12 +32,15 @@ const PENDING_RETRIES = 6;
 const TRAILING_SLASH_RE = /\/$/;
 
 export type Lang = (typeof LANGS)[number];
+type ApiFetcher = (url: URL, init: RequestInit) => Promise<Response>;
 
 export interface OpenTrendsMcpOptions {
 	/** The OpenTrends API to read from; a self-hosted instance passes its own. */
 	baseUrl?: string;
 	/** Language used when a call does not name one. */
 	defaultLang?: Lang;
+	/** Use an in-process dispatcher when MCP runs inside the API Worker. */
+	fetcher?: ApiFetcher;
 }
 
 interface Item {
@@ -84,13 +87,14 @@ interface Digest {
 async function getJson<T>(
 	baseUrl: string,
 	path: string,
-	query: Record<string, string>
+	query: Record<string, string>,
+	fetcher: ApiFetcher
 ) {
 	const url = new URL(`${baseUrl}${path}`);
 	for (const [key, value] of Object.entries(query)) {
 		url.searchParams.set(key, value);
 	}
-	const response = await fetch(url, {
+	const response = await fetcher(url, {
 		headers: { accept: "application/json", "user-agent": "opentrends-mcp" },
 	});
 	if (!response.ok) {
@@ -159,6 +163,7 @@ export function createOpenTrendsMcpServer(
 		TRAILING_SLASH_RE,
 		""
 	);
+	const fetcher = options.fetcher ?? fetch;
 	const topic = z.enum(TOPICS).describe("Topic id");
 	const lang = z
 		.enum(LANGS)
@@ -182,7 +187,8 @@ export function createOpenTrendsMcpServer(
 				const { data, status } = await getJson<Digest | { status: string }>(
 					baseUrl,
 					`/api/trends/${id}/summary`,
-					{ format: "json", lang: language, window }
+					{ format: "json", lang: language, window },
+					fetcher
 				);
 				if (status === 200 && "entries" in data) {
 					return text({
@@ -212,10 +218,15 @@ export function createOpenTrendsMcpServer(
 			},
 		},
 		async ({ itemsPerSource, lang: language, topic: id }) => {
-			const { data } = await getJson<TopicPage>(baseUrl, `/api/trends/${id}`, {
-				items: String(itemsPerSource),
-				lang: language,
-			});
+			const { data } = await getJson<TopicPage>(
+				baseUrl,
+				`/api/trends/${id}`,
+				{
+					items: String(itemsPerSource),
+					lang: language,
+				},
+				fetcher
+			);
 			return text({
 				sources: data.sections.flatMap((section) =>
 					section.sources.map((source) => ({
@@ -248,7 +259,8 @@ export function createOpenTrendsMcpServer(
 			const { data } = await getJson<Source>(
 				baseUrl,
 				`/api/trends/${id}/sources/${encodeURIComponent(sourceId)}`,
-				{ lang: language }
+				{ lang: language },
+				fetcher
 			);
 			return text({
 				homeUrl: data.homeUrl,
@@ -276,10 +288,15 @@ export function createOpenTrendsMcpServer(
 			const needle = query.toLowerCase();
 			const pages = await Promise.all(
 				ids.map((value) =>
-					getJson<TopicPage>(baseUrl, `/api/trends/${value}`, {
-						items: "preview",
-						lang: language,
-					}).then(({ data }) => data)
+					getJson<TopicPage>(
+						baseUrl,
+						`/api/trends/${value}`,
+						{
+							items: "preview",
+							lang: language,
+						},
+						fetcher
+					).then(({ data }) => data)
 				)
 			);
 			const hits = searchPages(pages, needle);

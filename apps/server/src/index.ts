@@ -15,7 +15,7 @@ import { eventPageRoutes } from "./routes/event-pages";
 import { eventsRoutes } from "./routes/events";
 import { feedRoutes } from "./routes/feeds";
 import { imageRoutes } from "./routes/images";
-import { mcpRoutes } from "./routes/mcp";
+import { createMcpRoutes } from "./routes/mcp";
 import { skillsRoutes } from "./routes/skills";
 import { sourcesRoutes } from "./routes/sources";
 import { topicsRoutes } from "./routes/topics";
@@ -143,7 +143,12 @@ app.route("/api/archive", archiveRoutes);
 app.route("/api/event-pages", eventPageRoutes);
 app.route("/api/trends", feedRoutes);
 app.route("/api/trends", calendarRoutes);
-app.route("/mcp", mcpRoutes);
+app.route(
+	"/mcp",
+	createMcpRoutes(async (request, context) =>
+		app.fetch(request, context.env, context.executionCtx)
+	)
+);
 
 export const apiHandler = new OpenAPIHandler(appRouter, {
 	plugins: [
