@@ -85,6 +85,7 @@ describe("extractArticleText", () => {
 		expect(result.status).toBe("ok");
 		expect(result.text.length).toBeLessThanOrEqual(MAX_ARTICLE_TEXT_LENGTH);
 		expect(result.text.length).toBeGreaterThan(MAX_ARTICLE_TEXT_LENGTH - 100);
+		expect(result.truncated).toBe(true);
 	});
 
 	test("copes with empty and bodiless responses", () => {

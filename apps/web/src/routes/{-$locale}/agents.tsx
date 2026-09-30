@@ -57,6 +57,7 @@ const MCP_TOOLS = [
 	["get_digest", "topic, window?, lang?"],
 	["get_topic", "topic, itemsPerSource?, lang?"],
 	["get_source", "topic, sourceId, lang?"],
+	["get_article", "topic, sourceId, itemId"],
 	["search", "query, topic?, lang?, limit?"],
 ] as const;
 
@@ -151,7 +152,7 @@ const EN: Strings = {
 	],
 	mcpStepTools: [
 		"Check the tools",
-		"Once connected the agent should list these four.",
+		"Once connected the agent should list these five.",
 	],
 	mcpStepVerify: [
 		"Ask one question to verify",
@@ -226,7 +227,7 @@ const EN: Strings = {
 	mcpSuccess:
 		"The client shows a call to get_digest, and the answer has ten lines in your language, each with citation links.",
 	mcpTitle: "MCP",
-	mcpTools: "Once connected you should see these four tools",
+	mcpTools: "Once connected you should see these five tools",
 	mcpUrl: "Server URL",
 	mcpVerify:
 		"Call get_digest and give me today's ten for AI, with citation links.",
@@ -287,7 +288,7 @@ const ZH: Strings = {
 		"把这句话发给你的 Agent",
 		"它会把 server 写进自己的配置。不用安装，不用 key。",
 	],
-	mcpStepTools: ["看一眼工具", "接上后 Agent 应该列出这四个。"],
+	mcpStepTools: ["看一眼工具", "接上后 Agent 应该列出这五个。"],
 	mcpStepVerify: ["问一句验证", "真实调用一次，看得见结果。"],
 	rssDigestSuccess:
 		"阅读器里出现一条：今天的 10 条，每条带引用链接；摘要变了才会出新的一条。",
@@ -350,7 +351,7 @@ const ZH: Strings = {
 	mcpSuccess:
 		"客户端显示调用了 get_digest，回答是 10 条你的语言的要点，每条带引用链接。",
 	mcpTitle: "MCP",
-	mcpTools: "连上后应看到这四个工具",
+	mcpTools: "连上后应看到这五个工具",
 	mcpUrl: "Server 地址",
 	mcpVerify: "请调用 get_digest，给我今天 AI 的 10 条，带引用链接。",
 	rssDigest: "摘要 feed",
@@ -405,7 +406,7 @@ const ZH_HANT: Strings = {
 		"把這句話發給你的 Agent",
 		"它會把 server 寫進自己的設定。不用安裝，不用 key。",
 	],
-	mcpStepTools: ["看一眼工具", "接上後 Agent 應該列出這四個。"],
+	mcpStepTools: ["看一眼工具", "接上後 Agent 應該列出這五個。"],
 	mcpStepVerify: ["問一句驗證", "真實呼叫一次，看得見結果。"],
 	rssDigestSuccess:
 		"閱讀器裡出現一則：今天的 10 則，每則附引用連結；摘要變了才會出新的一則。",
@@ -466,7 +467,7 @@ const ZH_HANT: Strings = {
 	mcpLocalTitle: "本機替代",
 	mcpSuccess:
 		"用戶端顯示呼叫了 get_digest，回答是 10 則你的語言的要點，每則附引用連結。",
-	mcpTools: "連上後應看到這四個工具",
+	mcpTools: "連上後應看到這五個工具",
 	mcpUrl: "Server 位址",
 	mcpVerify: "請呼叫 get_digest，給我今天 AI 的 10 則，附引用連結。",
 	rssIntro:

@@ -12,7 +12,11 @@ API; no key, no scraping.
 | `get_digest(topic, window?, lang?)` | "What happened in AI today / this week / this month?" — takeaways, reasons, citation links |
 | `get_topic(topic, itemsPerSource?, lang?)` | "What are the sources saying?" — every source with its latest items |
 | `get_source(topic, sourceId, lang?)` | One source's full list |
+| `get_article(topic, sourceId, itemId)` | Extracted body of one current item; IDs come from `get_topic` or `get_source` |
 | `search(query, topic?, lang?, limit?)` | Items whose title contains a phrase |
+
+Article text is limited to 12,000 characters. The result reports whether the
+page was restricted, too short, failed to load, or may have been truncated.
 
 Topics: `featured`, `ai`, `programming`, `hardware`, `biotech`, `embodied`, `cn`.
 Languages: `en`, `zh`, `zh-Hant`, `ru`, `fr-FR`, `es-ES`, `de-DE`, `pt-BR`.
