@@ -1,4 +1,6 @@
 {
+  "feed_load_error": "Impossible de charger le fil. Veuillez réessayer.",
+  "feed_retry": "Réessayer",
   "nav_home": "Accueil",
   "nav_trends": "Tendances",
   "nav_events": "Events",

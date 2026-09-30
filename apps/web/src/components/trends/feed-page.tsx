@@ -1,5 +1,6 @@
 import { env } from "@opentrends/env/web";
 import { useQueries } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Flame, Rss } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -24,6 +25,8 @@ import {
 	withListCards,
 } from "./feed-model";
 import { readFeedSignals, recordFeedClick } from "./feed-signals";
+import { feedStatus } from "./feed-status";
+import { FollowedEmptyState } from "./followed-empty-state";
 import { FOLLOWED_TOPIC_ID, useFollowedSources } from "./followed-sources";
 import { itemAttributes } from "./item-attributes";
 import {
@@ -46,6 +49,11 @@ import type { NewsItem, SourceCardData, TrendsPageData } from "./types";
 import { ViewSwitch } from "./view-switch";
 
 const PAGE_SIZE = 40;
+const FEED_STATUS_MESSAGES = {
+	error: "feed.loadError",
+	hidden: "display.allSourcesHidden",
+	empty: "card.noContent",
+} as const;
 // The featured feed draws on every topic. The other topics only feed the
 // ranking pool, where a source never gets more than two of twelve slots, so
 // a dozen items each is plenty and the download is a third of the size.
@@ -137,7 +145,7 @@ export function FeedPage({ topicId }: FeedPageProps) {
 		topicId === FEATURED_TOPIC_ID ? [...ALL_TOPIC_IDS] : [topicId];
 	// useQueries' `combine` memoises on the query results, so `pages` only
 	// changes when a page actually loads or refreshes.
-	const { pages, pending } = useQueries({
+	const { pages, pending, failed, retry } = useQueries({
 		queries: topicIds.map((id) => {
 			if (id === FOLLOWED_TOPIC_ID) {
 				return {
@@ -158,7 +166,18 @@ export function FeedPage({ topicId }: FeedPageProps) {
 			pages: results
 				.map((result) => result.data)
 				.filter((page): page is TrendsPageData => Boolean(page)),
-			pending: results.some((result) => result.isPending && result.isEnabled),
+			pending: results.some(
+				(result) =>
+					result.isEnabled &&
+					(result.isPending || (result.isFetching && !result.data))
+			),
+			failed: results.some((result) => result.isEnabled && result.isError),
+			retry: () =>
+				Promise.all(
+					results
+						.filter((result) => result.isEnabled && result.isError)
+						.map((result) => result.refetch())
+				),
 		}),
 	});
 	const primary = pages.find((page) => page.id === topicId) ?? pages[0];
@@ -213,6 +232,16 @@ export function FeedPage({ topicId }: FeedPageProps) {
 	);
 	const [limit, setLimit] = useState(PAGE_SIZE);
 	const sentinelRef = useRef<HTMLDivElement>(null);
+	const status = feedStatus({
+		isFollowed: topicId === FOLLOWED_TOPIC_ID,
+		followedCount: followedIds.length,
+		pending,
+		failed,
+		visibleCount: shown.length,
+		allSourcesHidden:
+			primarySourceIds.length > 0 &&
+			primarySourceIds.every((id) => hiddenSourceIds.includes(id)),
+	});
 
 	useEffect(() => {
 		const sentinel = sentinelRef.current;
@@ -277,10 +306,43 @@ export function FeedPage({ topicId }: FeedPageProps) {
 					topicTitle={primary.title}
 				/>
 			) : null}
-			{pending && blocks.length === 0 ? (
-				<FeedSkeleton />
-			) : (
-				<Masonry blocks={shown.slice(0, limit)} t={t} />
+			{status === "unfollowed" && <FollowedEmptyState />}
+			{status === "loading" && <FeedSkeleton />}
+			{status === "content" && <Masonry blocks={shown.slice(0, limit)} t={t} />}
+			{(status === "error" || status === "empty" || status === "hidden") && (
+				<section
+					className="flex flex-col items-center gap-3 px-6 py-20 text-center text-[13px] text-[var(--text-secondary)]"
+					role="status"
+				>
+					<p>{t(FEED_STATUS_MESSAGES[status])}</p>
+					{status === "error" && (
+						<button
+							className={toolButtonClassName}
+							onClick={retry}
+							type="button"
+						>
+							{t("feed.retry")}
+						</button>
+					)}
+					{status === "hidden" && (
+						<button
+							className={toolButtonClassName}
+							onClick={sourcePreferences.showAllSources}
+							type="button"
+						>
+							{t("display.restoreAllSources")}
+						</button>
+					)}
+					{status === "empty" && (
+						<Link
+							className="text-[var(--accent-blue)] hover:underline"
+							params={{ locale: localeParam, topic: topicId }}
+							to="/{-$locale}/trends/$topic"
+						>
+							{t("nav.sources")}
+						</Link>
+					)}
+				</section>
 			)}
 			<div className="h-10" ref={sentinelRef} />
 		</div>

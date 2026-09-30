@@ -56,6 +56,8 @@ const MESSAGE_IDS = {
 	"nav.events": "nav_events",
 	"nav.feed": "nav_feed",
 	"feed.count": "feed_count",
+	"feed.loadError": "feed_load_error",
+	"feed.retry": "feed_retry",
 	"feed.seoDescription": "feed_seo_description",
 	"nav.sources": "nav_sources",
 	"nav.skills": "nav_skills",

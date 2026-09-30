@@ -201,6 +201,8 @@
   "display_original_title": "Original title",
   "card_hot_list": "Hot",
   "feed_count": "{count} items",
+  "feed_load_error": "Could not load the feed. Please try again.",
+  "feed_retry": "Retry",
   "feed_seo_description": "A single feed of what is new and hot across your sources.",
   "view_sources": "Sources",
   "source_manager_button": "Manage sources",
