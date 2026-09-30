@@ -1,4 +1,6 @@
 {
+  "feed_load_error": "Не удалось загрузить ленту. Попробуйте ещё раз.",
+  "feed_retry": "Повторить",
   "nav_home": "Главная",
   "nav_trends": "Тренды",
   "nav_events": "Events",

@@ -1,12 +1,7 @@
 /* biome-ignore lint/style/useFilenamingConvention: TanStack file-route naming requires $topic segment. */
 import { useQuery } from "@tanstack/react-query";
-import {
-	createFileRoute,
-	Link,
-	notFound,
-	redirect,
-} from "@tanstack/react-router";
-import { Star } from "lucide-react";
+import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
+import { FollowedEmptyState } from "@/components/trends/followed-empty-state";
 import {
 	FOLLOWED_TOPIC_ID,
 	useFollowedSources,
@@ -28,12 +23,9 @@ import type { DigestJsonData, TrendsPageData } from "@/components/trends/types";
 import {
 	isLocale,
 	type Locale,
-	localePathParam,
 	resolveLocale,
 	type TranslationKey,
 	translate,
-	useLocale,
-	useT,
 } from "@/lib/i18n";
 import { buildSeo, localizedPath, SITE_URL } from "@/lib/seo";
 import {
@@ -221,27 +213,6 @@ export const Route = createFileRoute("/{-$locale}/_views/trends/$topic")({
 		};
 	},
 });
-
-// Nothing followed yet: point at the star on every card.
-function FollowedEmptyState() {
-	const t = useT();
-	const locale = useLocale();
-	return (
-		<main className="flex flex-1 flex-col items-center justify-center gap-3 bg-[var(--surface-app)] px-6 py-20 text-center">
-			<Star aria-hidden className="size-6 text-[var(--text-muted)]" />
-			<p className="max-w-sm text-[13px] text-[var(--text-secondary)]">
-				{t("followed.empty")}
-			</p>
-			<Link
-				className="text-[13px] text-[var(--accent-blue)] hover:underline"
-				params={{ locale: localePathParam(locale), topic: "featured" }}
-				to="/{-$locale}/trends/$topic"
-			>
-				{t("followed.browseFeatured")}
-			</Link>
-		</main>
-	);
-}
 
 function TrendsTopicComponent() {
 	const params = Route.useParams();

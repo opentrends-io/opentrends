@@ -1,4 +1,6 @@
 {
+  "feed_load_error": "No se pudo cargar el contenido. Inténtalo de nuevo.",
+  "feed_retry": "Reintentar",
   "nav_home": "Inicio",
   "nav_trends": "Tendencias",
   "nav_events": "Events",

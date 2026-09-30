@@ -1,4 +1,6 @@
 {
+  "feed_load_error": "內容載入失敗，請重試。",
+  "feed_retry": "重試",
   "nav_home": "首頁",
   "nav_trends": "趨勢",
   "nav_events": "事件",

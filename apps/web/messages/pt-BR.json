@@ -1,4 +1,6 @@
 {
+  "feed_load_error": "Não foi possível carregar o feed. Tente novamente.",
+  "feed_retry": "Tentar novamente",
   "nav_home": "Início",
   "nav_trends": "Tendências",
   "nav_events": "Events",
