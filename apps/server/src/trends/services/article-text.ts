@@ -209,7 +209,8 @@ function parseDocument(html: string, url: string) {
  */
 export function extractArticleText(
 	html: string,
-	url: string
+	url: string,
+	maxLength = MAX_ARTICLE_TEXT_LENGTH
 ): ArticleTextResult {
 	const document = parseDocument(html, url);
 	const result = new DefuddleClass(document as never, {
@@ -217,10 +218,10 @@ export function extractArticleText(
 		useAsync: false,
 	}).parse();
 	const fullText = htmlToPlainText(result.content ?? "");
-	const text = truncateText(fullText, MAX_ARTICLE_TEXT_LENGTH);
+	const text = truncateText(fullText, maxLength);
 	return {
 		status: text.length >= MIN_ARTICLE_TEXT_LENGTH ? "ok" : "too_short",
 		text,
-		truncated: fullText.length > MAX_ARTICLE_TEXT_LENGTH,
+		truncated: fullText.length > maxLength,
 	};
 }

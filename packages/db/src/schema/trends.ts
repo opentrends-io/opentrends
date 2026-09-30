@@ -49,6 +49,10 @@ export const sourceItem = sqliteTable(
 		contentFetchedAt: integer("content_fetched_at", { mode: "timestamp" }),
 		contentStatus: text("content_status").default("pending").notNull(),
 		contentError: text("content_error"),
+		articleText: text("article_text"),
+		articleVersion: text("article_version"),
+		articleContentHash: text("article_content_hash"),
+		articleTruncated: integer("article_truncated", { mode: "boolean" }),
 		hotValue: text("hot_value", { mode: "json" }).$type<
 			string | number | null
 		>(),
@@ -65,6 +69,11 @@ export const sourceItem = sqliteTable(
 			table.rank
 		),
 		index("source_item_source_fetched_idx").on(table.sourceId, table.fetchedAt),
+		index("source_item_source_time_idx").on(
+			table.sourceId,
+			sql`coalesce(${table.publishedAt}, ${table.fetchedAt})`,
+			table.itemId
+		),
 		index("source_item_source_published_idx").on(
 			table.sourceId,
 			table.publishedAt

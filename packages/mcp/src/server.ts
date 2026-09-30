@@ -85,13 +85,19 @@ interface Digest {
 }
 
 interface ArticleContent {
+	contentTruncated?: boolean;
+	contentVersion?: string;
+	hasMore?: boolean;
 	itemId: string;
+	nextCursor?: string;
+	offset?: number;
 	source?: "cache" | "fetched";
 	sourceId: string;
 	status: "failed" | "ok" | "pending" | "restricted" | "too_short";
 	text?: string;
 	textLimitChars: number;
 	title: string;
+	totalChars?: number;
 	truncated?: boolean | "unknown";
 	url: string;
 }
@@ -110,6 +116,12 @@ async function getJson<T>(
 		headers: { accept: "application/json", "user-agent": "opentrends-mcp" },
 	});
 	if (!response.ok) {
+		const error = (await response.json().catch(() => null)) as {
+			message?: unknown;
+		} | null;
+		if (typeof error?.message === "string") {
+			throw new Error(`${response.status}: ${error.message}`);
+		}
 		throw new Error(`${response.status} ${response.statusText} for ${path}`);
 	}
 	return { data: (await response.json()) as T, status: response.status };
@@ -182,7 +194,7 @@ export function createOpenTrendsMcpServer(
 		.enum(LANGS)
 		.default(options.defaultLang ?? "en")
 		.describe("Language of titles and digest");
-	const server = new McpServer({ name: "opentrends", version: "0.2.0" });
+	const server = new McpServer({ name: "opentrends", version: "0.3.0" });
 
 	server.registerTool(
 		"get_digest",
@@ -288,18 +300,25 @@ export function createOpenTrendsMcpServer(
 		"get_article",
 		{
 			description:
-				"Read the extracted body of a current OpenTrends item. Get sourceId and itemId from get_topic or get_source. Some pages are restricted or cannot be extracted; text is capped and truncation is reported.",
+				"Read a current or retained historical article. Get sourceId and itemId from search, get_topic or get_source. Returns up to 12,000 characters per page: repeat with nextCursor until hasMore is false. contentTruncated reports extraction limits (200,000 characters or 3 MB HTML), separately from pagination. If the article changes, restart without a cursor. Some sites restrict access.",
 			inputSchema: {
+				cursor: z
+					.string()
+					.max(4000)
+					.optional()
+					.describe(
+						"The previous response's nextCursor; keep the same article IDs."
+					),
 				itemId: z.string().min(1),
 				sourceId: z.string().min(1),
 				topic,
 			},
 		},
-		async ({ itemId, sourceId, topic: id }) => {
+		async ({ cursor, itemId, sourceId, topic: id }) => {
 			const { data } = await getJson<ArticleContent>(
 				baseUrl,
 				`/api/trends/${id}/sources/${encodeURIComponent(sourceId)}/article`,
-				{ itemId },
+				{ itemId, ...(cursor ? { cursor } : {}) },
 				fetcher
 			);
 			return text(data);
@@ -310,15 +329,46 @@ export function createOpenTrendsMcpServer(
 		"search",
 		{
 			description:
-				"Find items across one topic (or all topics) whose title contains the query. Cheap substring match, not semantic.",
+				"Find articles by substring. For recent-week or historical research, pass since and until: searches all retained titles/descriptions in that range, including items no longer on the feed, in their original language. Range max 31 days; since inclusive, until exclusive; dates are UTC unless a timezone is supplied. Repeat with nextCursor and the same query/topic to get all results. Without dates, preserves current-feed translated title search. Retained history is not a complete web archive.",
 			inputSchema: {
+				cursor: z.string().max(4000).optional(),
+				since: z
+					.union([z.iso.datetime({ offset: true }), z.iso.date()])
+					.optional(),
+				until: z
+					.union([z.iso.datetime({ offset: true }), z.iso.date()])
+					.optional(),
 				lang,
 				limit: z.number().int().min(1).max(100).default(30),
-				query: z.string().min(1),
+				query: z.string().trim().min(1).max(200),
 				topic: topic.optional(),
 			},
 		},
-		async ({ lang: language, limit, query, topic: id }) => {
+		async ({
+			cursor,
+			since,
+			until,
+			lang: language,
+			limit,
+			query,
+			topic: id,
+		}) => {
+			if (since || until || cursor) {
+				const { data } = await getJson<unknown>(
+					baseUrl,
+					"/api/trends/search",
+					{
+						query,
+						limit: String(limit),
+						...(id ? { topic: id } : {}),
+						...(since ? { since } : {}),
+						...(until ? { until } : {}),
+						...(cursor ? { cursor } : {}),
+					},
+					fetcher
+				);
+				return text(data);
+			}
 			const ids = id ? [id] : TOPICS.filter((value) => value !== "featured");
 			const needle = query.toLowerCase();
 			const pages = await Promise.all(
@@ -335,7 +385,14 @@ export function createOpenTrendsMcpServer(
 				)
 			);
 			const hits = searchPages(pages, needle);
-			return text({ hits: hits.slice(0, limit), query, total: hits.length });
+			return text({
+				hits: hits.slice(0, limit),
+				query,
+				total: hits.length,
+				coverage: "current_feed_previews",
+				historyHint:
+					"Pass since and until to search retained history and paginate results.",
+			});
 		}
 	);
 
