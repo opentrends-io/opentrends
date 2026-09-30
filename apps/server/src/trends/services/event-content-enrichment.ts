@@ -60,7 +60,7 @@ function describeError(stage: ContentErrorStage, error: unknown): string {
  */
 export async function extractContentText(
 	url: string,
-	options: FetchArticleOptions = {}
+	options: FetchArticleOptions & { maxTextLength?: number } = {}
 ): Promise<ContentExtractionResult> {
 	let page: ArticlePage;
 	try {
@@ -75,7 +75,11 @@ export async function extractContentText(
 		return { status: "failed", error: describeError("fetch", error) };
 	}
 	try {
-		const extracted = extractArticleText(page.html, page.url);
+		const extracted = extractArticleText(
+			page.html,
+			page.url,
+			options.maxTextLength
+		);
 		return { ...extracted, truncated: page.truncated || extracted.truncated };
 	} catch (error) {
 		return { status: "failed", error: describeError("extract", error) };

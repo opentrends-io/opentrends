@@ -7,6 +7,7 @@ import {
 } from "../trends/config/followed-topic";
 import { archivedDaysFor } from "../trends/services/archive-index";
 import { getArticleContent } from "../trends/services/article-content";
+import { searchArticles } from "../trends/services/article-search";
 import {
 	isArchiveDay,
 	readArchivedDigest,
@@ -34,6 +35,10 @@ import {
 	withCitationPreamble,
 } from "../trends/services/get-trends-summary";
 import { slimTrendsPage } from "../trends/services/page-slim";
+import {
+	ArticleContentChangedError,
+	ResearchInputError,
+} from "../trends/services/research-cursor";
 import { requestSummaryPrewarmJob } from "../trends/services/summary-prewarm-jobs";
 import {
 	normalizeTranslationLanguage,
@@ -151,6 +156,18 @@ function scheduleTranslationPrewarms(
 }
 
 export const trendsRoutes = new Hono()
+	.get("/search", async (c) => {
+		try {
+			return c.json(await searchArticles(c.req.query()), 200, {
+				"Cache-Control": "no-store",
+			});
+		} catch (error) {
+			if (error instanceof ResearchInputError) {
+				return c.json({ error: "invalid_search", message: error.message }, 400);
+			}
+			throw error;
+		}
+	})
 	.get("/", async (c) => {
 		const lang = normalizeTranslationLanguage(c.req.query("lang"));
 		const translationMode = parseTranslationMode(c.req.query("translations"));
@@ -449,15 +466,29 @@ export const trendsRoutes = new Hono()
 		if (!itemId) {
 			return c.json({ error: "item_id_required" }, 400);
 		}
-		const article = await getArticleContent({
-			itemId,
-			sourceId: c.req.param("sourceId"),
-			topic: c.req.param("topic"),
-		});
-		if (!article) {
-			return c.json({ error: "article_not_found" }, 404);
+		try {
+			const article = await getArticleContent({
+				itemId,
+				cursor: c.req.query("cursor"),
+				sourceId: c.req.param("sourceId"),
+				topic: c.req.param("topic"),
+			});
+			if (!article) {
+				return c.json({ error: "article_not_found" }, 404);
+			}
+			return c.json(article, 200, { "Cache-Control": "no-store" });
+		} catch (error) {
+			if (error instanceof ResearchInputError) {
+				return c.json({ error: "invalid_cursor", message: error.message }, 400);
+			}
+			if (error instanceof ArticleContentChangedError) {
+				return c.json(
+					{ error: "article_changed", message: error.message },
+					409
+				);
+			}
+			throw error;
 		}
-		return c.json(article, 200, { "Cache-Control": "no-store" });
 	})
 	.get("/:topic", async (c) => {
 		const topic = c.req.param("topic");

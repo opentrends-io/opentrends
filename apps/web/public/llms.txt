@@ -23,7 +23,7 @@ Agents should use the JSON API, not the HTML pages. Every endpoint is public and
 
 ## MCP
 
-`https://api.opentrends.io/mcp` — Streamable HTTP, stateless, no key. Tools: `get_digest`, `get_topic`, `get_source`, `get_article`, `search`. `get_article` reads a current item's extracted body by `topic`, `sourceId`, and `itemId`; restricted or unreadable pages return a status. Claude Code: `claude mcp add --transport http opentrends https://api.opentrends.io/mcp`.
+`https://api.opentrends.io/mcp` — Streamable HTTP, stateless, no key. Tools: `get_digest`, `get_topic`, `get_source`, `get_article`, `search`. `search` accepts `since`/`until` to query retained original titles/descriptions (max 31 days), with `nextCursor` pagination. `get_article` reads current or historical bodies by `topic`, `sourceId`, and `itemId`; follow `nextCursor` while `hasMore`. Pages are 12,000 UTF-16 units, extraction is capped at 200,000 units, and `contentTruncated` reports extraction limits. Restricted or unreadable pages return a status. Claude Code: `claude mcp add --transport http opentrends https://api.opentrends.io/mcp`.
 
 Topics: `featured` (the cross-topic landing digest), `ai`, `programming`, `hardware`, `biotech`, `embodied`, `cn`.
 Languages: `zh`, `en`, `zh-Hant`, `ru`, `fr-FR`, `es-ES`, `de-DE`, `pt-BR`.

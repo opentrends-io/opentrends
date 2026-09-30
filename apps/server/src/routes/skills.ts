@@ -2,8 +2,8 @@ import { Hono } from "hono";
 
 const OPENTRENDS_SKILL_MANIFEST = {
 	name: "opentrends",
-	version: "2026.09.30.1",
-	updatedAt: "2026-09-30T06:09:35Z",
+	version: "2026.09.30.2",
+	updatedAt: "2026-09-30T07:40:00Z",
 	baseUrl: "https://api.opentrends.io",
 	installUrl: "https://opentrends.io/agents",
 	skillUrl: "https://opentrends.io/skills/opentrends/SKILL.md",
@@ -18,6 +18,8 @@ const OPENTRENDS_SKILL_MANIFEST = {
 		"cn",
 	],
 	endpoints: {
+		search: "/api/trends/search",
+		article: "/api/trends/:topic/sources/:sourceId/article",
 		topic: "/api/trends/:topic",
 		source: "/api/trends/:topic/sources/:sourceId",
 		summary: "/api/trends/:topic/summary",
@@ -32,6 +34,21 @@ const OPENTRENDS_SKILL_MANIFEST = {
 		tools: ["get_digest", "get_topic", "get_source", "get_article", "search"],
 	},
 	query: {
+		search: {
+			parameters: ["query", "topic", "since", "until", "limit", "cursor"],
+			dateRange:
+				"ISO timestamps with timezone or UTC dates; since inclusive, until exclusive; max 31 days",
+			coverage:
+				"Retained original titles/descriptions; publication date, falling back to labeled fetch date",
+			pagination: "Repeat with nextCursor and the same query/topic",
+		},
+		article: {
+			parameters: ["itemId", "cursor"],
+			pagination:
+				"12,000 UTF-16 units per page; repeat with nextCursor while hasMore; HTTP 409 means restart",
+			extractionLimit:
+				"200,000 UTF-16 units and 3 MiB HTML; contentTruncated reports extraction limits",
+		},
 		lang: ["zh", "en", "zh-Hant", "ru", "fr-FR", "es-ES", "de-DE", "pt-BR"],
 		items: "preview | 1..defaultMax",
 		translations: ["background"],
