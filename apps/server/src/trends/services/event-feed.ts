@@ -1,9 +1,11 @@
 import { db, schema } from "@opentrends/db";
-import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
 
 import { getEventEligibleSourceIds, getSourcePreset } from "../config/sources";
 import { getTopicPreset } from "../config/topics";
+import type { NewsItem } from "../types";
 import { EVENT_TIME_WINDOW_MS } from "./event-clustering";
+import { isLogoLikeImage } from "./event-cover";
 import {
 	assertEventEmbeddingConfigured,
 	getEventEmbeddingModel,
@@ -25,6 +27,8 @@ import {
 	TopicNotFoundError,
 } from "./get-trends-page";
 import {
+	needsTranslation,
+	prewarmItemTranslations,
 	type TranslationLanguage,
 	type TranslationMode,
 	translateNewsItems,
@@ -48,9 +52,19 @@ type EventSelectionReason =
 	| "official_source"
 	| "selected"
 	| "strong_source";
+export interface EventFeedPublisher {
+	firstAt: string;
+	homeUrl?: string;
+	id: string;
+	latestAt: string;
+	title: string;
+}
+
 export interface EventFeedItem {
 	eventId: string;
 	firstSeenAt: string;
+	/** Stories only: how much the story is being reported now. */
+	heat?: number;
 	imageUrl?: string;
 	lastSeenAt: string;
 	original?: {
@@ -63,6 +77,8 @@ export interface EventFeedItem {
 		title: string;
 		url: string;
 	};
+	/** Stories only: each publisher once, in the order they reported. */
+	publishers?: EventFeedPublisher[];
 	score: number;
 	selectionReason?: EventSelectionReason;
 	sourceCount: number;
@@ -80,7 +96,12 @@ export interface EventFeedItem {
 export interface EventFeedResponse {
 	events: EventFeedItem[];
 	nextOffset?: number;
+	/** Some titles are still being translated: do not cache this for long. */
+	translationsPending?: boolean;
 }
+
+/** stories: two or more publishers, by heat. briefs: one publisher, newest first. */
+export type EventFeedView = "stories" | "briefs";
 
 export interface EventDetailResponse {
 	eventId: string;
@@ -142,7 +163,7 @@ function sourceName(sourceId: string): string {
 	return getSourcePreset(sourceId)?.name ?? sourceId;
 }
 
-interface EventFeedRow {
+export interface EventFeedRow {
 	eventId: string;
 	firstSeenAt: Date;
 	imageUrl: string | null;
@@ -180,7 +201,7 @@ function isLowValueSingleSourceFeedRow(row: EventFeedRow): boolean {
 	return !CONSUMER_TECH_NEWS_RE.test(text);
 }
 
-function isLowValueEventFeedRow(row: EventFeedRow): boolean {
+export function isLowValueEventFeedRow(row: EventFeedRow): boolean {
 	return isLowValuePromotionFeedRow(row) || isLowValueSingleSourceFeedRow(row);
 }
 
@@ -204,12 +225,14 @@ function getSelectionReason(
 	return "selected";
 }
 
-function toFeedItem(
+export function toFeedItem(
 	row: EventFeedRow,
 	sources: EventFeedItem["sources"],
 	coverImageUrl?: string
 ): EventFeedItem {
-	const imageUrl = row.imageUrl ?? coverImageUrl;
+	const imageUrl = [row.imageUrl, coverImageUrl].find(
+		(url): url is string => Boolean(url) && !isLogoLikeImage(url ?? "")
+	);
 	const topicIds = row.topicIds ?? [row.topicId];
 	return {
 		eventId: row.eventId,
@@ -236,28 +259,31 @@ function toFeedItem(
 	};
 }
 
+export const eventFeedRowSelection = {
+	eventId: trendEvent.eventId,
+	topicId: trendEvent.topicId,
+	title: trendEvent.title,
+	summary: trendEvent.summary,
+	score: trendEvent.score,
+	sourceCount: trendEvent.sourceCount,
+	firstSeenAt: trendEvent.firstSeenAt,
+	lastSeenAt: trendEvent.lastSeenAt,
+	primarySourceId: trendEvent.primarySourceId,
+	primaryItemId: trendEvent.primaryItemId,
+	primaryDescription: sourceItem.description,
+	url: sourceItem.url,
+	imageUrl: sourceItem.imageUrl,
+};
+
 function readEventFeedRows(
 	topicId?: string,
 	limit = EVENT_FEED_DEFAULT_LIMIT,
-	offset = 0
+	offset = 0,
+	view?: EventFeedView
 ): Promise<EventFeedRow[]> {
 	const eventSourceIds = getEventEligibleSourceIds();
 	const query = db
-		.select({
-			eventId: trendEvent.eventId,
-			topicId: trendEvent.topicId,
-			title: trendEvent.title,
-			summary: trendEvent.summary,
-			score: trendEvent.score,
-			sourceCount: trendEvent.sourceCount,
-			firstSeenAt: trendEvent.firstSeenAt,
-			lastSeenAt: trendEvent.lastSeenAt,
-			primarySourceId: trendEvent.primarySourceId,
-			primaryItemId: trendEvent.primaryItemId,
-			primaryDescription: sourceItem.description,
-			url: sourceItem.url,
-			imageUrl: sourceItem.imageUrl,
-		})
+		.select(eventFeedRowSelection)
 		.from(trendEvent)
 		.leftJoin(
 			sourceItem,
@@ -267,10 +293,13 @@ function readEventFeedRows(
 			)
 		)
 		.$dynamic();
-	const eventSourcePredicate = inArray(
-		trendEvent.primarySourceId,
-		eventSourceIds
-	);
+	const eventSourcePredicate =
+		view === "briefs"
+			? and(
+					inArray(trendEvent.primarySourceId, eventSourceIds),
+					lte(trendEvent.sourceCount, 1)
+				)
+			: inArray(trendEvent.primarySourceId, eventSourceIds);
 	const filteredQuery = topicId
 		? query
 				.innerJoin(
@@ -298,7 +327,7 @@ function readEventFeedRows(
 		.offset(offset);
 }
 
-async function readEventTopicIds(
+export async function readEventTopicIds(
 	eventIds: string[]
 ): Promise<Map<string, string[]>> {
 	if (eventIds.length === 0) {
@@ -323,7 +352,7 @@ async function readEventTopicIds(
 	return topics;
 }
 
-function prepareEventFeedTopicSources(
+export function prepareEventFeedTopicSources(
 	topicId: string | undefined,
 	waitUntil: ((promise: Promise<unknown>) => void) | undefined
 ): void {
@@ -342,7 +371,7 @@ function prepareEventFeedTopicSources(
 	waitUntil?.(refresh);
 }
 
-async function readEventCoverImages(
+export async function readEventCoverImages(
 	eventIds: string[]
 ): Promise<Map<string, string>> {
 	if (eventIds.length === 0) {
@@ -373,14 +402,18 @@ async function readEventCoverImages(
 		);
 	const images = new Map<string, string>();
 	for (const row of rows) {
-		if (row.imageUrl && !images.has(row.eventId)) {
+		if (
+			row.imageUrl &&
+			!images.has(row.eventId) &&
+			!isLogoLikeImage(row.imageUrl)
+		) {
 			images.set(row.eventId, row.imageUrl);
 		}
 	}
 	return images;
 }
 
-async function readEventFeedSources(
+export async function readEventFeedSources(
 	eventIds: string[]
 ): Promise<Map<string, EventFeedItem["sources"]>> {
 	if (eventIds.length === 0) {
@@ -448,6 +481,7 @@ export async function getEventFeed(
 		limit?: number;
 		offset?: number;
 		translationMode?: TranslationMode;
+		view?: EventFeedView;
 		waitUntil?: (promise: Promise<unknown>) => void;
 	} = {}
 ): Promise<EventFeedResponse> {
@@ -459,7 +493,12 @@ export async function getEventFeed(
 	);
 	const offset = Math.max(options.offset ?? 0, 0);
 	const readLimit = limit + 25;
-	const rows = await readEventFeedRows(topicId, readLimit, offset);
+	const rows = await readEventFeedRows(
+		topicId,
+		readLimit,
+		offset,
+		options.view
+	);
 	const visibleRows = rows
 		.map((row, index) => ({ index, row }))
 		.filter(({ row }) => !isLowValueEventFeedRow(row));
@@ -488,39 +527,109 @@ export async function getEventFeed(
 			coverImages.get(row.eventId)
 		)
 	);
-	if (options.lang) {
-		const translationItems = await translateNewsItems(
-			events.map((event, index) => {
-				const row = pageRows[index];
-				return {
-					description: event.summary,
-					fetchedAt: Date.now(),
-					id: row?.primaryItemId ?? event.eventId,
-					sourceId: row?.primarySourceId ?? `event:${event.topicId}`,
-					title: event.title,
-					url: event.primarySource?.url ?? "",
-				};
-			}),
-			options.lang,
-			options.translationMode
-		);
-		for (let index = 0; index < events.length; index += 1) {
-			const event = events[index];
-			const translated = translationItems[index];
-			if (event && translated?.original) {
-				event.title = translated.title;
-				event.summary = translated.description;
-				event.original = {
-					title: translated.original.title,
-					summary: translated.original.description,
-				};
-			}
-		}
-	}
-	return {
+	const localized = await localizeEventFeedItems(
 		events,
+		pageRows,
+		options.lang,
+		options.translationMode,
+		options.waitUntil
+	);
+	return {
+		events: localized.events,
 		nextOffset,
+		translationsPending: localized.pending || undefined,
 	};
+}
+
+// Titles and summaries in the reader's language. Items whose translation is
+// not back yet keep their original text and mark the response as pending.
+// Event titles are translated with their topic pages; a report that has
+// left every topic page never would be. Whatever is still missing is
+// translated after the response, once per isolate at a time.
+const EVENT_TRANSLATION_PREWARM_MS = 25_000;
+const eventTranslationsInFlight = new Set<string>();
+
+function prewarmMissingTranslations(
+	items: readonly NewsItem[],
+	lang: TranslationLanguage,
+	waitUntil: ((promise: Promise<unknown>) => void) | undefined
+): void {
+	const missing = items.filter(
+		(item) =>
+			needsTranslation(item, lang) &&
+			!eventTranslationsInFlight.has(`${lang}:${item.sourceId}:${item.id}`)
+	);
+	if (!waitUntil || missing.length === 0) {
+		return;
+	}
+	const keys = missing.map((item) => `${lang}:${item.sourceId}:${item.id}`);
+	for (const key of keys) {
+		eventTranslationsInFlight.add(key);
+	}
+	waitUntil(
+		prewarmItemTranslations(missing, lang, {
+			timeoutMs: EVENT_TRANSLATION_PREWARM_MS,
+		})
+			.catch((error) => {
+				console.warn("[event-feed] could not translate event titles", error);
+			})
+			.finally(() => {
+				for (const key of keys) {
+					eventTranslationsInFlight.delete(key);
+				}
+			})
+	);
+}
+
+export async function localizeEventFeedItems(
+	events: readonly EventFeedItem[],
+	rows: readonly EventFeedRow[],
+	lang: TranslationLanguage | undefined,
+	translationMode: TranslationMode | undefined,
+	waitUntil?: (promise: Promise<unknown>) => void
+): Promise<{ events: EventFeedItem[]; pending: boolean }> {
+	if (!lang) {
+		return { events: [...events], pending: false };
+	}
+	const translated = await translateNewsItems(
+		events.map((event, index) => {
+			const row = rows[index];
+			return {
+				description: event.summary,
+				fetchedAt: Date.now(),
+				id: row?.primaryItemId ?? event.eventId,
+				sourceId: row?.primarySourceId ?? `event:${event.topicId}`,
+				title: event.title,
+				url: event.primarySource?.url ?? "",
+			};
+		}),
+		lang,
+		translationMode
+	);
+	prewarmMissingTranslations(translated, lang, waitUntil);
+	let pending = false;
+	const localized = events.map((event, index) => {
+		const item = translated[index];
+		if (!item) {
+			return event;
+		}
+		if (needsTranslation(item, lang)) {
+			pending = true;
+		}
+		if (!item.original) {
+			return event;
+		}
+		return {
+			...event,
+			original: {
+				summary: item.original.description,
+				title: item.original.title,
+			},
+			summary: item.description,
+			title: item.title,
+		};
+	});
+	return { events: localized, pending };
 }
 
 export async function getEventDetail(
@@ -529,6 +638,7 @@ export async function getEventDetail(
 	options: {
 		lang?: TranslationLanguage;
 		translationMode?: TranslationMode;
+		waitUntil?: (promise: Promise<unknown>) => void;
 	} = {}
 ): Promise<EventDetailResponse | null> {
 	assertEventEmbeddingConfigured();
@@ -641,6 +751,13 @@ export async function getEventDetail(
 				options.translationMode
 			)
 		: [];
+	if (options.lang) {
+		prewarmMissingTranslations(
+			translatedItems,
+			options.lang,
+			options.waitUntil
+		);
+	}
 	const primaryIndex = items.findIndex((item) => item.isPrimary === 1);
 	const primaryTranslation =
 		primaryIndex >= 0 ? translatedItems[primaryIndex] : undefined;

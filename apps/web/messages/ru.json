@@ -222,5 +222,17 @@
   "calendar_seo_description": "Главное из каждого источника, день за днём, по теме и месяцу.",
   "calendar_previous_month": "Предыдущий месяц",
   "calendar_next_month": "Следующий месяц",
-  "nav_history": "История чтения"
+  "nav_history": "История чтения",
+  "events_stories": "Пишут несколько изданий",
+  "events_stories_hint": "Сюжеты, о которых пишут два и более издания; сначала самые обсуждаемые сейчас.",
+  "events_stories_empty": "Пока нет сюжетов со вторым изданием.",
+  "events_briefs": "Заметки из одного источника",
+  "events_briefs_hint": "Пока только одно издание; сначала новые.",
+  "events_show_briefs": "Показать все заметки",
+  "events_publisher_count": "изданий: {count}",
+  "events_latest_follow_up": "Последнее: {publisher}, {time}",
+  "events_first_reported": "Впервые {time}",
+  "events_reports": "Публикации",
+  "events_first_report": "Первым",
+  "events_story_count": "сюжетов: {count}"
 }

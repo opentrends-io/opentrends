@@ -222,5 +222,17 @@
   "calendar_seo_description": "一個主題一個月裡，每天各來源的頭條。",
   "calendar_previous_month": "上一月",
   "calendar_next_month": "下一月",
-  "nav_history": "瀏覽歷史"
+  "nav_history": "瀏覽歷史",
+  "events_stories": "多家在報",
+  "events_stories_hint": "兩家以上媒體在報導的事，此刻報導最多的在前。",
+  "events_stories_empty": "還沒有兩家以上在報的事。",
+  "events_briefs": "單源快訊",
+  "events_briefs_hint": "目前只有一家在報，按時間排列。",
+  "events_show_briefs": "展開全部快訊",
+  "events_publisher_count": "{count} 家",
+  "events_latest_follow_up": "最新：{publisher} {time}跟進",
+  "events_first_reported": "首發 {time}",
+  "events_reports": "各家報導",
+  "events_first_report": "首發",
+  "events_story_count": "{count} 件多家在報"
 }

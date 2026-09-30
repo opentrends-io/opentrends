@@ -222,5 +222,17 @@
   "calendar_seo_description": "Was jede Quelle Tag für Tag anführte, je Thema und Monat.",
   "calendar_previous_month": "Vormonat",
   "calendar_next_month": "Nächster Monat",
-  "nav_history": "Leseverlauf"
+  "nav_history": "Leseverlauf",
+  "events_stories": "Von mehreren berichtet",
+  "events_stories_hint": "Themen, über die mindestens zwei Medien berichten; die meistberichteten zuerst.",
+  "events_stories_empty": "Noch kein Thema mit einem zweiten Medium.",
+  "events_briefs": "Meldungen aus einer Quelle",
+  "events_briefs_hint": "Bisher nur ein Medium, neueste zuerst.",
+  "events_show_briefs": "Alle Meldungen zeigen",
+  "events_publisher_count": "{count} Medien",
+  "events_latest_follow_up": "Zuletzt: {publisher}, {time}",
+  "events_first_reported": "Zuerst {time}",
+  "events_reports": "Berichte",
+  "events_first_report": "Zuerst",
+  "events_story_count": "{count} Themen"
 }

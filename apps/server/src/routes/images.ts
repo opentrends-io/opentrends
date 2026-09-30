@@ -4,6 +4,16 @@ const IMAGE_PROXY_CACHE_CONTROL =
 	"public, max-age=86400, s-maxage=2592000, stale-while-revalidate=604800";
 const IMAGE_PROXY_TIMEOUT_MS = 8000;
 const MAX_SOURCE_IMAGE_BYTES = 15 * 1024 * 1024;
+// When the thumbnail service is down or out of quota, originals up to this
+// size are passed through as they are; a broken cover is worse than a
+// heavier one. Cached briefly so thumbnails return once the service does.
+const MAX_PASS_THROUGH_BYTES = 6 * 1024 * 1024;
+const PASS_THROUGH_CACHE_CONTROL = "public, max-age=3600, s-maxage=21600";
+const UPSTREAM_HEADERS = {
+	Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+	"User-Agent":
+		"Mozilla/5.0 (compatible; OpenTrends image proxy; +https://opentrends.io)",
+};
 const PRIVATE_172_RE = /^172\.(\d{1,2})\./;
 const THUMBNAIL_VARIANTS = {
 	// scale-down never enlarges, so a source's tiny thumbnail stays tiny and
@@ -79,13 +89,76 @@ function defaultCache(): Cache | undefined {
 		: (caches as CacheStorage & { default: Cache }).default;
 }
 
-function isOversizedImage(response: Response): boolean {
+function isOversizedImage(
+	response: Response,
+	maxBytes = MAX_SOURCE_IMAGE_BYTES
+): boolean {
 	const contentLength = response.headers.get("Content-Length");
 	if (!contentLength) {
 		return false;
 	}
 	const bytes = Number(contentLength);
-	return Number.isFinite(bytes) && bytes > MAX_SOURCE_IMAGE_BYTES;
+	return Number.isFinite(bytes) && bytes > maxBytes;
+}
+
+// Stops a body without a Content-Length once it passes the limit.
+function limitBody(
+	body: ReadableStream<Uint8Array>,
+	maxBytes: number
+): ReadableStream<Uint8Array> {
+	let seen = 0;
+	return body.pipeThrough(
+		new TransformStream<Uint8Array, Uint8Array>({
+			transform(chunk, controller) {
+				seen += chunk.byteLength;
+				if (seen > maxBytes) {
+					controller.error(new Error("Image is too large to pass through."));
+					return;
+				}
+				controller.enqueue(chunk);
+			},
+		})
+	);
+}
+
+async function serveOriginalInstead(
+	url: URL,
+	reason: string,
+	store: (response: Response) => Promise<void> | undefined
+): Promise<Response> {
+	console.warn("[image] thumbnail failed, passing the original through", {
+		reason,
+	});
+	const original = await passThroughOriginal(url);
+	if (original.status === 200) {
+		await store(original.clone());
+	}
+	return original;
+}
+
+async function passThroughOriginal(url: URL): Promise<Response> {
+	const upstream = await fetch(url, {
+		headers: UPSTREAM_HEADERS,
+		signal: AbortSignal.timeout(IMAGE_PROXY_TIMEOUT_MS),
+	});
+	const contentType = upstream.headers.get("Content-Type") ?? "";
+	const isRasterImage =
+		contentType.toLowerCase().startsWith("image/") &&
+		!contentType.toLowerCase().startsWith("image/svg+xml");
+	if (
+		!(upstream.ok && isRasterImage && upstream.body) ||
+		isOversizedImage(upstream, MAX_PASS_THROUGH_BYTES)
+	) {
+		return emptyImageResponse();
+	}
+	return new Response(limitBody(upstream.body, MAX_PASS_THROUGH_BYTES), {
+		headers: {
+			"Cache-Control": PASS_THROUGH_CACHE_CONTROL,
+			"Content-Security-Policy": "sandbox; default-src 'none'",
+			"Content-Type": contentType,
+			"X-Content-Type-Options": "nosniff",
+		},
+	});
 }
 
 export const imageRoutes = new Hono<{
@@ -105,12 +178,7 @@ export const imageRoutes = new Hono<{
 
 	try {
 		const upstream = await fetch(url, {
-			headers: {
-				Accept:
-					"image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-				"User-Agent":
-					"Mozilla/5.0 (compatible; OpenTrends image proxy; +https://opentrends.io)",
-			},
+			headers: UPSTREAM_HEADERS,
 			signal: AbortSignal.timeout(IMAGE_PROXY_TIMEOUT_MS),
 		});
 		const contentType = upstream.headers.get("Content-Type") ?? "";
@@ -134,12 +202,27 @@ export const imageRoutes = new Hono<{
 			return response;
 		}
 
-		const transformed = await c.env.IMAGES.input(upstream.body)
-			.transform(THUMBNAIL_VARIANTS[variant])
-			.output({ format: "image/webp", quality: 76 });
+		let transformed: Awaited<
+			ReturnType<ReturnType<ImagesBinding["input"]>["output"]>
+		>;
+		try {
+			transformed = await c.env.IMAGES.input(upstream.body)
+				.transform(THUMBNAIL_VARIANTS[variant])
+				.output({ format: "image/webp", quality: 76 });
+		} catch (error) {
+			return await serveOriginalInstead(
+				url,
+				error instanceof Error ? error.message : String(error),
+				(response) => cache?.put(cacheKey, response)
+			);
+		}
 		const imageResponse = transformed.response();
 		if (!imageResponse.ok) {
-			return emptyImageResponse();
+			return await serveOriginalInstead(
+				url,
+				`status ${imageResponse.status}`,
+				(response) => cache?.put(cacheKey, response)
+			);
 		}
 		const headers = new Headers(imageResponse.headers);
 		headers.set("Cache-Control", IMAGE_PROXY_CACHE_CONTROL);
