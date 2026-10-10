@@ -129,8 +129,12 @@ bun run build          # Build workspaces
 
 The Cloudflare/Alchemy entrypoint is `packages/infra/alchemy.run.ts`. Run
 `bun run cloudflare:login`, inject production configuration securely, then run
-`bun run --filter @opentrends/infra deploy`. The definition does not modify the
-domain or DNS.
+`bun run --filter @opentrends/infra deploy`. When `WEB_CUSTOM_DOMAIN` or
+`API_CUSTOM_DOMAIN` is configured, Alchemy manages the corresponding Cloudflare
+Custom Domain, DNS and TLS certificate in `CLOUDFLARE_ZONE_ID`. With
+`WEB_CUSTOM_DOMAIN=opentrends.io`, it also provisions `www.opentrends.io` and a
+308 redirect to the HTTPS main domain, preserving paths and query strings.
+See [www deployment verification](docs/www-domain.md) before deploying.
 
 ## License
 

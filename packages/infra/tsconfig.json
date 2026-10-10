@@ -4,5 +4,5 @@
     "noEmit": true,
     "strictNullChecks": true
   },
-  "include": ["alchemy.run.ts"]
+  "include": ["alchemy.run.ts", "src/**/*.ts"]
 }

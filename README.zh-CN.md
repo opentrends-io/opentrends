@@ -111,7 +111,11 @@ bun run build          # 构建各 workspace
 
 Cloudflare/Alchemy 部署入口位于 `packages/infra/alchemy.run.ts`。先使用
 `bun run cloudflare:login` 完成 Cloudflare 授权，再通过安全的凭据注入方式配置生产环境变量，
-最后运行 `bun run --filter @opentrends/infra deploy`。该定义不会修改域名或 DNS。
+最后运行 `bun run --filter @opentrends/infra deploy`。配置 `WEB_CUSTOM_DOMAIN` 或
+`API_CUSTOM_DOMAIN` 后，Alchemy 会在 `CLOUDFLARE_ZONE_ID` 中管理对应的 Cloudflare
+Custom Domain、DNS 和 TLS 证书。使用 `WEB_CUSTOM_DOMAIN=opentrends.io` 时，还会创建
+`www.opentrends.io` 并以 308 跳转到 HTTPS 主域，保留路径和查询参数。
+部署前参阅 [www 域名验收](docs/www-domain.md)。
 
 ## 许可证
 
