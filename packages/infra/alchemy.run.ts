@@ -208,6 +208,23 @@ export const web = await TanStackStart("web", {
 	},
 });
 
+// A Custom Domain provisions both DNS and TLS. Keep www separate from the
+// application so redirects run before any SSR, locale or API work.
+if (webCustomDomain === "opentrends.io") {
+	await Worker("www-redirect", {
+		adopt: false,
+		entrypoint: "./src/www-redirect.ts",
+		url: false,
+		domains: [
+			{
+				adopt: false,
+				domainName: "www.opentrends.io",
+				zoneId: customDomainZoneId,
+			},
+		],
+	});
+}
+
 console.log(`API -> ${api.url}`);
 console.log(`Web -> ${web.url}`);
 
