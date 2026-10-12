@@ -6,7 +6,7 @@ import {
 	useParams,
 	useSearch,
 } from "@tanstack/react-router";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import {
 	setDisplaySetting,
@@ -23,6 +23,7 @@ import {
 import { TrendsSummary } from "@/components/trends/trends-summary";
 import { ViewsScrollContext } from "@/components/trends/views-scroll";
 import { useLocale } from "@/lib/i18n";
+import { markReturningReader } from "@/lib/returning-reader";
 
 // The four ways of looking at a topic (feed, sources, events, calendar)
 // share this frame: one scroll container and one digest bar that stays
@@ -76,6 +77,10 @@ function ViewsLayout() {
 	const search = useSearch({ strict: false }) as { topic?: string };
 	const location = useLocation();
 	const scrollRef = useRef<HTMLDivElement>(null);
+	// Having read here once, `/` skips the landing page from now on.
+	useEffect(() => {
+		markReturningReader();
+	}, []);
 	// The events view without a topic is the all-topics feed; it shows the
 	// Featured digest, which is itself drawn from every topic. On the events
 	// view the digest is not the page's heading.

@@ -19,7 +19,7 @@ const TOPIC_IDS = [
 	"cn",
 ] as const;
 
-const STATIC_PATHS = ["/sources", "/agents"] as const;
+const STATIC_PATHS = ["/", "/sources", "/agents"] as const;
 
 const ALL_LOCALES = [
 	"en",
