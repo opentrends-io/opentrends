@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { EventFeedPage } from "@/components/trends/event-feed-page";
 import { readApiJsonForSsr } from "@/components/trends/load-trends-ssr";
-import { eventPagesQueryOptions } from "@/components/trends/trends-query";
+import {
+	eventPagesQueryOptions,
+	eventStoriesQueryOptions,
+} from "@/components/trends/trends-query";
 import type { EventPageSummary } from "@/components/trends/types";
 import { resolveLocale, translate } from "@/lib/i18n";
 import { buildSeo } from "@/lib/seo";
@@ -20,9 +23,11 @@ function validateEventsSearch(search: Record<string, unknown>): EventsSearch {
 export const Route = createFileRoute("/{-$locale}/_views/events")({
 	component: EventsComponent,
 	validateSearch: validateEventsSearch,
+	loaderDeps: ({ search }) => ({ topic: search.topic }),
 	// The published event pages are read on the server so the hub's links to
-	// them are in the first HTML.
-	loader: async ({ context }) => {
+	// them are in the first HTML. In the browser the stories start loading
+	// with the navigation instead of after the page mounts.
+	loader: async ({ context, deps, params }) => {
 		if (import.meta.env.SSR) {
 			const result = await readApiJsonForSsr<{ pages?: EventPageSummary[] }>(
 				"/api/event-pages"
@@ -36,6 +41,11 @@ export const Route = createFileRoute("/{-$locale}/_views/events")({
 			}
 			return { eventPages: pages?.length ?? 0 };
 		}
+		context.queryClient
+			.prefetchQuery(
+				eventStoriesQueryOptions(deps.topic, resolveLocale(params.locale))
+			)
+			.catch(() => undefined);
 		const pages = await context.queryClient
 			.ensureQueryData(eventPagesQueryOptions)
 			.catch(() => []);

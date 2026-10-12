@@ -222,5 +222,17 @@
   "calendar_seo_description": "Lo que encabezó cada fuente, día a día, por tema y mes.",
   "calendar_previous_month": "Mes anterior",
   "calendar_next_month": "Mes siguiente",
-  "nav_history": "Historial de lectura"
+  "nav_history": "Historial de lectura",
+  "events_stories": "Cubierto por varios medios",
+  "events_stories_hint": "Historias que cubren dos o más medios; primero las más cubiertas ahora.",
+  "events_stories_empty": "Aún no hay historias con un segundo medio.",
+  "events_briefs": "Breves de una sola fuente",
+  "events_briefs_hint": "Por ahora solo un medio; lo más reciente primero.",
+  "events_show_briefs": "Ver todas las breves",
+  "events_publisher_count": "{count} medios",
+  "events_latest_follow_up": "Último: {publisher}, {time}",
+  "events_first_reported": "Primero {time}",
+  "events_reports": "Coberturas",
+  "events_first_report": "Primero",
+  "events_story_count": "{count} historias"
 }

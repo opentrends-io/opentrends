@@ -6,6 +6,7 @@ import type {
 	ArchivedDigestData,
 	EventDetailData,
 	EventFeedData,
+	EventFeedView,
 	EventPageSummary,
 	EventPageView,
 	SourceCardData,
@@ -118,11 +119,15 @@ export async function loadTrendEvents(
 	topic?: string,
 	offset = 0,
 	limit = 30,
-	locale: Locale = "en"
+	locale: Locale = "en",
+	view?: EventFeedView
 ): Promise<EventFeedData> {
 	const search = new URLSearchParams();
 	if (topic) {
 		search.set("topic", topic);
+	}
+	if (view) {
+		search.set("view", view);
 	}
 	search.set("offset", String(offset));
 	search.set("limit", String(limit));

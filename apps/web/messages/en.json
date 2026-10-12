@@ -222,5 +222,17 @@
   "calendar_seo_description": "What led each source, day by day, for a topic and a month.",
   "calendar_previous_month": "Previous month",
   "calendar_next_month": "Next month",
-  "nav_history": "Reading history"
+  "nav_history": "Reading history",
+  "events_stories": "Reported by several",
+  "events_stories_hint": "Stories two or more publishers are covering, the most reported right now first.",
+  "events_stories_empty": "No story has a second publisher yet.",
+  "events_briefs": "Single-source briefs",
+  "events_briefs_hint": "Only one publisher so far, newest first.",
+  "events_show_briefs": "Show all briefs",
+  "events_publisher_count": "{count} publishers",
+  "events_latest_follow_up": "Latest: {publisher}, {time}",
+  "events_first_reported": "First reported {time}",
+  "events_reports": "Reports",
+  "events_first_report": "First",
+  "events_story_count": "{count} stories"
 }

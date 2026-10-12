@@ -942,15 +942,16 @@ export function TrendsSummary({
 		>
 			<div className="flex min-w-0 flex-1 items-start gap-3">
 				<div className="min-w-0 flex-1">
-					<div className="flex h-10 flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+					{/* On phones the row wraps; it grows instead of spilling onto the digest. */}
+					<div className="flex min-h-10 flex-wrap items-center gap-x-2 gap-y-1 py-1.5 text-[11px] text-[var(--text-secondary)] sm:h-10 sm:py-0">
 						<TitleTag className="m-0 font-normal text-[12px] text-[var(--text-primary)]">
 							{subject}
 						</TitleTag>
 						<span className="text-[12px] text-[var(--text-primary)]">
 							· {t(WINDOW_HEADING_KEYS[summaryWindow])}
 						</span>
-						<span>·</span>
-						<span className="inline-flex min-w-0 flex-wrap items-center gap-1.5 tabular-nums">
+						<span className="hidden sm:inline">·</span>
+						<span className="hidden min-w-0 flex-wrap items-center gap-1.5 tabular-nums sm:inline-flex">
 							<span>{t("summary.synthesizedFrom")}</span>
 							<span className="inline-flex items-center gap-1.5">
 								<span className="font-semibold text-[var(--text-primary)]">
