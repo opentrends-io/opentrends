@@ -26,6 +26,7 @@ import {
 } from "@/lib/i18n";
 import { buildSeo, localizedPath, SITE_URL } from "@/lib/seo";
 import { breadcrumbList, digestItemList } from "@/lib/structured-data";
+import { isSeoTopicId } from "@/lib/topic-seo";
 
 // One day of a topic's digest, at a permanent address: the ten lines and
 // their citations as they stood at the end of that day. This is the page
@@ -131,7 +132,7 @@ export const Route = createFileRoute("/{-$locale}/trends/$topic/$day")({
 		if (params.locale && !isLocale(params.locale)) {
 			throw notFound();
 		}
-		if (!DAY_RE.test(params.day)) {
+		if (!(DAY_RE.test(params.day) && isSeoTopicId(params.topic))) {
 			throw notFound();
 		}
 		const locale = resolveLocale(params.locale);
@@ -196,6 +197,8 @@ export const Route = createFileRoute("/{-$locale}/trends/$topic/$day")({
 			// A day may exist in one language and not another: only the
 			// editions that exist are named.
 			alternateLocales: loaderData?.editions ?? [],
+			// No loader data means the day was not found.
+			noindex: loaderData === undefined,
 			description: summary || strings.description(label, params.day),
 			locale,
 			path: `/trends/${params.topic}/${params.day}`,
