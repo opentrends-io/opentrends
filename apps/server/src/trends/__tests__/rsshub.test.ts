@@ -27,6 +27,26 @@ function setServerEnv(): void {
 }
 
 describe("RSSHub instances", () => {
+	test("decodes escaped titles and direct image query separators", async () => {
+		setServerEnv();
+		const { createRssHubAdapter } = await import("../adapters/rsshub");
+		globalThis.fetch = (async () =>
+			Response.json({
+				items: [
+					{
+						title: "Barnes &#038; Noble: Apple&#8217;s",
+						url: "https://example.com/story",
+						image: "https://cdn.example.com/a?w=320&#038;h=200",
+					},
+				],
+			})) as typeof fetch;
+		const items = await createRssHubAdapter(preset, {
+			baseUrls: ["https://example.com"],
+		}).fetch({ sourceId: "test", signal: new AbortController().signal });
+		expect(items[0]?.title).toBe("Barnes & Noble: Apple’s");
+		expect(items[0]?.imageUrl).toBe("https://cdn.example.com/a?w=320&h=200");
+	});
+
 	test("parses comma or whitespace separated base URLs", async () => {
 		setServerEnv();
 		const { parseRssHubBaseUrls } = await import("../config/rsshub-instances");

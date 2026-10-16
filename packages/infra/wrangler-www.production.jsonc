@@ -1,0 +1,14 @@
+{
+	"name": "opentrends-www-redirect-production",
+	"account_id": "b9bc5eebbaa3c6d17173ae1f3172f93c",
+	"main": "src/www-redirect.ts",
+	"compatibility_date": "2026-03-10",
+	"workers_dev": false,
+	"routes": [
+		{
+			"pattern": "www.opentrends.io",
+			"custom_domain": true,
+			"zone_id": "3b050a52dc1c481b6dff9527da93c872"
+		}
+	]
+}
