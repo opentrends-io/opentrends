@@ -88,6 +88,33 @@ function isOversizedImage(response: Response): boolean {
 	return Number.isFinite(bytes) && bytes > MAX_SOURCE_IMAGE_BYTES;
 }
 
+async function readBoundedImage(
+	body: ReadableStream<Uint8Array>
+): Promise<ArrayBuffer | null> {
+	const reader = body.getReader();
+	const chunks: Uint8Array[] = [];
+	let length = 0;
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) {
+			break;
+		}
+		length += value.byteLength;
+		if (length > MAX_SOURCE_IMAGE_BYTES) {
+			await reader.cancel();
+			return null;
+		}
+		chunks.push(value);
+	}
+	const bytes = new Uint8Array(length);
+	let offset = 0;
+	for (const chunk of chunks) {
+		bytes.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return bytes.buffer;
+}
+
 export const imageRoutes = new Hono<{
 	Bindings: { IMAGES: ImagesBinding };
 }>().get("/", async (c) => {
@@ -134,9 +161,42 @@ export const imageRoutes = new Hono<{
 			return response;
 		}
 
-		const transformed = await c.env.IMAGES.input(upstream.body)
-			.transform(THUMBNAIL_VARIANTS[variant])
-			.output({ format: "image/webp", quality: 76 });
+		const original = await readBoundedImage(upstream.body);
+		if (!original || original.byteLength === 0) {
+			return emptyImageResponse();
+		}
+		const sourceBody = new Response(original).body;
+		if (!sourceBody) {
+			return emptyImageResponse();
+		}
+		let transformed: ImageTransformationResult;
+		try {
+			transformed = await c.env.IMAGES.input(sourceBody)
+				.transform(THUMBNAIL_VARIANTS[variant])
+				.output({ format: "image/webp", quality: 76 });
+		} catch (error) {
+			if (
+				!(
+					error instanceof Error &&
+					error.message.startsWith("IMAGES_TRANSFORM_ERROR 9422:")
+				)
+			) {
+				throw error;
+			}
+			// Quota exhaustion must not hide a valid image. A short cache lets
+			// transformations resume after the account quota resets.
+			const fallback = new Response(original, {
+				headers: {
+					"Content-Type": contentType,
+					"Content-Length": String(original.byteLength),
+					"Cache-Control":
+						"public, max-age=300, s-maxage=300, stale-while-revalidate=600",
+					"X-Content-Type-Options": "nosniff",
+				},
+			});
+			await cache?.put(cacheKey, fallback.clone());
+			return fallback;
+		}
 		const imageResponse = transformed.response();
 		if (!imageResponse.ok) {
 			return emptyImageResponse();
