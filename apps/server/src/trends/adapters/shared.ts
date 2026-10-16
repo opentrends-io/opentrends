@@ -48,7 +48,13 @@ export function extractImageFromHtml(
 		return;
 	}
 	const match = IMG_TAG_RE.exec(html);
-	const candidate = match?.[1];
+	return normalizeFeedImageUrl(match?.[1]);
+}
+
+export function normalizeFeedImageUrl(
+	value: string | undefined | null
+): string | undefined {
+	const candidate = value ? decodeEntities(value).trim() : undefined;
 	return isValidUrl(candidate) ? candidate : undefined;
 }
 
@@ -84,14 +90,14 @@ function fromCodePoint(code: number): string {
 }
 
 export function decodeEntities(input: string): string {
-	return input.replace(HTML_ENTITY_RE, (_match, dec, hex, name) => {
+	return input.replace(HTML_ENTITY_RE, (match, dec, hex, name) => {
 		if (dec) {
 			return fromCodePoint(Number.parseInt(dec, 10));
 		}
 		if (hex) {
 			return fromCodePoint(Number.parseInt(hex, 16));
 		}
-		return NAMED_ENTITIES[String(name).toLowerCase()] ?? "";
+		return NAMED_ENTITIES[String(name).toLowerCase()] ?? match;
 	});
 }
 

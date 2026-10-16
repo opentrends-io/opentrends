@@ -8,9 +8,11 @@ import type {
 import {
 	clampItems,
 	cleanDescription,
+	decodeEntities,
 	extractImageFromHtml,
 	fetchJson,
 	isValidUrl,
+	normalizeFeedImageUrl,
 	normalizeText,
 	sortByPublishedAtDesc,
 } from "./shared";
@@ -63,7 +65,7 @@ function toNewsItem(
 	sourceId: string,
 	fetchedAt: number
 ): NewsItem | undefined {
-	const title = normalizeText(entry.title);
+	const title = normalizeText(decodeEntities(entry.title ?? ""));
 	const link = entry.url;
 	if (!(title && isValidUrl(link))) {
 		return;
@@ -71,9 +73,9 @@ function toNewsItem(
 	const publishedRaw = entry.date_published
 		? Date.parse(entry.date_published)
 		: Number.NaN;
-	const imageUrl = isValidUrl(entry.image)
-		? entry.image
-		: extractImageFromHtml(entry.content_html);
+	const imageUrl =
+		normalizeFeedImageUrl(entry.image) ??
+		extractImageFromHtml(entry.content_html);
 	return {
 		id: entry.id || link,
 		sourceId,
