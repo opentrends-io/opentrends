@@ -9,9 +9,11 @@ import type {
 import {
 	clampItems,
 	cleanDescription,
+	decodeEntities,
 	extractImageFromHtml,
 	fetchText,
 	isValidUrl,
+	normalizeFeedImageUrl,
 	normalizeText,
 	sortByPublishedAtDesc,
 } from "./shared";
@@ -46,8 +48,8 @@ function pickEnclosureImage(item: RssItem): string | undefined {
 	// Some feeds omit the type attribute; treat that as a possible image
 	// candidate and validate the URL below.
 	const looksLikeImage = !enc.type || enc.type.startsWith("image/");
-	if (looksLikeImage && isValidUrl(enc.url)) {
-		return enc.url;
+	if (looksLikeImage) {
+		return normalizeFeedImageUrl(enc.url);
 	}
 	return;
 }
@@ -58,8 +60,9 @@ function pickMediaImage(item: RssItem): string | undefined {
 		item["media:content"]?.$?.url,
 	];
 	for (const candidate of candidates) {
-		if (isValidUrl(candidate)) {
-			return candidate;
+		const imageUrl = normalizeFeedImageUrl(candidate);
+		if (imageUrl) {
+			return imageUrl;
 		}
 	}
 	return;
@@ -103,7 +106,7 @@ function isGoogleNewsFeed(feedUrl: string): boolean {
 }
 
 function itemTitle(raw: RssItem, googleNews: boolean): string {
-	const title = normalizeText(raw.title);
+	const title = normalizeText(decodeEntities(raw.title ?? ""));
 	return googleNews && title ? cleanGoogleNewsTitle(title) : title;
 }
 
