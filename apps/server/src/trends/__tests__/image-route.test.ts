@@ -45,6 +45,93 @@ function createApp(transformCalls: TransformCall[]) {
 }
 
 describe("image thumbnail route", () => {
+	test("serves a bounded source image when the free transformation quota is exhausted", async () => {
+		globalThis.fetch = mock(
+			async () =>
+				new Response("original-image", {
+					headers: { "Content-Type": "image/png" },
+				})
+		) as unknown as typeof fetch;
+		const { app } = createApp([]);
+		const images = {
+			input: () => ({
+				transform: () => ({
+					output: () => {
+						throw new Error(
+							"IMAGES_TRANSFORM_ERROR 9422: Free unique transformations by account has been exhausted"
+						);
+					},
+				}),
+			}),
+		} as unknown as ImagesBinding;
+		const response = await app.request(
+			"/api/image?url=https%3A%2F%2Fcdn.example.com%2Fimage.png",
+			undefined,
+			{ IMAGES: images }
+		);
+		expect(response.status).toBe(200);
+		expect(response.headers.get("Content-Type")).toBe("image/png");
+		expect(response.headers.get("Cache-Control")).toContain("s-maxage=300");
+		expect(await response.text()).toBe("original-image");
+	});
+
+	test("does not turn unrelated transform failures into successful images", async () => {
+		globalThis.fetch = mock(
+			async () =>
+				new Response("original", { headers: { "Content-Type": "image/png" } })
+		) as unknown as typeof fetch;
+		const { app } = createApp([]);
+		const images = {
+			input: () => ({
+				transform: () => ({
+					output: () => {
+						throw new Error("transform failed");
+					},
+				}),
+			}),
+		} as unknown as ImagesBinding;
+		expect(
+			(
+				await app.request(
+					"/api/image?url=https%3A%2F%2Fcdn.example.com%2Fimage.png",
+					undefined,
+					{ IMAGES: images }
+				)
+			).status
+		).toBe(204);
+	});
+
+	test("rejects oversized streamed sources even without a content-length", async () => {
+		let cancelled = false;
+		globalThis.fetch = mock(
+			async () =>
+				new Response(
+					new ReadableStream({
+						start(controller) {
+							controller.enqueue(new Uint8Array(15 * 1024 * 1024 + 1));
+						},
+						cancel() {
+							cancelled = true;
+						},
+					}),
+					{ headers: { "Content-Type": "image/png" } }
+				)
+		) as unknown as typeof fetch;
+		const calls: TransformCall[] = [];
+		const { app, images } = createApp(calls);
+		expect(
+			(
+				await app.request(
+					"/api/image?url=https%3A%2F%2Fcdn.example.com%2Fimage.png",
+					undefined,
+					{ IMAGES: images }
+				)
+			).status
+		).toBe(204);
+		expect(calls).toHaveLength(0);
+		expect(cancelled).toBe(true);
+	});
+
 	test("transforms row covers to a bounded square WebP", async () => {
 		globalThis.fetch = mock(() =>
 			Promise.resolve(
