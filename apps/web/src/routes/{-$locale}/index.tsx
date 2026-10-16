@@ -7,6 +7,7 @@ import {
 	digestPreview,
 	type LandingData,
 	type LandingSource,
+	wallSources,
 } from "@/components/landing/landing-model";
 import { LandingPage } from "@/components/landing/landing-page";
 import { readApiJsonForSsr } from "@/components/trends/load-trends-ssr";
@@ -65,6 +66,7 @@ async function loadLandingData(locale: Locale): Promise<LandingData> {
 	return {
 		digest: digestPreview(digest),
 		...countSources(sources?.sources),
+		wall: wallSources(sources?.sources),
 	};
 }
 

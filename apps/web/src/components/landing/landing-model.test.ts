@@ -3,15 +3,22 @@ import { describe, expect, test } from "bun:test";
 import type { ArchivedDigestEntry } from "@/components/trends/types";
 
 import {
-	citationHosts,
 	countSources,
 	digestPreview,
 	LANDING_DIGEST_LINES,
+	lineTopic,
+	wallSources,
 } from "./landing-model";
 
-function entry(n: number, urls: string[] = []): ArchivedDigestEntry {
+function entry(
+	n: number,
+	citations: { topic?: string; url: string }[] = []
+): ArchivedDigestEntry {
 	return {
-		citations: urls.map((url, index) => ({ n: index + 1, url })),
+		citations: citations.map((citation, index) => ({
+			n: index + 1,
+			...citation,
+		})),
 		n,
 		takeaway: `Line ${n}`,
 	};
@@ -41,9 +48,37 @@ describe("countSources", () => {
 	});
 });
 
+describe("wallSources", () => {
+	test("keeps one tile per site and skips sources without a home", () => {
+		expect(
+			wallSources([
+				{ name: "The Verge", homeUrl: "https://www.theverge.com/" },
+				{
+					name: "The Verge · AI",
+					homeUrl: "https://www.theverge.com/ai-artificial-intelligence",
+				},
+				{ name: "No home" },
+				{ name: "Bad URL", homeUrl: "not a url" },
+				{ name: "Hacker News", homeUrl: "https://news.ycombinator.com" },
+			])
+		).toEqual([
+			{ name: "The Verge", homeUrl: "https://www.theverge.com/" },
+			{ name: "Hacker News", homeUrl: "https://news.ycombinator.com" },
+		]);
+	});
+
+	test("stops at the limit", () => {
+		const sources = Array.from({ length: 5 }, (_, index) => ({
+			name: `Source ${index}`,
+			homeUrl: `https://s${index}.example.com`,
+		}));
+		expect(wallSources(sources, 3)).toHaveLength(3);
+	});
+});
+
 describe("digestPreview", () => {
-	test("keeps the first lines of a finished digest", () => {
-		const entries = Array.from({ length: 10 }, (_, index) => entry(index + 1));
+	test("keeps at most the brief's lines", () => {
+		const entries = Array.from({ length: 12 }, (_, index) => entry(index + 1));
 		const preview = digestPreview({
 			entries,
 			lang: "en",
@@ -51,9 +86,7 @@ describe("digestPreview", () => {
 			topic: "featured",
 			window: "today",
 		});
-		expect(preview?.map((line) => line.n)).toEqual(
-			Array.from({ length: LANDING_DIGEST_LINES }, (_, index) => index + 1)
-		);
+		expect(preview).toHaveLength(LANDING_DIGEST_LINES);
 	});
 
 	test("is empty for a missing or empty digest", () => {
@@ -70,19 +103,23 @@ describe("digestPreview", () => {
 	});
 });
 
-describe("citationHosts", () => {
-	test("lists distinct hosts without www, at most three", () => {
+describe("lineTopic", () => {
+	test("takes the first cited topic other than featured", () => {
 		expect(
-			citationHosts(
+			lineTopic(
 				entry(1, [
-					"https://www.theverge.com/a",
-					"https://theverge.com/b",
-					"not a url",
-					"https://wallstreetcn.com/c",
-					"https://openai.com/d",
-					"https://arxiv.org/e",
+					{ topic: "featured", url: "https://a.example" },
+					{ topic: "hardware", url: "https://b.example" },
+					{ topic: "ai", url: "https://c.example" },
 				])
 			)
-		).toEqual(["theverge.com", "wallstreetcn.com", "openai.com"]);
+		).toBe("hardware");
+	});
+
+	test("has no tag when no citation names a topic", () => {
+		expect(lineTopic(entry(1, [{ url: "https://a.example" }]))).toBeNull();
+		expect(
+			lineTopic(entry(1, [{ topic: "mine", url: "https://a.example" }]))
+		).toBeNull();
 	});
 });

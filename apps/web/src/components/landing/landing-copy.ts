@@ -1,152 +1,208 @@
 import type { Locale } from "@/lib/i18n";
 
-// Landing page copy. English, Simplified and Traditional Chinese are written
-// by hand; the other editions read the English page, like /agents.
+// Landing page copy, following the launch film's lines. English, Simplified
+// and Traditional Chinese are written by hand; the other editions read the
+// English page, like /agents. Counts are null when the API could not be
+// read.
 
 export interface LandingStrings {
 	agentsBody: string;
 	agentsGuide: string;
+	agentsKicker: string;
+	agentsMeta: string;
+	agentsPrompt: string;
 	agentsTitle: string;
+	briefBody: (sourceCount: number | null) => string;
 	briefEmpty: string;
+	briefKicker: string;
 	briefMore: string;
 	briefTitle: string;
+	briefWindow: string;
 	ctaFeed: string;
 	ctaGithub: string;
-	eyebrow: string;
-	/** The source count is null when the API could not be read. */
+	eventsBody: string;
+	eventsExample: string;
+	eventsKicker: string;
+	eventsMore: string;
+	eventsSources: (count: number) => string;
+	eventsTitle: [string, string];
+	finalTagline: string;
+	funnelFrom: string;
+	funnelTo: string;
 	heroBody: (sourceCount: number | null) => string;
-	heroTitle: string;
+	heroTitle: [string, string];
+	highSignal: string;
+	live: string;
 	openSourceBody: string;
 	openSourceTitle: string;
-	pillars: { body: string; title: string }[];
 	seoTitle: string;
-	statLanguages: (count: number) => string;
-	statSources: (count: number) => string;
-	statTopics: (count: number) => string;
+	stats: (sourceCount: number | null) => string[];
 	topicSources: (count: number) => string;
-	topicsBody: string;
 	topicsTitle: string;
+	translateBadge: string;
+	translateBody: string;
+	translateKicker: string;
+	translateLanguages: string;
+	translateTitle: string;
+	wallCaption: string;
 }
 
 const EN: LandingStrings = {
-	eyebrow: "Open source · Free · No account needed",
-	heroTitle: "First-hand sources from around the world, in your language.",
+	live: "Live",
+	heroTitle: ["The world,", "in ten lines."],
 	heroBody: (sourceCount) =>
-		`OpenTrends follows ${sourceCount ?? "hundreds of"} official blogs, research labs, developer communities and Chinese platforms, translates what they publish, and writes a ten-line brief of what changed today.`,
-	seoTitle: "First-hand sources from around the world, in your language",
-	ctaFeed: "Read today's brief",
+		`OpenTrends reads ${sourceCount ?? "hundreds of"} first-hand sources in 8 languages every 5 minutes, and tells you what changed today in ten cited lines.`,
+	seoTitle: "The world, in ten lines",
+	ctaFeed: "Read today's ten lines",
 	ctaGithub: "View on GitHub",
-	statSources: (count) => `${count} sources`,
-	statTopics: (count) => `${count} topics`,
-	statLanguages: (count) => `${count} languages`,
-	briefTitle: "Today's brief",
-	briefMore: "Read the full brief",
+	stats: (sourceCount) => [
+		sourceCount ? `${sourceCount} sources` : "Hundreds of sources",
+		"8 languages",
+		"Every 5 minutes",
+	],
+	briefKicker: "01 · The brief",
+	briefTitle: "Every line, cited.",
+	briefBody: (sourceCount) =>
+		`${sourceCount ?? "Hundreds of"} sources in, ten lines out. Each line says what happened and why it matters, and links to the reports it was drawn from.`,
+	funnelFrom: "sources",
+	funnelTo: "lines",
+	briefWindow: "Today's top 10",
 	briefEmpty:
 		"Today's brief is still being written. Open the feed to read the sources as they come in.",
-	pillars: [
-		{
-			title: "Straight from the source",
-			body: "Official blogs, lab announcements, GitHub, Hacker News, Reddit, Product Hunt, Zhihu and more. Read the news where it starts, not where it is retold.",
-		},
-		{
-			title: "Translated for you",
-			body: "Every headline arrives in your language, with the original title kept alongside. Eight languages today.",
-		},
-		{
-			title: "Ten lines a day",
-			body: "An AI brief condenses each topic into ten takeaways, and every line links back to the sources it came from.",
-		},
-	],
-	topicsTitle: "Pick a topic",
-	topicsBody: "Each topic follows its own hand-picked list of sources.",
-	topicSources: (count) => `${count} sources`,
-	agentsTitle: "Built for agents too",
+	briefMore: "Open today's brief",
+	wallCaption:
+		"Hand-picked: official blogs, research labs, papers, developer communities and Chinese platforms.",
+	translateKicker: "02 · Translation",
+	translateTitle: "Read everything in your language.",
+	translateBody:
+		"Headlines from every source arrive translated into your language, with the original title kept alongside. Eight reading languages.",
+	translateBadge: "Auto-translated · source kept",
+	translateLanguages: "Reading language",
+	eventsKicker: "03 · Events",
+	eventsTitle: ["Five outlets. One story.", "Merged into one event."],
+	eventsBody:
+		"When several outlets report the same thing, OpenTrends folds their coverage into one event. Read it once and see everyone who covered it.",
+	eventsExample: "Example from 29 September 2026",
+	highSignal: "High signal",
+	eventsSources: (count) => `${count} sources`,
+	eventsMore: "Browse today's events",
+	agentsKicker: "For agents",
+	agentsTitle: "Your agents can read it too.",
 	agentsBody:
 		"Connect the MCP server, call the JSON API, subscribe over RSS or install the agent skill. No API key needed.",
+	agentsPrompt: "What happened today?",
+	agentsMeta: "10 lines · with citations",
 	agentsGuide: "Setup guide",
-	openSourceTitle: "Open source, MIT licensed",
+	topicsTitle: "Pick a topic",
+	topicSources: (count) => `${count} sources`,
+	openSourceTitle: "100% open source.",
 	openSourceBody:
-		"Read the code, suggest a source that is missing, or run your own copy on Cloudflare.",
+		"MIT licensed. Read the code, suggest a source that is missing, or run your own copy on Cloudflare.",
+	finalTagline: "Read the world first-hand.",
 };
 
 const ZH: LandingStrings = {
-	eyebrow: "开源 · 免费 · 无需注册",
-	heroTitle: "全球一手信源，用你的语言读。",
+	live: "实时",
+	heroTitle: ["全世界，", "十行读懂。"],
 	heroBody: (sourceCount) =>
-		`OpenTrends 追踪${sourceCount ? ` ${sourceCount} ` : "数百"}个官方博客、研究机构、开发者社区和中文平台，把它们发布的内容翻译过来，再写成十条今日要点。`,
-	seoTitle: "全球一手信源，用你的语言读",
-	ctaFeed: "阅读今日要点",
+		`OpenTrends 每 5 分钟读一遍${sourceCount ? ` ${sourceCount} ` : "数百"}个一手信息源、8 种语言，把今天发生的事写成十行带出处的摘要。`,
+	seoTitle: "全世界，十行读懂",
+	ctaFeed: "读今天的十行",
 	ctaGithub: "查看 GitHub 仓库",
-	statSources: (count) => `${count} 个信源`,
-	statTopics: (count) => `${count} 个板块`,
-	statLanguages: (count) => `${count} 种语言`,
-	briefTitle: "今日要点",
-	briefMore: "阅读完整要点",
-	briefEmpty: "今日要点还在生成中。打开信息流，先看各信源的最新内容。",
-	pillars: [
-		{
-			title: "直达一手信源",
-			body: "官方博客、实验室公告、GitHub、Hacker News、Reddit、Product Hunt、知乎等。在消息出发的地方读，而不是转述之后。",
-		},
-		{
-			title: "自动翻译",
-			body: "每条标题都翻译成你的语言，原文标题保留在旁边。目前支持 8 种语言。",
-		},
-		{
-			title: "每天十条要点",
-			body: "AI 把每个板块浓缩成十条要点，每一条都能点回它引用的原文。",
-		},
+	stats: (sourceCount) => [
+		sourceCount ? `${sourceCount} 个一手信息源` : "数百个一手信息源",
+		"8 种语言",
+		"每 5 分钟刷新",
 	],
-	topicsTitle: "选一个板块",
-	topicsBody: "每个板块都有自己精选的信源。",
-	topicSources: (count) => `${count} 个信源`,
-	agentsTitle: "也为 Agent 而建",
+	briefKicker: "01 · 今日摘要",
+	briefTitle: "每一行，都有出处。",
+	briefBody: (sourceCount) =>
+		`${sourceCount ? `${sourceCount} ` : "数百"}个信源进，十行摘要出。每一行写清发生了什么、为什么重要，并链接到它引用的原始报道。`,
+	funnelFrom: "个信源",
+	funnelTo: "行摘要",
+	briefWindow: "今日 10 条",
+	briefEmpty: "今日要点还在生成中。打开信息流，先看各信源的最新内容。",
+	briefMore: "打开今日摘要",
+	wallCaption: "精选：官方博客、研究机构、论文、开发者社区和中文平台。",
+	translateKicker: "02 · 翻译",
+	translateTitle: "全球一手信源，用母语直接读。",
+	translateBody:
+		"每个信源的标题都自动翻译成你的语言，原文标题保留在旁边。支持 8 种阅读语言。",
+	translateBadge: "自动翻译 · 保留原文",
+	translateLanguages: "阅读语言",
+	eventsKicker: "03 · 事件",
+	eventsTitle: ["五家媒体，同一件事。", "自动合并成一个事件。"],
+	eventsBody:
+		"多家媒体报道同一件事时，OpenTrends 把它们合并成一个事件：读一次，就能看到都有谁在报道。",
+	eventsExample: "示例：2026 年 9 月 29 日",
+	highSignal: "高信号",
+	eventsSources: (count) => `${count} 个来源`,
+	eventsMore: "浏览今日事件",
+	agentsKicker: "Agent 接入",
+	agentsTitle: "你的 Agent，也能读。",
 	agentsBody:
 		"接入 MCP server、调用 JSON 接口、订阅 RSS，或安装 Agent skill。不需要 API key。",
+	agentsPrompt: "今天发生了什么？",
+	agentsMeta: "10 行 · 附引用",
 	agentsGuide: "接入指南",
-	openSourceTitle: "开源，MIT 协议",
+	topicsTitle: "选一个板块",
+	topicSources: (count) => `${count} 个信源`,
+	openSourceTitle: "完全开源。",
 	openSourceBody:
-		"代码全部公开。缺了哪个信源可以来提，也可以在 Cloudflare 上部署你自己的一份。",
+		"MIT 协议。代码全部公开，缺了哪个信源可以来提，也可以在 Cloudflare 上部署你自己的一份。",
+	finalTagline: "读懂世界，从一手信息开始。",
 };
 
 const ZH_HANT: LandingStrings = {
-	eyebrow: "開源 · 免費 · 無需註冊",
-	heroTitle: "全球一手信源，用你的語言讀。",
+	live: "即時",
+	heroTitle: ["全世界，", "十行讀懂。"],
 	heroBody: (sourceCount) =>
-		`OpenTrends 追蹤${sourceCount ? ` ${sourceCount} ` : "數百"}個官方部落格、研究機構、開發者社群和中文平台，把它們發布的內容翻譯過來，再寫成十條今日要點。`,
-	seoTitle: "全球一手信源，用你的語言讀",
-	ctaFeed: "閱讀今日要點",
+		`OpenTrends 每 5 分鐘讀一遍${sourceCount ? ` ${sourceCount} ` : "數百"}個一手資訊源、8 種語言，把今天發生的事寫成十行附出處的摘要。`,
+	seoTitle: "全世界，十行讀懂",
+	ctaFeed: "讀今天的十行",
 	ctaGithub: "查看 GitHub 倉庫",
-	statSources: (count) => `${count} 個信源`,
-	statTopics: (count) => `${count} 個板塊`,
-	statLanguages: (count) => `${count} 種語言`,
-	briefTitle: "今日要點",
-	briefMore: "閱讀完整要點",
-	briefEmpty: "今日要點還在生成中。打開資訊流，先看各信源的最新內容。",
-	pillars: [
-		{
-			title: "直達一手信源",
-			body: "官方部落格、實驗室公告、GitHub、Hacker News、Reddit、Product Hunt、知乎等。在消息出發的地方讀，而不是轉述之後。",
-		},
-		{
-			title: "自動翻譯",
-			body: "每條標題都翻譯成你的語言，原文標題保留在旁邊。目前支援 8 種語言。",
-		},
-		{
-			title: "每天十條要點",
-			body: "AI 把每個板塊濃縮成十條要點，每一條都能點回它引用的原文。",
-		},
+	stats: (sourceCount) => [
+		sourceCount ? `${sourceCount} 個一手資訊源` : "數百個一手資訊源",
+		"8 種語言",
+		"每 5 分鐘更新",
 	],
-	topicsTitle: "選一個板塊",
-	topicsBody: "每個板塊都有自己精選的信源。",
-	topicSources: (count) => `${count} 個信源`,
-	agentsTitle: "也為 Agent 而建",
+	briefKicker: "01 · 今日摘要",
+	briefTitle: "每一行，都有出處。",
+	briefBody: (sourceCount) =>
+		`${sourceCount ? `${sourceCount} ` : "數百"}個信源進，十行摘要出。每一行寫清發生了什麼、為什麼重要，並連結到它引用的原始報導。`,
+	funnelFrom: "個信源",
+	funnelTo: "行摘要",
+	briefWindow: "今日 10 條",
+	briefEmpty: "今日要點還在生成中。打開資訊流，先看各信源的最新內容。",
+	briefMore: "打開今日摘要",
+	wallCaption: "精選：官方部落格、研究機構、論文、開發者社群和中文平台。",
+	translateKicker: "02 · 翻譯",
+	translateTitle: "全球一手信源，用母語直接讀。",
+	translateBody:
+		"每個信源的標題都自動翻譯成你的語言，原文標題保留在旁邊。支援 8 種閱讀語言。",
+	translateBadge: "自動翻譯 · 保留原文",
+	translateLanguages: "閱讀語言",
+	eventsKicker: "03 · 事件",
+	eventsTitle: ["五家媒體，同一件事。", "自動合併成一個事件。"],
+	eventsBody:
+		"多家媒體報導同一件事時，OpenTrends 把它們合併成一個事件：讀一次，就能看到都有誰在報導。",
+	eventsExample: "示例：2026 年 9 月 29 日",
+	highSignal: "高訊號",
+	eventsSources: (count) => `${count} 個來源`,
+	eventsMore: "瀏覽今日事件",
+	agentsKicker: "Agent 接入",
+	agentsTitle: "你的 Agent，也能讀。",
 	agentsBody:
 		"接入 MCP server、呼叫 JSON 介面、訂閱 RSS，或安裝 Agent skill。不需要 API key。",
+	agentsPrompt: "今天發生了什麼？",
+	agentsMeta: "10 行 · 附引用",
 	agentsGuide: "接入指南",
-	openSourceTitle: "開源，MIT 授權",
+	topicsTitle: "選一個板塊",
+	topicSources: (count) => `${count} 個信源`,
+	openSourceTitle: "完全開源。",
 	openSourceBody:
-		"程式碼全部公開。缺了哪個信源可以來提，也可以在 Cloudflare 上部署你自己的一份。",
+		"MIT 授權。程式碼全部公開，缺了哪個信源可以來提，也可以在 Cloudflare 上部署你自己的一份。",
+	finalTagline: "讀懂世界，從一手資訊開始。",
 };
 
 const STRINGS: Partial<Record<Locale, LandingStrings>> = {
