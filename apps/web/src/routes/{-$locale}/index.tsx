@@ -79,7 +79,7 @@ async function loadLandingData(locale: Locale): Promise<LandingData> {
 	return {
 		digest: digestPreview(digest),
 		sourceCount: sourceList?.length ? sourceList.length : null,
-		stories: crossCheckedStories(events?.events),
+		stories: crossCheckedStories(events?.events, sourceList),
 		topics: sourcesByTopic(sourceList),
 		wall: wallSources(sourceList),
 	};

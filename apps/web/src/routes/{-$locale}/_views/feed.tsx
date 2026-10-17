@@ -39,6 +39,9 @@ export const Route = createFileRoute("/{-$locale}/_views/feed")({
 			description: translate(locale, "feed.seoDescription"),
 			path: "/feed",
 			locale,
+			// Drawn on the client around the reader's own choices: nothing
+			// here for a crawler, and the topic pages carry the content.
+			noindex: true,
 		});
 		// The feed is rendered on the client, so without this the data
 		// request only starts once the scripts have loaded and run. Preloading

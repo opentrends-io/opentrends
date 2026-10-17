@@ -66,6 +66,11 @@ function StoryCard({
 					>
 						<SourceMark size="sm" source={outlet} />
 						<span className="truncate">{outlet.name}</span>
+						{outlet.kind ? (
+							<span className="ml-auto shrink-0 text-[10px] text-[var(--text-muted)]">
+								{strings.kindLabels[outlet.kind]}
+							</span>
+						) : null}
 					</li>
 				))}
 			</ul>

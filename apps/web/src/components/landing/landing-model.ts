@@ -27,9 +27,14 @@ export const CROSS_CHECKED_COUNT = 3;
 export const SOURCE_WALL_TILES = 48;
 export const SOURCES_PER_TOPIC = 8;
 
+// How a source is read, as the API reports it; the page shows it as what
+// kind of place the source is.
+export type SourceKind = "community" | "hot" | "journal" | "publication";
+
 export interface LandingSource {
 	homeUrl?: string;
 	name?: string;
+	refresh?: string;
 	sourceId?: string;
 	topics?: readonly string[];
 }
@@ -37,6 +42,7 @@ export interface LandingSource {
 export interface WallSource {
 	homeUrl: string;
 	id: string;
+	kind: SourceKind | null;
 	name: string;
 	topics: ContentTopicId[];
 }
@@ -98,6 +104,22 @@ function hostOf(url: string | undefined): string | null {
 	}
 }
 
+export function sourceKind(refresh: string | undefined): SourceKind | null {
+	switch (refresh) {
+		case "community":
+			return "community";
+		case "hot":
+			return "hot";
+		case "slow":
+			return "journal";
+		case "rss":
+		case "daily":
+			return "publication";
+		default:
+			return null;
+	}
+}
+
 function asWallSource(source: LandingSource): WallSource | null {
 	if (!(source.homeUrl && source.name && source.sourceId)) {
 		return null;
@@ -105,6 +127,7 @@ function asWallSource(source: LandingSource): WallSource | null {
 	return {
 		homeUrl: source.homeUrl,
 		id: source.sourceId,
+		kind: sourceKind(source.refresh),
 		name: source.name,
 		topics: (source.topics ?? []).filter(isContentTopic),
 	};
@@ -199,8 +222,15 @@ export function lineTopic(entry: ArchivedDigestEntry): ContentTopicId | null {
 // per event, most sites first.
 export function crossCheckedStories(
 	events: readonly LandingEventInput[] | undefined,
+	sources: readonly LandingSource[] | undefined,
 	limit = CROSS_CHECKED_COUNT
 ): CrossCheckedStory[] {
+	const kinds = new Map(
+		(sources ?? []).map((source) => [
+			source.sourceId,
+			sourceKind(source.refresh),
+		])
+	);
 	const stories: CrossCheckedStory[] = [];
 	for (const event of events ?? []) {
 		const hosts = new Set<string>();
@@ -214,6 +244,7 @@ export function crossCheckedStories(
 			outlets.push({
 				homeUrl: source.homeUrl,
 				id: source.sourceId,
+				kind: kinds.get(source.sourceId) ?? null,
 				name: source.title,
 				topics: [],
 			});

@@ -1,5 +1,7 @@
 import type { Locale } from "@/lib/i18n";
 
+import type { SourceKind } from "./landing-model";
+
 // Landing page copy. English, Simplified and Traditional Chinese are written
 // by hand; the other editions read the English page, like /agents. Counts
 // are null when the API could not be read.
@@ -30,6 +32,7 @@ export interface LandingStrings {
 	faqTitle: string;
 	heroBody: (sourceCount: number | null) => string;
 	heroTitle: string;
+	kindLabels: Record<SourceKind, string>;
 	languagesBody: string;
 	languagesTitle: string;
 	mechanism: (sourceCount: number | null) => string;
@@ -55,13 +58,12 @@ export interface LandingStrings {
 
 const EN: LandingStrings = {
 	eyebrow: "Open source · Free · No account needed",
-	heroTitle:
-		"Follow hundreds of first-hand sources, cross-checked and translated.",
+	heroTitle: "Follow hundreds of first-hand sources, merged and translated.",
 	heroBody: (n) =>
-		`OpenTrends reads ${n ?? "hundreds of"} official blogs, research labs, newsrooms and developer communities, notes when several of them report the same story, and writes a short cited brief of what changed today, in your language.`,
-	seoTitle: "First-hand tech and AI news, cross-checked and translated",
+		`OpenTrends reads ${n ?? "hundreds of"} official blogs, research labs, newsrooms and developer communities, merges duplicate reports of the same story into one event with every source kept, and writes a short cited brief of what changed today, in your language.`,
+	seoTitle: "First-hand tech and AI news, merged and translated",
 	seoDescription:
-		"OpenTrends follows hundreds of official blogs, research labs, newsrooms and developer communities across AI, hardware, biotech, programming and the Chinese web, shows which stories several outlets are reporting, and writes a short cited daily brief in eight languages.",
+		"OpenTrends follows hundreds of official blogs, research labs, newsrooms and developer communities across AI, hardware, biotech, programming and the Chinese web, merges duplicate reports of the same story with every source kept, and writes a short cited daily brief in eight languages.",
 	ctaFeed: "Open today's feed",
 	ctaRss: "Subscribe by RSS",
 	continueReading: "Continue where you left off",
@@ -71,11 +73,17 @@ const EN: LandingStrings = {
 	briefMore: "Read all ten lines",
 	mechanism: (n) =>
 		`Drawn from ${n ?? "hundreds of"} sources across 7 topics · refreshed every 5 minutes · 8 reading languages`,
-	crossKicker: "Cross-checked",
-	crossTitle: "See how many outlets are reporting a story.",
+	crossKicker: "Merged reports",
+	crossTitle: "One story, every outlet that covered it.",
 	crossBody:
-		"Most feeds show you one headline at a time. OpenTrends follows every outlet separately, so when the same story appears in several of them it is grouped into one event and the outlets are listed side by side. A story carried by six newsrooms and a lab blog reads differently from one carried by a single site, and you can see which is which before you click.",
+		"Most feeds show you one headline at a time. OpenTrends reads every outlet separately, so when several of them report the same story their reports are merged into one event with every outlet listed: official releases, publications and community threads side by side. Nothing is fact-checked for you; you can see who said what and go straight to the original.",
 	crossReported: (count) => `Reported by ${count} outlets`,
+	kindLabels: {
+		community: "Community",
+		hot: "Hot list",
+		journal: "Journal",
+		publication: "Publication",
+	},
 	crossEmpty:
 		"The events feed is quiet right now. Check back in a few minutes.",
 	crossMore: "Browse today's events",
@@ -150,12 +158,12 @@ const EN: LandingStrings = {
 
 const ZH: LandingStrings = {
 	eyebrow: "开源 · 免费 · 无需注册",
-	heroTitle: "追踪数百个一手信源，交叉核对，自动翻译。",
+	heroTitle: "追踪数百个一手信源，合并重复报道，自动翻译。",
 	heroBody: (n) =>
-		`OpenTrends 读取${n ? ` ${n} ` : "数百"}个官方博客、研究机构、新闻编辑部和开发者社区，标出被多家同时报道的新闻，并用你的语言写一份带出处的今日简报。`,
-	seoTitle: "一手科技与 AI 资讯，交叉核对，自动翻译",
+		`OpenTrends 读取${n ? ` ${n} ` : "数百"}个官方博客、研究机构、新闻编辑部和开发者社区，把多家报道的同一件事合并成一个事件并保留每个来源，再用你的语言写一份带出处的今日简报。`,
+	seoTitle: "一手科技与 AI 资讯，合并重复报道，自动翻译",
 	seoDescription:
-		"OpenTrends 追踪 AI、硬件、生物科技、编程和中文互联网的数百个官方博客、研究机构、新闻编辑部和开发者社区，显示哪些新闻被多家同时报道，并以 8 种语言写一份带出处的每日简报。",
+		"OpenTrends 追踪 AI、硬件、生物科技、编程和中文互联网的数百个官方博客、研究机构、新闻编辑部和开发者社区，把多家报道的同一件事合并成一个事件并保留每个来源，再以 8 种语言写一份带出处的每日简报。",
 	ctaFeed: "打开今日信息流",
 	ctaRss: "RSS 订阅",
 	continueReading: "继续上次的阅读",
@@ -164,11 +172,17 @@ const ZH: LandingStrings = {
 	briefMore: "阅读全部十条",
 	mechanism: (n) =>
 		`来自 7 个板块、${n ?? "数百"} 个信源 · 每 5 分钟刷新 · 8 种阅读语言`,
-	crossKicker: "交叉核对",
-	crossTitle: "一条新闻，有几家在报，一眼看清。",
+	crossKicker: "合并报道",
+	crossTitle: "同一件事，谁报道了，一眼看清。",
 	crossBody:
-		"大多数信息流一次只给你一条标题。OpenTrends 分别追踪每一家媒体，同一件事在多家出现时会合并成一个事件，并把这些媒体并排列出。六家新闻编辑部加一个实验室博客都在报的新闻，和只有一家在报的新闻，分量不一样——点开之前你就能看出区别。",
-	crossReported: (count) => `${count} 家媒体报道`,
+		"大多数信息流一次只给你一条标题。OpenTrends 分别读取每一家，同一件事在多家出现时合并成一个事件，并列出每一个来源：官方发布、媒体报道和社区讨论并排放着。我们不替你做事实核查；你能看到是谁说的，并直接去看原文。",
+	crossReported: (count) => `${count} 家报道`,
+	kindLabels: {
+		community: "社区",
+		hot: "热榜",
+		journal: "期刊",
+		publication: "媒体 / 博客",
+	},
 	crossEmpty: "事件流暂时没有内容，过几分钟再来看。",
 	crossMore: "浏览今日事件",
 	sourcesKicker: "信源",
@@ -236,12 +250,12 @@ const ZH: LandingStrings = {
 
 const ZH_HANT: LandingStrings = {
 	eyebrow: "開源 · 免費 · 無需註冊",
-	heroTitle: "追蹤數百個一手信源，交叉核對，自動翻譯。",
+	heroTitle: "追蹤數百個一手信源，合併重複報導，自動翻譯。",
 	heroBody: (n) =>
-		`OpenTrends 讀取${n ? ` ${n} ` : "數百"}個官方部落格、研究機構、新聞編輯室和開發者社群，標出被多家同時報導的新聞，並用你的語言寫一份附出處的今日簡報。`,
-	seoTitle: "一手科技與 AI 資訊，交叉核對，自動翻譯",
+		`OpenTrends 讀取${n ? ` ${n} ` : "數百"}個官方部落格、研究機構、新聞編輯室和開發者社群，把多家報導的同一件事合併成一個事件並保留每個來源，再用你的語言寫一份附出處的今日簡報。`,
+	seoTitle: "一手科技與 AI 資訊，合併重複報導，自動翻譯",
 	seoDescription:
-		"OpenTrends 追蹤 AI、硬體、生物科技、程式設計和中文網路的數百個官方部落格、研究機構、新聞編輯室和開發者社群，顯示哪些新聞被多家同時報導，並以 8 種語言寫一份附出處的每日簡報。",
+		"OpenTrends 追蹤 AI、硬體、生物科技、程式設計和中文網路的數百個官方部落格、研究機構、新聞編輯室和開發者社群，把多家報導的同一件事合併成一個事件並保留每個來源，再以 8 種語言寫一份附出處的每日簡報。",
 	ctaFeed: "打開今日資訊流",
 	ctaRss: "RSS 訂閱",
 	continueReading: "繼續上次的閱讀",
@@ -250,11 +264,17 @@ const ZH_HANT: LandingStrings = {
 	briefMore: "閱讀全部十條",
 	mechanism: (n) =>
 		`來自 7 個板塊、${n ?? "數百"} 個信源 · 每 5 分鐘更新 · 8 種閱讀語言`,
-	crossKicker: "交叉核對",
-	crossTitle: "一條新聞，有幾家在報，一眼看清。",
+	crossKicker: "合併報導",
+	crossTitle: "同一件事，誰報導了，一眼看清。",
 	crossBody:
-		"大多數資訊流一次只給你一條標題。OpenTrends 分別追蹤每一家媒體，同一件事在多家出現時會合併成一個事件，並把這些媒體並排列出。六家新聞編輯室加一個實驗室部落格都在報的新聞，和只有一家在報的新聞，分量不一樣——點開之前你就能看出區別。",
-	crossReported: (count) => `${count} 家媒體報導`,
+		"大多數資訊流一次只給你一條標題。OpenTrends 分別讀取每一家，同一件事在多家出現時合併成一個事件，並列出每一個來源：官方發布、媒體報導和社群討論並排放著。我們不替你做事實查核；你能看到是誰說的，並直接去看原文。",
+	crossReported: (count) => `${count} 家報導`,
+	kindLabels: {
+		community: "社群",
+		hot: "熱榜",
+		journal: "期刊",
+		publication: "媒體 / 部落格",
+	},
 	crossEmpty: "事件流暫時沒有內容，過幾分鐘再來看。",
 	crossMore: "瀏覽今日事件",
 	sourcesKicker: "信源",

@@ -145,17 +145,20 @@ describe("crossCheckedStories", () => {
 	};
 
 	test("counts distinct sites and sorts the widest coverage first", () => {
-		const stories = crossCheckedStories([
-			{ eventId: "a", title: "Two sites", sources: [verge, vergeAi, tc] },
-			{ eventId: "b", title: "One site", sources: [verge, vergeAi] },
-			{
-				eventId: "c",
-				title: "Three sites",
-				sources: [verge, tc, reuters],
-				topicIds: ["featured", "ai"],
-				primarySource: { url: "https://techcrunch.com/x" },
-			},
-		]);
+		const stories = crossCheckedStories(
+			[
+				{ eventId: "a", title: "Two sites", sources: [verge, vergeAi, tc] },
+				{ eventId: "b", title: "One site", sources: [verge, vergeAi] },
+				{
+					eventId: "c",
+					title: "Three sites",
+					sources: [verge, tc, reuters],
+					topicIds: ["featured", "ai"],
+					primarySource: { url: "https://techcrunch.com/x" },
+				},
+			],
+			[{ sourceId: "reuters", refresh: "rss" }]
+		);
 		expect(stories.map((story) => story.id)).toEqual(["c", "a"]);
 		expect(stories[0]?.outlets.map((outlet) => outlet.name)).toEqual([
 			"The Verge",
@@ -163,10 +166,15 @@ describe("crossCheckedStories", () => {
 			"Reuters",
 		]);
 		expect(stories[0]?.topic).toBe("ai");
+		expect(stories[0]?.outlets.map((outlet) => outlet.kind)).toEqual([
+			null,
+			null,
+			"publication",
+		]);
 		expect(stories[0]?.url).toBe("https://techcrunch.com/x");
 	});
 
 	test("is empty without events", () => {
-		expect(crossCheckedStories(undefined)).toEqual([]);
+		expect(crossCheckedStories(undefined, undefined)).toEqual([]);
 	});
 });
