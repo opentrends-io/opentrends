@@ -1,17 +1,16 @@
 import { type Locale, localePathParam } from "@/lib/i18n";
 
-import { LandingBrief } from "./landing-brief";
+import { LandingClosing } from "./landing-closing";
 import { landingStrings } from "./landing-copy";
 import { LandingEvents } from "./landing-events";
-import { LandingFinale } from "./landing-finale";
 import { LandingHero } from "./landing-hero";
 import type { LandingData } from "./landing-model";
-import { LandingTranslate } from "./landing-translate";
+import { LandingRead } from "./landing-read";
+import { LandingSources } from "./landing-sources";
 
-// The page at `/` for first visits, told the way the launch film tells it:
-// too much to read, ten lines instead, then the three things that make the
-// ten lines possible (cited sources, translation, merged events), and the
-// ways in. Returning readers never see it; the route sends them to the feed.
+// The page at `/`: the product first (today's brief), then what makes it
+// different (cross-checked stories, hand-picked first-hand sources), how
+// it reads, and the code. Every visitor and crawler gets the same page.
 
 export function LandingPage({
 	data,
@@ -23,26 +22,32 @@ export function LandingPage({
 	const strings = landingStrings(locale);
 	const localeParam = localePathParam(locale);
 	return (
-		<div className="landing">
+		<div className="bg-[var(--surface-app)]">
 			<LandingHero
-				localeParam={localeParam}
-				sourceCount={data.sourceCount}
-				strings={strings}
-			/>
-			<LandingBrief
 				digest={data.digest}
 				localeParam={localeParam}
 				sourceCount={data.sourceCount}
 				strings={strings}
+			/>
+			<LandingEvents
+				localeParam={localeParam}
+				stories={data.stories}
+				strings={strings}
+			/>
+			<LandingSources
+				localeParam={localeParam}
+				sourceCount={data.sourceCount}
+				strings={strings}
+				topics={data.topics}
 				wall={data.wall}
 			/>
-			<LandingTranslate locale={locale} strings={strings} />
-			<LandingEvents
+			<LandingRead
 				locale={locale}
 				localeParam={localeParam}
 				strings={strings}
+				topics={data.topics}
 			/>
-			<LandingFinale data={data} localeParam={localeParam} strings={strings} />
+			<LandingClosing localeParam={localeParam} strings={strings} />
 		</div>
 	);
 }

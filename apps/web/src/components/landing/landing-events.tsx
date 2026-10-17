@@ -1,122 +1,115 @@
-import { cn } from "@opentrends/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
-import { ArrowDown, ArrowRight, CircleCheck } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 
-import { type Locale, useT } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 
 import type { LandingStrings } from "./landing-copy";
-import { eventExample } from "./landing-examples";
+import type { CrossCheckedStory } from "./landing-model";
 import {
+	CARD_CLASS,
 	CONTAINER_CLASS,
 	type LocaleParam,
-	PANEL_CLASS,
 	SectionHeader,
-	SourceBadge,
+	SourceMark,
 	TEXT_LINK_CLASS,
 	TopicTag,
 } from "./landing-ui";
 
-// Highlight three: five outlets' headlines on the same story, and the one
-// event OpenTrends makes of them.
+// The differentiator: the stories the most outlets are reporting right
+// now, each with the outlets listed, straight from the live events feed.
 
-export function LandingEvents({
-	locale,
-	localeParam,
+function StoryCard({
+	story,
 	strings,
 }: {
-	locale: Locale;
-	localeParam: LocaleParam;
+	story: CrossCheckedStory;
 	strings: LandingStrings;
 }) {
 	const t = useT();
-	const example = eventExample(locale);
+	const Title = story.url ? "a" : "span";
 	return (
-		<section className="landing-glow border-[var(--stage-line)] border-t py-24 sm:py-32">
+		<article className={`${CARD_CLASS} flex flex-col p-5`}>
+			<div className="flex items-center justify-between gap-3">
+				<span className="font-medium text-[12px] text-[var(--accent-blue)]">
+					{strings.crossReported(story.outlets.length)}
+				</span>
+				{story.topic ? (
+					<TopicTag label={t(`topic.${story.topic}`)} topic={story.topic} />
+				) : null}
+			</div>
+			<h3 className="mt-3 font-semibold text-[16px] text-[var(--text-heading)] leading-snug">
+				<Title
+					className="hover:underline"
+					{...(story.url
+						? { href: story.url, rel: "noopener", target: "_blank" }
+						: {})}
+				>
+					{story.title}
+					{story.url ? (
+						<ArrowUpRight
+							aria-hidden
+							className="ml-1 inline size-3.5 text-[var(--text-muted)]"
+						/>
+					) : null}
+				</Title>
+			</h3>
+			{story.summary ? (
+				<p className="mt-2 line-clamp-3 text-[13px] text-[var(--text-secondary)] leading-relaxed">
+					{story.summary}
+				</p>
+			) : null}
+			<ul className="mt-4 flex flex-col gap-1.5 border-[var(--border-subtle)] border-t pt-4">
+				{story.outlets.map((outlet) => (
+					<li
+						className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)]"
+						key={outlet.id}
+					>
+						<SourceMark size="sm" source={outlet} />
+						<span className="truncate">{outlet.name}</span>
+					</li>
+				))}
+			</ul>
+		</article>
+	);
+}
+
+export function LandingEvents({
+	localeParam,
+	stories,
+	strings,
+}: {
+	localeParam: LocaleParam;
+	stories: CrossCheckedStory[];
+	strings: LandingStrings;
+}) {
+	return (
+		<section className="border-[var(--border-default)] border-t py-16 sm:py-24">
 			<div className={CONTAINER_CLASS}>
 				<SectionHeader
-					body={strings.eventsBody}
-					kicker={strings.eventsKicker}
-					title={
-						<>
-							<span className="block text-[var(--stage-muted)]">
-								{strings.eventsTitle[0]}
-							</span>
-							<span className="block">{strings.eventsTitle[1]}</span>
-						</>
-					}
+					body={strings.crossBody}
+					kicker={strings.crossKicker}
+					title={strings.crossTitle}
 				/>
-				<div className="mt-14 grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-8">
-					<ul className="space-y-2">
-						{example.outlets.map((outlet) => (
-							<li
-								className="flex items-start gap-3 rounded-xl border border-[var(--stage-line)] bg-white/[0.02] px-4 py-3"
-								key={outlet.source}
-							>
-								<SourceBadge badge={outlet.badge} className="mt-0.5" />
-								<div className="min-w-0">
-									<p className="text-[11px] text-[var(--stage-faint)]">
-										{outlet.source}
-									</p>
-									<p className="mt-0.5 text-[14px] text-[var(--stage-muted)] leading-snug">
-										{outlet.title}
-									</p>
-								</div>
-							</li>
+				{stories.length > 0 ? (
+					<div className="mt-10 grid gap-4 md:grid-cols-3">
+						{stories.map((story) => (
+							<StoryCard key={story.id} story={story} strings={strings} />
 						))}
-					</ul>
-					<div
-						aria-hidden
-						className="flex justify-center text-[var(--stage-blue-soft)]"
-					>
-						<ArrowDown className="size-7 lg:hidden" />
-						<ArrowRight className="hidden size-8 lg:block" />
 					</div>
-					<article
-						className={cn(
-							PANEL_CLASS,
-							"border-[rgba(120,164,255,0.35)] p-6 shadow-[0_0_90px_-10px_rgba(21,93,255,0.45)] sm:p-7"
-						)}
+				) : (
+					<p
+						className={`${CARD_CLASS} mt-10 px-5 py-8 text-[13px] text-[var(--text-secondary)]`}
 					>
-						<h3 className="landing-display font-bold text-[24px] leading-tight sm:text-[28px]">
-							{example.title}
-						</h3>
-						<p className="mt-3 text-[14px] text-[var(--stage-muted)] leading-relaxed">
-							{example.summary}
-						</p>
-						<span className="mt-5 inline-flex h-7 items-center gap-1.5 rounded-md border border-[rgba(120,164,255,0.5)] bg-[rgba(120,164,255,0.1)] px-2 font-semibold text-[12px] text-[var(--stage-blue-soft)]">
-							<CircleCheck aria-hidden className="size-3.5" />
-							{strings.highSignal}
-						</span>
-						<div className="mt-4 flex flex-wrap items-center gap-2.5 text-[12px] text-[var(--stage-faint)]">
-							<TopicTag label={t("topic.ai")} topic="ai" />
-							<span className="flex -space-x-1.5">
-								{example.outlets.map((outlet) => (
-									<SourceBadge
-										badge={outlet.badge}
-										className="ring-2 ring-[var(--stage-panel)]"
-										key={outlet.source}
-									/>
-								))}
-							</span>
-							<span className="font-semibold text-[var(--stage-muted)]">
-								{strings.eventsSources(example.outlets.length)}
-							</span>
-						</div>
-						<p className="mt-5 border-[var(--stage-line)] border-t pt-4 text-[12px] text-[var(--stage-faint)]">
-							{example.outlets.map((outlet) => outlet.source).join(" · ")}
-						</p>
-					</article>
-				</div>
-				<div className="mt-10 flex flex-wrap items-center justify-between gap-4">
-					<p className="landing-mono text-[10px] text-[var(--stage-faint)]">
-						{strings.eventsExample}
+						{strings.crossEmpty}
 					</p>
+				)}
+				<div className="mt-6">
 					<Link
 						className={TEXT_LINK_CLASS}
 						params={{ locale: localeParam }}
 						to="/{-$locale}/events"
 					>
-						{strings.eventsMore}
+						{strings.crossMore}
 						<ArrowRight aria-hidden />
 					</Link>
 				</div>

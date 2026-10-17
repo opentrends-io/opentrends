@@ -27,7 +27,7 @@ export const DEFAULT_DESCRIPTION =
 
 export const DEFAULT_IMAGE = "/og-image.png";
 export const DEFAULT_IMAGE_ALT =
-	"OpenTrends: hundreds of AI, tech, hardware and maker sources in one view, with built-in translation";
+	"OpenTrends: hundreds of first-hand AI, tech, hardware, biotech and Chinese-web sources, cross-checked and translated into eight languages";
 export const DEFAULT_IMAGE_HEIGHT = "630";
 export const DEFAULT_IMAGE_TYPE = "image/png";
 export const DEFAULT_IMAGE_WIDTH = "1200";

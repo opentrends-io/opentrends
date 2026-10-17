@@ -1,208 +1,323 @@
 import type { Locale } from "@/lib/i18n";
 
-// Landing page copy, following the launch film's lines. English, Simplified
-// and Traditional Chinese are written by hand; the other editions read the
-// English page, like /agents. Counts are null when the API could not be
-// read.
+// Landing page copy. English, Simplified and Traditional Chinese are written
+// by hand; the other editions read the English page, like /agents. Counts
+// are null when the API could not be read.
+
+export interface Faq {
+	answer: string;
+	question: string;
+}
 
 export interface LandingStrings {
 	agentsBody: string;
 	agentsGuide: string;
-	agentsKicker: string;
-	agentsMeta: string;
-	agentsPrompt: string;
-	agentsTitle: string;
-	briefBody: (sourceCount: number | null) => string;
 	briefEmpty: string;
-	briefKicker: string;
+	briefLabel: string;
 	briefMore: string;
-	briefTitle: string;
-	briefWindow: string;
+	continueReading: string;
+	crossBody: string;
+	crossEmpty: string;
+	crossKicker: string;
+	crossMore: string;
+	crossReported: (count: number) => string;
+	crossTitle: string;
 	ctaFeed: string;
-	ctaGithub: string;
-	eventsBody: string;
-	eventsExample: string;
-	eventsKicker: string;
-	eventsMore: string;
-	eventsSources: (count: number) => string;
-	eventsTitle: [string, string];
-	finalTagline: string;
-	funnelFrom: string;
-	funnelTo: string;
+	ctaRss: string;
+	eyebrow: string;
+	faq: Faq[];
+	faqKicker: string;
+	faqTitle: string;
 	heroBody: (sourceCount: number | null) => string;
-	heroTitle: [string, string];
-	highSignal: string;
-	live: string;
-	openSourceBody: string;
-	openSourceTitle: string;
+	heroTitle: string;
+	languagesBody: string;
+	languagesTitle: string;
+	mechanism: (sourceCount: number | null) => string;
+	openBody: string;
+	openKicker: string;
+	openStars: (stars: string) => string;
+	openTitle: string;
+	readBody: string;
+	readKicker: string;
+	readTitle: string;
+	seoDescription: string;
 	seoTitle: string;
-	stats: (sourceCount: number | null) => string[];
+	sourcesBody: (sourceCount: number | null) => string;
+	sourcesKicker: string;
+	sourcesMore: (count: number) => string;
+	sourcesTitle: string;
 	topicSources: (count: number) => string;
+	topicsBody: string;
 	topicsTitle: string;
-	translateBadge: string;
-	translateBody: string;
-	translateKicker: string;
-	translateLanguages: string;
-	translateTitle: string;
-	wallCaption: string;
+	ways: { body: string; title: string }[];
+	waysTitle: string;
 }
 
 const EN: LandingStrings = {
-	live: "Live",
-	heroTitle: ["The world,", "in ten lines."],
-	heroBody: (sourceCount) =>
-		`OpenTrends reads ${sourceCount ?? "hundreds of"} first-hand sources in 8 languages every 5 minutes, and tells you what changed today in ten cited lines.`,
-	seoTitle: "The world, in ten lines",
-	ctaFeed: "Read today's ten lines",
-	ctaGithub: "View on GitHub",
-	stats: (sourceCount) => [
-		sourceCount ? `${sourceCount} sources` : "Hundreds of sources",
-		"8 languages",
-		"Every 5 minutes",
-	],
-	briefKicker: "01 · The brief",
-	briefTitle: "Every line, cited.",
-	briefBody: (sourceCount) =>
-		`${sourceCount ?? "Hundreds of"} sources in, ten lines out. Each line says what happened and why it matters, and links to the reports it was drawn from.`,
-	funnelFrom: "sources",
-	funnelTo: "lines",
-	briefWindow: "Today's top 10",
+	eyebrow: "Open source · Free · No account needed",
+	heroTitle:
+		"Follow hundreds of first-hand sources, cross-checked and translated.",
+	heroBody: (n) =>
+		`OpenTrends reads ${n ?? "hundreds of"} official blogs, research labs, newsrooms and developer communities, notes when several of them report the same story, and writes a short cited brief of what changed today, in your language.`,
+	seoTitle: "First-hand tech and AI news, cross-checked and translated",
+	seoDescription:
+		"OpenTrends follows hundreds of official blogs, research labs, newsrooms and developer communities across AI, hardware, biotech, programming and the Chinese web, shows which stories several outlets are reporting, and writes a short cited daily brief in eight languages.",
+	ctaFeed: "Open today's feed",
+	ctaRss: "Subscribe by RSS",
+	continueReading: "Continue where you left off",
+	briefLabel: "Today's brief",
 	briefEmpty:
 		"Today's brief is still being written. Open the feed to read the sources as they come in.",
-	briefMore: "Open today's brief",
-	wallCaption:
-		"Hand-picked: official blogs, research labs, papers, developer communities and Chinese platforms.",
-	translateKicker: "02 · Translation",
-	translateTitle: "Read everything in your language.",
-	translateBody:
-		"Headlines from every source arrive translated into your language, with the original title kept alongside. Eight reading languages.",
-	translateBadge: "Auto-translated · source kept",
-	translateLanguages: "Reading language",
-	eventsKicker: "03 · Events",
-	eventsTitle: ["Five outlets. One story.", "Merged into one event."],
-	eventsBody:
-		"When several outlets report the same thing, OpenTrends folds their coverage into one event. Read it once and see everyone who covered it.",
-	eventsExample: "Example from 29 September 2026",
-	highSignal: "High signal",
-	eventsSources: (count) => `${count} sources`,
-	eventsMore: "Browse today's events",
-	agentsKicker: "For agents",
-	agentsTitle: "Your agents can read it too.",
-	agentsBody:
-		"Connect the MCP server, call the JSON API, subscribe over RSS or install the agent skill. No API key needed.",
-	agentsPrompt: "What happened today?",
-	agentsMeta: "10 lines · with citations",
-	agentsGuide: "Setup guide",
-	topicsTitle: "Pick a topic",
+	briefMore: "Read all ten lines",
+	mechanism: (n) =>
+		`Drawn from ${n ?? "hundreds of"} sources across 7 topics · refreshed every 5 minutes · 8 reading languages`,
+	crossKicker: "Cross-checked",
+	crossTitle: "See how many outlets are reporting a story.",
+	crossBody:
+		"Most feeds show you one headline at a time. OpenTrends follows every outlet separately, so when the same story appears in several of them it is grouped into one event and the outlets are listed side by side. A story carried by six newsrooms and a lab blog reads differently from one carried by a single site, and you can see which is which before you click.",
+	crossReported: (count) => `Reported by ${count} outlets`,
+	crossEmpty:
+		"The events feed is quiet right now. Check back in a few minutes.",
+	crossMore: "Browse today's events",
+	sourcesKicker: "Sources",
+	sourcesTitle: "Hand-picked, first-hand.",
+	sourcesBody: (n) =>
+		`Every one of the ${n ?? ""} sources is chosen by hand and read where it publishes: official newsrooms and research blogs, academic journals, open-source communities, and the Chinese platforms that rarely appear in English-language feeds. Each source has its own page with its recent items and status.`,
+	sourcesMore: (count) => `All ${count} sources`,
 	topicSources: (count) => `${count} sources`,
-	openSourceTitle: "100% open source.",
-	openSourceBody:
-		"MIT licensed. Read the code, suggest a source that is missing, or run your own copy on Cloudflare.",
-	finalTagline: "Read the world first-hand.",
+	readKicker: "How you read it",
+	readTitle: "In your language, on your terms.",
+	readBody:
+		"Headlines arrive translated into the language you read in, with the original kept alongside. Pick a topic, follow only the sources you care about, or take the whole thing as a feed.",
+	languagesTitle: "The same headline in eight languages",
+	languagesBody:
+		"English, Simplified and Traditional Chinese, Russian, German, French, Spanish and Portuguese.",
+	topicsTitle: "Seven topics",
+	topicsBody: "Each topic follows its own list of sources.",
+	waysTitle: "Feeds and agents",
+	ways: [
+		{
+			title: "RSS",
+			body: "Every topic has an item feed and a digest feed.",
+		},
+		{
+			title: "JSON API",
+			body: "The digest and every topic as structured data, no key needed.",
+		},
+		{
+			title: "MCP server",
+			body: "Let Claude, Codex or any MCP client read the brief for you.",
+		},
+	],
+	agentsBody:
+		"Agents get the same brief as people: a public JSON API, llms.txt, an agent skill and an MCP server, all without an API key.",
+	agentsGuide: "Setup guide for agents",
+	openKicker: "Open source",
+	openTitle: "MIT licensed, built in the open.",
+	openBody:
+		"The adapters, the ranking, the translation and the brief are all in one public repository. Read how a source is fetched, open an issue for one that is missing, or run your own copy on Cloudflare.",
+	openStars: (stars) => `${stars} stars on GitHub`,
+	faqKicker: "Questions",
+	faqTitle: "Frequently asked",
+	faq: [
+		{
+			question: "How are sources chosen?",
+			answer:
+				"By hand. A source is added when it publishes first-hand: a company's own newsroom, a lab's blog, a journal, a maintainer's changelog, or a community where the people doing the work post. Aggregators that only repeat other outlets are left out, and the list is public in the repository.",
+		},
+		{
+			question: "How often does it update?",
+			answer:
+				"Sources are refreshed about every five minutes, each on its own schedule. The daily brief for each topic is rewritten through the day as new items arrive, and past briefs are kept in the archive.",
+		},
+		{
+			question: "How is this different from Google News or a feed reader?",
+			answer:
+				"Three things. Every item comes from a first-hand source rather than a syndication of one. When several outlets report the same story it is grouped into one event, so you can see how widely it is covered. And every headline is translated into your reading language with the original kept, so Chinese and English sources sit in the same feed.",
+		},
+		{
+			question: "How does the translation work?",
+			answer:
+				"Headlines are translated by a language model as they arrive, and the original title is shown alongside the translation so you can always check it. Summaries and the daily brief are written in the language you are reading in.",
+		},
+		{
+			question: "Do I need an account?",
+			answer:
+				"No. Reading, topics, RSS, the API and the MCP server are open to everyone. Signing in only syncs the sources you follow between devices.",
+		},
+	],
 };
 
 const ZH: LandingStrings = {
-	live: "实时",
-	heroTitle: ["全世界，", "十行读懂。"],
-	heroBody: (sourceCount) =>
-		`OpenTrends 每 5 分钟读一遍${sourceCount ? ` ${sourceCount} ` : "数百"}个一手信息源、8 种语言，把今天发生的事写成十行带出处的摘要。`,
-	seoTitle: "全世界，十行读懂",
-	ctaFeed: "读今天的十行",
-	ctaGithub: "查看 GitHub 仓库",
-	stats: (sourceCount) => [
-		sourceCount ? `${sourceCount} 个一手信息源` : "数百个一手信息源",
-		"8 种语言",
-		"每 5 分钟刷新",
-	],
-	briefKicker: "01 · 今日摘要",
-	briefTitle: "每一行，都有出处。",
-	briefBody: (sourceCount) =>
-		`${sourceCount ? `${sourceCount} ` : "数百"}个信源进，十行摘要出。每一行写清发生了什么、为什么重要，并链接到它引用的原始报道。`,
-	funnelFrom: "个信源",
-	funnelTo: "行摘要",
-	briefWindow: "今日 10 条",
-	briefEmpty: "今日要点还在生成中。打开信息流，先看各信源的最新内容。",
-	briefMore: "打开今日摘要",
-	wallCaption: "精选：官方博客、研究机构、论文、开发者社区和中文平台。",
-	translateKicker: "02 · 翻译",
-	translateTitle: "全球一手信源，用母语直接读。",
-	translateBody:
-		"每个信源的标题都自动翻译成你的语言，原文标题保留在旁边。支持 8 种阅读语言。",
-	translateBadge: "自动翻译 · 保留原文",
-	translateLanguages: "阅读语言",
-	eventsKicker: "03 · 事件",
-	eventsTitle: ["五家媒体，同一件事。", "自动合并成一个事件。"],
-	eventsBody:
-		"多家媒体报道同一件事时，OpenTrends 把它们合并成一个事件：读一次，就能看到都有谁在报道。",
-	eventsExample: "示例：2026 年 9 月 29 日",
-	highSignal: "高信号",
-	eventsSources: (count) => `${count} 个来源`,
-	eventsMore: "浏览今日事件",
-	agentsKicker: "Agent 接入",
-	agentsTitle: "你的 Agent，也能读。",
-	agentsBody:
-		"接入 MCP server、调用 JSON 接口、订阅 RSS，或安装 Agent skill。不需要 API key。",
-	agentsPrompt: "今天发生了什么？",
-	agentsMeta: "10 行 · 附引用",
-	agentsGuide: "接入指南",
-	topicsTitle: "选一个板块",
+	eyebrow: "开源 · 免费 · 无需注册",
+	heroTitle: "追踪数百个一手信源，交叉核对，自动翻译。",
+	heroBody: (n) =>
+		`OpenTrends 读取${n ? ` ${n} ` : "数百"}个官方博客、研究机构、新闻编辑部和开发者社区，标出被多家同时报道的新闻，并用你的语言写一份带出处的今日简报。`,
+	seoTitle: "一手科技与 AI 资讯，交叉核对，自动翻译",
+	seoDescription:
+		"OpenTrends 追踪 AI、硬件、生物科技、编程和中文互联网的数百个官方博客、研究机构、新闻编辑部和开发者社区，显示哪些新闻被多家同时报道，并以 8 种语言写一份带出处的每日简报。",
+	ctaFeed: "打开今日信息流",
+	ctaRss: "RSS 订阅",
+	continueReading: "继续上次的阅读",
+	briefLabel: "今日简报",
+	briefEmpty: "今日简报还在生成中。打开信息流，先看各信源的最新内容。",
+	briefMore: "阅读全部十条",
+	mechanism: (n) =>
+		`来自 7 个板块、${n ?? "数百"} 个信源 · 每 5 分钟刷新 · 8 种阅读语言`,
+	crossKicker: "交叉核对",
+	crossTitle: "一条新闻，有几家在报，一眼看清。",
+	crossBody:
+		"大多数信息流一次只给你一条标题。OpenTrends 分别追踪每一家媒体，同一件事在多家出现时会合并成一个事件，并把这些媒体并排列出。六家新闻编辑部加一个实验室博客都在报的新闻，和只有一家在报的新闻，分量不一样——点开之前你就能看出区别。",
+	crossReported: (count) => `${count} 家媒体报道`,
+	crossEmpty: "事件流暂时没有内容，过几分钟再来看。",
+	crossMore: "浏览今日事件",
+	sourcesKicker: "信源",
+	sourcesTitle: "人工精选，直达一手。",
+	sourcesBody: (n) =>
+		`${n ? `${n} ` : ""}个信源每一个都是人工挑选，并在它发布的地方读取：官方新闻室和研究博客、学术期刊、开源社区，以及很少出现在英文信息流里的中文平台。每个信源都有自己的页面，列出最近内容和状态。`,
+	sourcesMore: (count) => `全部 ${count} 个信源`,
 	topicSources: (count) => `${count} 个信源`,
-	openSourceTitle: "完全开源。",
-	openSourceBody:
-		"MIT 协议。代码全部公开，缺了哪个信源可以来提，也可以在 Cloudflare 上部署你自己的一份。",
-	finalTagline: "读懂世界，从一手信息开始。",
+	readKicker: "阅读方式",
+	readTitle: "用你的语言，按你的方式。",
+	readBody:
+		"标题自动翻译成你的阅读语言，原文保留在旁边。可以按板块看，只关注你在意的信源，或者把整个站当作一个订阅源。",
+	languagesTitle: "同一条标题，八种语言",
+	languagesBody:
+		"英语、简体中文、繁体中文、俄语、德语、法语、西班牙语和葡萄牙语。",
+	topicsTitle: "七个板块",
+	topicsBody: "每个板块追踪自己的一组信源。",
+	waysTitle: "订阅与 Agent",
+	ways: [
+		{ title: "RSS", body: "每个板块都有内容订阅源和简报订阅源。" },
+		{ title: "JSON 接口", body: "简报和每个板块都是结构化数据，不需要密钥。" },
+		{
+			title: "MCP server",
+			body: "让 Claude、Codex 或任何 MCP 客户端替你读简报。",
+		},
+	],
+	agentsBody:
+		"Agent 读到的和人一样：公开的 JSON 接口、llms.txt、Agent skill 和 MCP server，都不需要 API key。",
+	agentsGuide: "Agent 接入指南",
+	openKicker: "开源",
+	openTitle: "MIT 协议，公开构建。",
+	openBody:
+		"抓取适配器、排序、翻译和简报都在同一个公开仓库里。可以看一个信源是怎么抓的，缺了哪个信源就提 issue，也可以在 Cloudflare 上部署你自己的一份。",
+	openStars: (stars) => `GitHub ${stars} 星`,
+	faqKicker: "常见问题",
+	faqTitle: "你可能想问",
+	faq: [
+		{
+			question: "信源是怎么选的？",
+			answer:
+				"人工挑选。一个信源会被收录，是因为它发布一手信息：公司自己的新闻室、实验室博客、期刊、维护者的更新日志，或者做事的人自己发帖的社区。只转述别家的聚合站不收。完整列表在仓库里公开。",
+		},
+		{
+			question: "多久更新一次？",
+			answer:
+				"信源大约每 5 分钟刷新一次，各有各的节奏。每个板块的今日简报会随着新内容到来在一天里反复重写，过去的简报保留在归档里。",
+		},
+		{
+			question: "和 Google News 或 RSS 阅读器有什么不同？",
+			answer:
+				"三点。每一条都来自一手信源，而不是别人的转载。同一件事被多家报道时会合并成一个事件，你能看到它的覆盖面有多广。每条标题都翻译成你的阅读语言并保留原文，中英文信源在同一条信息流里。",
+		},
+		{
+			question: "翻译是怎么做的？",
+			answer:
+				"标题到达时由语言模型翻译，译文旁边始终显示原标题，随时可以核对。摘要和每日简报直接用你正在阅读的语言生成。",
+		},
+		{
+			question: "需要注册吗？",
+			answer:
+				"不需要。阅读、板块、RSS、接口和 MCP server 对所有人开放。登录只用来在设备之间同步你关注的信源。",
+		},
+	],
 };
 
 const ZH_HANT: LandingStrings = {
-	live: "即時",
-	heroTitle: ["全世界，", "十行讀懂。"],
-	heroBody: (sourceCount) =>
-		`OpenTrends 每 5 分鐘讀一遍${sourceCount ? ` ${sourceCount} ` : "數百"}個一手資訊源、8 種語言，把今天發生的事寫成十行附出處的摘要。`,
-	seoTitle: "全世界，十行讀懂",
-	ctaFeed: "讀今天的十行",
-	ctaGithub: "查看 GitHub 倉庫",
-	stats: (sourceCount) => [
-		sourceCount ? `${sourceCount} 個一手資訊源` : "數百個一手資訊源",
-		"8 種語言",
-		"每 5 分鐘更新",
-	],
-	briefKicker: "01 · 今日摘要",
-	briefTitle: "每一行，都有出處。",
-	briefBody: (sourceCount) =>
-		`${sourceCount ? `${sourceCount} ` : "數百"}個信源進，十行摘要出。每一行寫清發生了什麼、為什麼重要，並連結到它引用的原始報導。`,
-	funnelFrom: "個信源",
-	funnelTo: "行摘要",
-	briefWindow: "今日 10 條",
-	briefEmpty: "今日要點還在生成中。打開資訊流，先看各信源的最新內容。",
-	briefMore: "打開今日摘要",
-	wallCaption: "精選：官方部落格、研究機構、論文、開發者社群和中文平台。",
-	translateKicker: "02 · 翻譯",
-	translateTitle: "全球一手信源，用母語直接讀。",
-	translateBody:
-		"每個信源的標題都自動翻譯成你的語言，原文標題保留在旁邊。支援 8 種閱讀語言。",
-	translateBadge: "自動翻譯 · 保留原文",
-	translateLanguages: "閱讀語言",
-	eventsKicker: "03 · 事件",
-	eventsTitle: ["五家媒體，同一件事。", "自動合併成一個事件。"],
-	eventsBody:
-		"多家媒體報導同一件事時，OpenTrends 把它們合併成一個事件：讀一次，就能看到都有誰在報導。",
-	eventsExample: "示例：2026 年 9 月 29 日",
-	highSignal: "高訊號",
-	eventsSources: (count) => `${count} 個來源`,
-	eventsMore: "瀏覽今日事件",
-	agentsKicker: "Agent 接入",
-	agentsTitle: "你的 Agent，也能讀。",
-	agentsBody:
-		"接入 MCP server、呼叫 JSON 介面、訂閱 RSS，或安裝 Agent skill。不需要 API key。",
-	agentsPrompt: "今天發生了什麼？",
-	agentsMeta: "10 行 · 附引用",
-	agentsGuide: "接入指南",
-	topicsTitle: "選一個板塊",
+	eyebrow: "開源 · 免費 · 無需註冊",
+	heroTitle: "追蹤數百個一手信源，交叉核對，自動翻譯。",
+	heroBody: (n) =>
+		`OpenTrends 讀取${n ? ` ${n} ` : "數百"}個官方部落格、研究機構、新聞編輯室和開發者社群，標出被多家同時報導的新聞，並用你的語言寫一份附出處的今日簡報。`,
+	seoTitle: "一手科技與 AI 資訊，交叉核對，自動翻譯",
+	seoDescription:
+		"OpenTrends 追蹤 AI、硬體、生物科技、程式設計和中文網路的數百個官方部落格、研究機構、新聞編輯室和開發者社群，顯示哪些新聞被多家同時報導，並以 8 種語言寫一份附出處的每日簡報。",
+	ctaFeed: "打開今日資訊流",
+	ctaRss: "RSS 訂閱",
+	continueReading: "繼續上次的閱讀",
+	briefLabel: "今日簡報",
+	briefEmpty: "今日簡報還在生成中。打開資訊流，先看各信源的最新內容。",
+	briefMore: "閱讀全部十條",
+	mechanism: (n) =>
+		`來自 7 個板塊、${n ?? "數百"} 個信源 · 每 5 分鐘更新 · 8 種閱讀語言`,
+	crossKicker: "交叉核對",
+	crossTitle: "一條新聞，有幾家在報，一眼看清。",
+	crossBody:
+		"大多數資訊流一次只給你一條標題。OpenTrends 分別追蹤每一家媒體，同一件事在多家出現時會合併成一個事件，並把這些媒體並排列出。六家新聞編輯室加一個實驗室部落格都在報的新聞，和只有一家在報的新聞，分量不一樣——點開之前你就能看出區別。",
+	crossReported: (count) => `${count} 家媒體報導`,
+	crossEmpty: "事件流暫時沒有內容，過幾分鐘再來看。",
+	crossMore: "瀏覽今日事件",
+	sourcesKicker: "信源",
+	sourcesTitle: "人工精選，直達一手。",
+	sourcesBody: (n) =>
+		`${n ? `${n} ` : ""}個信源每一個都是人工挑選，並在它發布的地方讀取：官方新聞室和研究部落格、學術期刊、開源社群，以及很少出現在英文資訊流裡的中文平台。每個信源都有自己的頁面，列出最近內容和狀態。`,
+	sourcesMore: (count) => `全部 ${count} 個信源`,
 	topicSources: (count) => `${count} 個信源`,
-	openSourceTitle: "完全開源。",
-	openSourceBody:
-		"MIT 授權。程式碼全部公開，缺了哪個信源可以來提，也可以在 Cloudflare 上部署你自己的一份。",
-	finalTagline: "讀懂世界，從一手資訊開始。",
+	readKicker: "閱讀方式",
+	readTitle: "用你的語言，按你的方式。",
+	readBody:
+		"標題自動翻譯成你的閱讀語言，原文保留在旁邊。可以按板塊看，只關注你在意的信源，或者把整個站當作一個訂閱源。",
+	languagesTitle: "同一條標題，八種語言",
+	languagesBody:
+		"英語、簡體中文、繁體中文、俄語、德語、法語、西班牙語和葡萄牙語。",
+	topicsTitle: "七個板塊",
+	topicsBody: "每個板塊追蹤自己的一組信源。",
+	waysTitle: "訂閱與 Agent",
+	ways: [
+		{ title: "RSS", body: "每個板塊都有內容訂閱源和簡報訂閱源。" },
+		{ title: "JSON 介面", body: "簡報和每個板塊都是結構化資料，不需要金鑰。" },
+		{
+			title: "MCP server",
+			body: "讓 Claude、Codex 或任何 MCP 客戶端替你讀簡報。",
+		},
+	],
+	agentsBody:
+		"Agent 讀到的和人一樣：公開的 JSON 介面、llms.txt、Agent skill 和 MCP server，都不需要 API key。",
+	agentsGuide: "Agent 接入指南",
+	openKicker: "開源",
+	openTitle: "MIT 授權，公開建構。",
+	openBody:
+		"抓取適配器、排序、翻譯和簡報都在同一個公開倉庫裡。可以看一個信源是怎麼抓的，缺了哪個信源就開 issue，也可以在 Cloudflare 上部署你自己的一份。",
+	openStars: (stars) => `GitHub ${stars} 星`,
+	faqKicker: "常見問題",
+	faqTitle: "你可能想問",
+	faq: [
+		{
+			question: "信源是怎麼選的？",
+			answer:
+				"人工挑選。一個信源會被收錄，是因為它發布一手資訊：公司自己的新聞室、實驗室部落格、期刊、維護者的更新日誌，或者做事的人自己發文的社群。只轉述別家的聚合站不收。完整列表在倉庫裡公開。",
+		},
+		{
+			question: "多久更新一次？",
+			answer:
+				"信源大約每 5 分鐘更新一次，各有各的節奏。每個板塊的今日簡報會隨著新內容到來在一天裡反覆重寫，過去的簡報保留在歸檔裡。",
+		},
+		{
+			question: "和 Google News 或 RSS 閱讀器有什麼不同？",
+			answer:
+				"三點。每一條都來自一手信源，而不是別人的轉載。同一件事被多家報導時會合併成一個事件，你能看到它的覆蓋面有多廣。每條標題都翻譯成你的閱讀語言並保留原文，中英文信源在同一條資訊流裡。",
+		},
+		{
+			question: "翻譯是怎麼做的？",
+			answer:
+				"標題到達時由語言模型翻譯，譯文旁邊始終顯示原標題，隨時可以核對。摘要和每日簡報直接用你正在閱讀的語言生成。",
+		},
+		{
+			question: "需要註冊嗎？",
+			answer:
+				"不需要。閱讀、板塊、RSS、介面和 MCP server 對所有人開放。登入只用來在裝置之間同步你關注的信源。",
+		},
+	],
 };
 
 const STRINGS: Partial<Record<Locale, LandingStrings>> = {

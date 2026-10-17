@@ -1,31 +1,42 @@
 import { env } from "@opentrends/env/web";
-import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
+import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { landingStrings } from "@/components/landing/landing-copy";
 import {
-	countSources,
+	crossCheckedStories,
 	digestPreview,
 	type LandingData,
+	type LandingEventInput,
 	type LandingSource,
+	sourcesByTopic,
 	wallSources,
 } from "@/components/landing/landing-model";
 import { LandingPage } from "@/components/landing/landing-page";
 import { readApiJsonForSsr } from "@/components/trends/load-trends-ssr";
 import type { DigestJsonData } from "@/components/trends/types";
-import { defaultTopicForLocale } from "@/lib/default-topic";
 import { isLocale, type Locale, resolveLocale } from "@/lib/i18n";
-import { isReturningReader } from "@/lib/returning-reader";
 import { buildSeo } from "@/lib/seo";
+import { faqPage } from "@/lib/structured-data";
 
 const LANDING_STALE_MS = 10 * 60_000;
 const CLIENT_FETCH_TIMEOUT_MS = 5000;
+// The API returns at most 80; multi-outlet events are a small share of them.
+const EVENTS_TO_SCAN = 80;
 
 interface SourcesResponse {
 	sources?: LandingSource[];
 }
 
+interface EventsResponse {
+	events?: LandingEventInput[];
+}
+
 function digestPath(locale: Locale): string {
 	return `/api/trends/featured/summary?format=json&window=today&lang=${locale}`;
+}
+
+function eventsPath(locale: Locale): string {
+	return `/api/events?limit=${EVENTS_TO_SCAN}&lang=${locale}`;
 }
 
 // Same reads on both sides: over the service binding while server
@@ -59,14 +70,18 @@ async function readApiJson<T>(path: string): Promise<T | null> {
 }
 
 async function loadLandingData(locale: Locale): Promise<LandingData> {
-	const [digest, sources] = await Promise.all([
+	const [digest, sources, events] = await Promise.all([
 		readApiJson<DigestJsonData>(digestPath(locale)),
 		readApiJson<SourcesResponse>("/api/sources"),
+		readApiJson<EventsResponse>(eventsPath(locale)),
 	]);
+	const sourceList = sources?.sources;
 	return {
 		digest: digestPreview(digest),
-		...countSources(sources?.sources),
-		wall: wallSources(sources?.sources),
+		sourceCount: sourceList?.length ? sourceList.length : null,
+		stories: crossCheckedStories(events?.events),
+		topics: sourcesByTopic(sourceList),
+		wall: wallSources(sourceList),
 	};
 }
 
@@ -75,29 +90,20 @@ export const Route = createFileRoute("/{-$locale}/")({
 		if (params.locale && !isLocale(params.locale)) {
 			throw notFound();
 		}
-		// Readers who have opened the feed before go straight back to it.
-		// Temporary, since the answer depends on the visitor.
-		if (isReturningReader()) {
-			throw redirect({
-				to: "/{-$locale}/trends/$topic",
-				params: {
-					...params,
-					topic: defaultTopicForLocale(resolveLocale(params.locale)),
-				},
-			});
-		}
 	},
 	loader: ({ params }) => loadLandingData(resolveLocale(params.locale)),
 	staleTime: LANDING_STALE_MS,
 	head: ({ params }) => {
 		const locale = resolveLocale(params.locale);
 		const strings = landingStrings(locale);
-		return buildSeo({
-			description: strings.heroBody(null),
+		const head = buildSeo({
+			description: strings.seoDescription,
 			locale,
 			path: "/",
 			title: strings.seoTitle,
 		});
+		const faq = faqPage(strings.faq);
+		return { ...head, scripts: faq ? [faq] : [] };
 	},
 	component: LandingRoute,
 });
