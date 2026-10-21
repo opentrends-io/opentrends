@@ -185,7 +185,11 @@ export interface SourceDetailData {
 // A finished digest as the JSON endpoint returns it; read once on the
 // server so the ten lines are in the first HTML.
 export interface DigestJsonData {
+	// True when the model was unavailable and the lines are a rule-based list.
+	degraded?: boolean;
 	entries: ArchivedDigestEntry[];
+	// When the digest was produced; absent from older API builds.
+	generatedAt?: number;
 	lang: string;
 	markdown: string;
 	topic: string;

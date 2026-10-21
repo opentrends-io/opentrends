@@ -77,8 +77,14 @@ export interface CrossCheckedStory {
 	url: string | null;
 }
 
+export interface LandingBrief {
+	degraded: boolean;
+	generatedAt: number | null;
+	lines: ArchivedDigestEntry[];
+}
+
 export interface LandingData {
-	digest: ArchivedDigestEntry[] | null;
+	digest: LandingBrief | null;
 	sourceCount: number | null;
 	stories: CrossCheckedStory[];
 	topics: TopicSources[];
@@ -199,11 +205,16 @@ export function sourcesByTopic(
 
 export function digestPreview(
 	digest: DigestJsonData | null | undefined
-): ArchivedDigestEntry[] | null {
+): LandingBrief | null {
 	if (!(Array.isArray(digest?.entries) && digest.entries.length > 0)) {
 		return null;
 	}
-	return digest.entries.slice(0, LANDING_DIGEST_LINES);
+	return {
+		degraded: digest.degraded === true,
+		generatedAt:
+			typeof digest.generatedAt === "number" ? digest.generatedAt : null,
+		lines: digest.entries.slice(0, LANDING_DIGEST_LINES),
+	};
 }
 
 // The topic a featured line came from, for its tag: the first cited topic

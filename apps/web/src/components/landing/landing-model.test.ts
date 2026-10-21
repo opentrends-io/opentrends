@@ -88,7 +88,23 @@ describe("digestPreview", () => {
 			topic: "featured",
 			window: "today",
 		});
-		expect(preview).toHaveLength(LANDING_DIGEST_LINES);
+		expect(preview?.lines).toHaveLength(LANDING_DIGEST_LINES);
+		expect(preview?.generatedAt).toBeNull();
+		expect(preview?.degraded).toBe(false);
+	});
+
+	test("carries the digest's age and degraded flag", () => {
+		const preview = digestPreview({
+			degraded: true,
+			entries: [entry(1)],
+			generatedAt: 1_700_000_000_000,
+			lang: "en",
+			markdown: "",
+			topic: "featured",
+			window: "today",
+		});
+		expect(preview?.generatedAt).toBe(1_700_000_000_000);
+		expect(preview?.degraded).toBe(true);
 	});
 
 	test("is empty for a missing or empty digest", () => {

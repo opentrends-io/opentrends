@@ -28,6 +28,7 @@ import {
 import {
 	HEADER_CITATION_LIMIT,
 	normalizeSummaryWindow,
+	type PreparedSummary,
 	prepareTrendsSummary,
 	TrendsSummaryNoMatchesError,
 	TrendsSummaryNotConfiguredError,
@@ -126,6 +127,21 @@ export function textStreamFromGenerator(
 			}
 		},
 	});
+}
+
+// Where a digest came from and when, for clients that show its age.
+function summaryGeneratedAt(prepared: PreparedSummary): number {
+	return prepared.generatedAt ?? Date.now();
+}
+
+function summaryProvenanceHeaders(
+	prepared: PreparedSummary
+): Record<string, string> {
+	return {
+		"X-Trends-Summary-Origin": prepared.origin,
+		"X-Trends-Summary-Generated-At": String(summaryGeneratedAt(prepared)),
+		"X-Trends-Summary-Degraded": String(prepared.degraded),
+	};
 }
 
 function withTrendsCacheHeaders(
@@ -324,7 +340,9 @@ export const trendsRoutes = new Hono()
 			}
 			return c.json(
 				{
+					degraded: prepared.degraded,
 					entries: parseDigestEntries(markdown, prepared.citations),
+					generatedAt: summaryGeneratedAt(prepared),
 					lang,
 					markdown,
 					topic,
@@ -343,8 +361,9 @@ export const trendsRoutes = new Hono()
 					headers: {
 						"Content-Type": "text/plain; charset=utf-8",
 						"Cache-Control": "no-store",
-						"X-Trends-Summary-Origin": prepared.origin,
-						"Access-Control-Expose-Headers": "X-Trends-Summary-Origin",
+						...summaryProvenanceHeaders(prepared),
+						"Access-Control-Expose-Headers":
+							"X-Trends-Summary-Origin, X-Trends-Summary-Generated-At, X-Trends-Summary-Degraded",
 					},
 				}
 			);
@@ -357,11 +376,11 @@ export const trendsRoutes = new Hono()
 				"X-Trends-Citations": encodeURIComponent(
 					JSON.stringify(prepared.citations.slice(0, HEADER_CITATION_LIMIT))
 				),
-				"X-Trends-Summary-Origin": prepared.origin,
+				...summaryProvenanceHeaders(prepared),
 				// Allow the cross-origin web client (different localhost port) to
 				// read the citations header off the response.
 				"Access-Control-Expose-Headers":
-					"X-Trends-Citations, X-Trends-Summary-Origin",
+					"X-Trends-Citations, X-Trends-Summary-Origin, X-Trends-Summary-Generated-At, X-Trends-Summary-Degraded",
 			},
 		});
 	})

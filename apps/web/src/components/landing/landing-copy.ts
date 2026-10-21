@@ -14,9 +14,11 @@ export interface Faq {
 export interface LandingStrings {
 	agentsBody: string;
 	agentsGuide: string;
+	briefDegraded: string;
 	briefEmpty: string;
 	briefLabel: string;
 	briefMore: string;
+	briefUpdated: (ago: string) => string;
 	continueReading: string;
 	crossBody: string;
 	crossEmpty: string;
@@ -71,6 +73,9 @@ const EN: LandingStrings = {
 	briefEmpty:
 		"Today's brief is still being written. Open the feed to read the sources as they come in.",
 	briefMore: "Read all ten lines",
+	briefUpdated: (ago) => `Updated ${ago}`,
+	briefDegraded:
+		"The editor is catching up; these are today's newest items, not the written brief.",
 	mechanism: (n) =>
 		`Drawn from ${n ?? "hundreds of"} sources across 7 topics · refreshed every 5 minutes · 8 reading languages`,
 	crossKicker: "Merged reports",
@@ -170,6 +175,8 @@ const ZH: LandingStrings = {
 	briefLabel: "今日简报",
 	briefEmpty: "今日简报还在生成中。打开信息流，先看各信源的最新内容。",
 	briefMore: "阅读全部十条",
+	briefUpdated: (ago) => `更新于${ago}`,
+	briefDegraded: "编辑还在赶工：这几条是今天最新的内容，还不是写好的简报。",
 	mechanism: (n) =>
 		`来自 7 个板块、${n ?? "数百"} 个信源 · 每 5 分钟刷新 · 8 种阅读语言`,
 	crossKicker: "合并报道",
@@ -262,6 +269,8 @@ const ZH_HANT: LandingStrings = {
 	briefLabel: "今日簡報",
 	briefEmpty: "今日簡報還在生成中。打開資訊流，先看各信源的最新內容。",
 	briefMore: "閱讀全部十條",
+	briefUpdated: (ago) => `更新於${ago}`,
+	briefDegraded: "編輯還在趕工：這幾條是今天最新的內容，還不是寫好的簡報。",
 	mechanism: (n) =>
 		`來自 7 個板塊、${n ?? "數百"} 個信源 · 每 5 分鐘更新 · 8 種閱讀語言`,
 	crossKicker: "合併報導",

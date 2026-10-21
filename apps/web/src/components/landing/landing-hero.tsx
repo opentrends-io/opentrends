@@ -2,12 +2,13 @@ import { env } from "@opentrends/env/web";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Rss } from "lucide-react";
 
+import { formatRelativeTime } from "@/components/trends/relative-time";
 import type { ArchivedDigestEntry } from "@/components/trends/types";
 import { useT } from "@/lib/i18n";
 import { useIsReturningReader } from "@/lib/returning-reader";
 
 import type { LandingStrings } from "./landing-copy";
-import { lineTopic } from "./landing-model";
+import { type LandingBrief, lineTopic } from "./landing-model";
 import {
 	AppWindow,
 	CONTAINER_CLASS,
@@ -66,11 +67,14 @@ function BriefPreview({
 	localeParam,
 	strings,
 }: {
-	digest: ArchivedDigestEntry[] | null;
+	digest: LandingBrief | null;
 	localeParam: LocaleParam;
 	strings: LandingStrings;
 }) {
 	const t = useT();
+	const updated = digest?.generatedAt
+		? formatRelativeTime(digest.generatedAt, t)
+		: null;
 	return (
 		<AppWindow>
 			<div className="flex items-center justify-between gap-3 border-[var(--border-default)] border-b px-4 py-2.5 sm:px-5">
@@ -83,12 +87,17 @@ function BriefPreview({
 				</p>
 				<span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
 					<span className="size-1.5 rounded-full bg-[var(--accent-green)]" />
-					{t("card.statusLive")}
+					{updated ? strings.briefUpdated(updated) : t("card.statusLive")}
 				</span>
 			</div>
+			{digest?.degraded ? (
+				<p className="border-[var(--border-subtle)] border-b bg-[var(--accent-orange-light)] px-4 py-2 text-[12px] text-[var(--text-secondary)] sm:px-5">
+					{strings.briefDegraded}
+				</p>
+			) : null}
 			{digest ? (
 				<ol className="divide-y divide-[var(--border-subtle)]">
-					{digest.map((line) => (
+					{digest.lines.map((line) => (
 						<BriefLine key={line.n} line={line} />
 					))}
 				</ol>
@@ -140,7 +149,7 @@ export function LandingHero({
 	sourceCount,
 	strings,
 }: {
-	digest: ArchivedDigestEntry[] | null;
+	digest: LandingBrief | null;
 	localeParam: LocaleParam;
 	sourceCount: number | null;
 	strings: LandingStrings;

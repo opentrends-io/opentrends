@@ -108,6 +108,8 @@ const CROSS_TOPIC_SELECTION_MODE = "cross-topic-editorial-v3";
 const SUMMARY_HOT_CACHE_TTL_SECONDS = Math.ceil(
 	SUMMARY_CACHE_RETENTION_MS / 1000
 );
+// A rule-based fallback is retried at the next reconcile after this.
+const DEGRADED_SUMMARY_TTL_MS = 15 * 60_000;
 const SUMMARY_FIRST_CHUNK_TIMEOUT_MS = 60_000;
 const SUMMARY_IDLE_CHUNK_TIMEOUT_MS = 75_000;
 const SUMMARY_CACHE_READ_TIMEOUT_MS = 1200;
@@ -151,6 +153,10 @@ function toCitation({ n, item }: CitedItem): Citation {
 
 export interface PreparedSummary {
 	citations: Citation[];
+	// Whether the text is the rule-based fallback rather than the model's.
+	degraded: boolean;
+	// When the text was produced; null while it is being generated live.
+	generatedAt: number | null;
 	origin: "cache" | "generated";
 	stream: (abortSignal: AbortSignal) => AsyncGenerator<string, void, void>;
 }
@@ -198,7 +204,13 @@ export interface CitedItem {
 
 interface CachedSummaryEntry {
 	citations: Citation[];
+	// True when the model could not be reached and the entry is the rule-based
+	// list of the newest items; it is retried sooner than a real digest.
+	degraded?: boolean;
 	expiresAt: number;
+	// When the text was produced. Entries written before this field existed
+	// take the time their cache envelope was written.
+	generatedAt: number;
 	prompt: string;
 	staleUntil: number;
 	text: string;
@@ -840,7 +852,13 @@ async function readHotSummaryCache(
 	if (!hasCurrentSummaryPromptVersion(envelope.value.prompt, topicId)) {
 		return null;
 	}
-	return text ? envelope.value : null;
+	if (!text) {
+		return null;
+	}
+	return {
+		...envelope.value,
+		generatedAt: envelope.value.generatedAt ?? envelope.createdAt,
+	};
 }
 
 function writeHotSummaryCache(
@@ -928,9 +946,16 @@ function cachedSummaryToEntry(
 	if (!hasCurrentSummaryPromptVersion(cached.prompt, topicId)) {
 		return null;
 	}
+	// The table is a legacy store that is no longer written. A row older than
+	// the hot cache keeps entries would replay a weeks-old digest as today's,
+	// which is worse than reporting the digest as pending.
+	if (cached.createdAt + SUMMARY_CACHE_RETENTION_MS <= Date.now()) {
+		return null;
+	}
 	return {
 		citations: cached.citations,
 		expiresAt: cached.expiresAt,
+		generatedAt: cached.createdAt,
 		prompt: cached.prompt,
 		staleUntil: cached.createdAt + SUMMARY_WINDOW_PROFILES[window].staleMs,
 		text: cached.text,
@@ -1006,42 +1031,62 @@ async function refreshSummaryCache(
 	}
 
 	const controller = new AbortController();
-	for (let attempt = 0; attempt <= SUMMARY_LANGUAGE_RETRY_LIMIT; attempt += 1) {
-		for await (const _chunk of streamGeneratedSummary({
-			cacheTopicId,
-			citations,
-			cited,
-			lang,
-			prompt,
-			scope,
-			topic,
-			window,
-			abortSignal: controller.signal,
-		})) {
-			// Consume the generator so it can write the completed summary to cache.
-		}
-		// A summary in the wrong language is never cached, so a missing entry
-		// here means the attempt has to be repeated.
-		if (readMemorySummary(cacheTopicId, lang)?.prompt === prompt) {
-			return;
-		}
-	}
-	if (scope === "cross-topic") {
-		const text = buildCrossTopicFallbackSummary(cited, lang);
-		if (text) {
-			await writeCachedSummary({
+	let failure: unknown;
+	try {
+		for (
+			let attempt = 0;
+			attempt <= SUMMARY_LANGUAGE_RETRY_LIMIT;
+			attempt += 1
+		) {
+			for await (const _chunk of streamGeneratedSummary({
+				cacheTopicId,
 				citations,
+				cited,
 				lang,
 				prompt,
-				text,
-				topicId: cacheTopicId,
+				scope,
+				topic,
 				window,
-			});
-			return;
+				abortSignal: controller.signal,
+			})) {
+				// Consume the generator so it can write the completed summary to cache.
+			}
+			// A summary in the wrong language is never cached, so a missing entry
+			// here means the attempt has to be repeated.
+			const written = readMemorySummary(cacheTopicId, lang);
+			if (written?.prompt === prompt && !written.degraded) {
+				return;
+			}
 		}
+	} catch (error) {
+		if (error instanceof SummaryCacheWriteError) {
+			throw error;
+		}
+		failure = error;
+	}
+	// The model gave nothing usable. Rather than leave whatever digest is
+	// cached to age on, keep the newest items in front of readers as a
+	// rule-based list, marked degraded so the next reconcile tries again.
+	const text = buildCrossTopicFallbackSummary(cited, lang);
+	console.warn(
+		`[trends-summary] model digest failed for ${cacheTopicId}:${lang}:${window} (${scope}); ${text ? "caching rule-based fallback" : "no candidates for a fallback"}`,
+		failure
+	);
+	if (text) {
+		await writeCachedSummary({
+			citations,
+			degraded: true,
+			lang,
+			prompt,
+			text,
+			topicId: cacheTopicId,
+			window,
+		});
+		return;
 	}
 	throw new Error(
-		`Summary generation did not produce a cache entry for ${cacheTopicId}:${lang}.`
+		`Summary generation did not produce a cache entry for ${cacheTopicId}:${lang}.`,
+		{ cause: failure }
 	);
 }
 
@@ -1084,6 +1129,7 @@ export function refreshTrendsSummaryCache(
 
 async function writeCachedSummary(params: {
 	citations: Citation[];
+	degraded?: boolean;
 	lang: TranslationLanguage;
 	prompt: string;
 	text: string;
@@ -1094,7 +1140,10 @@ async function writeCachedSummary(params: {
 	const profile = SUMMARY_WINDOW_PROFILES[params.window];
 	const entry: CachedSummaryEntry = {
 		citations: params.citations,
-		expiresAt: now + profile.ttlMs,
+		degraded: params.degraded,
+		expiresAt:
+			now + (params.degraded ? DEGRADED_SUMMARY_TTL_MS : profile.ttlMs),
+		generatedAt: now,
 		prompt: params.prompt,
 		staleUntil: now + profile.staleMs,
 		text: params.text,
@@ -1393,6 +1442,8 @@ export async function prepareTrendsSummary(
 				lang,
 				window
 			),
+			degraded: Boolean(cachedSummary.degraded),
+			generatedAt: cachedSummary.generatedAt,
 			origin: "cache",
 			stream: (abortSignal) =>
 				replayCachedSummary(cachedSummary.text, abortSignal),
@@ -1419,6 +1470,8 @@ export async function prepareTrendsSummary(
 		const prompt = buildPrompt(topic, cited, lang, window, "topic");
 		return {
 			citations,
+			degraded: false,
+			generatedAt: null,
 			origin: "generated",
 			stream: (abortSignal) =>
 				streamGeneratedSummary({
