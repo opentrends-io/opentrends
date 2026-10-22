@@ -212,6 +212,7 @@ describe("crossCheckedStories", () => {
 			"techcrunch",
 		]);
 		expect(story?.updatedAt).toBeNull();
+		expect(story?.image).toBeNull();
 	});
 
 	test("is empty without events", () => {

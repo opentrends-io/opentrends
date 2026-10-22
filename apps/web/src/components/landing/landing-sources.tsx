@@ -21,38 +21,41 @@ import {
 	TEXT_LINK_CLASS,
 } from "./landing-ui";
 
-// The sources themselves: a wall of their marks, filtered by topic, and
-// each topic's list underneath. The wall draws every tile the same size
-// so the names only appear when a tile is pointed at.
+// The sources themselves: every site as a small mark with its name, filtered
+// by topic and folded past the first rows, then each topic's list.
 
 type WallFilter = "all" | ContentTopicId;
 
 const CONTENT_TOPICS = LANDING_TOPIC_IDS.filter(
 	(topic): topic is ContentTopicId => topic !== "featured"
 );
+const EAGER_TILES = 16;
 
 function WallTile({
+	eager,
 	localeParam,
 	source,
 }: {
+	eager: boolean;
 	localeParam: LocaleParam;
 	source: WallSource;
 }) {
 	return (
 		<li>
 			<Link
-				aria-label={source.name}
-				className="group/tile grid h-11 grid-cols-[2.75rem_0fr] items-center overflow-hidden border border-[var(--border-default)] bg-white transition-[grid-template-columns,box-shadow] duration-300 hover:grid-cols-[2.75rem_1fr] hover:shadow-[0_4px_14px_rgba(0,0,0,0.08)] focus-visible:grid-cols-[2.75rem_1fr] focus-visible:outline-2 focus-visible:outline-[var(--accent-blue)] motion-reduce:transition-none"
+				className="inline-flex h-8 items-center gap-2 border border-[var(--border-default)] bg-[var(--surface-card)] pr-2.5 pl-1.5 text-[12px] text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--state-hover-subtle)]"
 				params={{ locale: localeParam, id: source.id }}
-				title={source.name}
 				to="/{-$locale}/sources/$id"
 			>
-				<span className="grid h-11 place-items-center">
-					<SourceLogo className="size-[22px]" size={22} source={source} />
+				<span className="inline-flex size-5 shrink-0 items-center justify-center bg-white">
+					<SourceLogo
+						className="size-4"
+						eager={eager}
+						size={16}
+						source={source}
+					/>
 				</span>
-				<span className="min-w-0 overflow-hidden whitespace-nowrap pr-3.5 font-medium text-[12px] text-[var(--text-primary)] opacity-0 transition-opacity duration-200 group-hover/tile:opacity-100 group-focus-visible/tile:opacity-100">
-					{source.name}
-				</span>
+				<span className="whitespace-nowrap">{source.name}</span>
 			</Link>
 		</li>
 	);
@@ -60,32 +63,29 @@ function WallTile({
 
 function Wall({
 	localeParam,
-	sourceCount,
 	strings,
-	topics,
 	wall,
 }: {
 	localeParam: LocaleParam;
-	sourceCount: number | null;
 	strings: LandingStrings;
-	topics: TopicSources[];
 	wall: WallSource[];
 }) {
 	const t = useT();
 	const [filter, setFilter] = useState<WallFilter>("all");
-	const tiles = (
+	const [expanded, setExpanded] = useState(false);
+	const matching =
 		filter === "all"
 			? wall
-			: wall.filter((source) => source.topics.includes(filter))
-	).slice(0, SOURCE_WALL_TILES);
-	const counts = new Map(topics.map((group) => [group.topic, group.count]));
-	const chips: { id: WallFilter; label: string; count: number | null }[] = [
-		{ id: "all", label: t("kind.all"), count: sourceCount },
-		...CONTENT_TOPICS.filter((topic) => counts.has(topic)).map((topic) => ({
+			: wall.filter((source) => source.topics.includes(filter));
+	const tiles = expanded ? matching : matching.slice(0, SOURCE_WALL_TILES);
+	// Chip counts are sites on the wall, so they agree with what unfolds.
+	const chips: { id: WallFilter; label: string; count: number }[] = [
+		{ id: "all", label: t("kind.all"), count: wall.length },
+		...CONTENT_TOPICS.map((topic) => ({
 			id: topic,
 			label: t(`topic.${topic}`),
-			count: counts.get(topic) ?? null,
-		})),
+			count: wall.filter((source) => source.topics.includes(topic)).length,
+		})).filter((chip) => chip.count > 0),
 	];
 	return (
 		<div className="mt-10">
@@ -104,7 +104,10 @@ function Wall({
 								: "border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
 						)}
 						key={chip.id}
-						onClick={() => setFilter(chip.id)}
+						onClick={() => {
+							setFilter(chip.id);
+							setExpanded(false);
+						}}
 						role="tab"
 						type="button"
 					>
@@ -116,10 +119,26 @@ function Wall({
 				))}
 			</div>
 			<ul className="mt-5 flex flex-wrap gap-2">
-				{tiles.map((source) => (
-					<WallTile key={source.id} localeParam={localeParam} source={source} />
+				{tiles.map((source, index) => (
+					<WallTile
+						eager={index < EAGER_TILES}
+						key={source.id}
+						localeParam={localeParam}
+						source={source}
+					/>
 				))}
 			</ul>
+			{matching.length > SOURCE_WALL_TILES ? (
+				<button
+					className={`${TEXT_LINK_CLASS} mt-4`}
+					onClick={() => setExpanded((value) => !value)}
+					type="button"
+				>
+					{expanded
+						? strings.sourcesShowLess
+						: strings.sourcesShowAll(matching.length)}
+				</button>
+			) : null}
 		</div>
 	);
 }
@@ -153,11 +172,12 @@ function TopicList({
 				{group.sources.map((source) => (
 					<li key={source.id}>
 						<Link
-							className="block truncate text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+							className="flex items-center gap-2 text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 							params={{ locale: localeParam, id: source.id }}
 							to="/{-$locale}/sources/$id"
 						>
-							{source.name}
+							<SourceLogo className="size-3.5" size={14} source={source} />
+							<span className="truncate">{source.name}</span>
 						</Link>
 					</li>
 				))}
@@ -199,13 +219,7 @@ export function LandingSources({
 					title={strings.sourcesTitle}
 				/>
 				{wall.length > 0 ? (
-					<Wall
-						localeParam={localeParam}
-						sourceCount={sourceCount}
-						strings={strings}
-						topics={topics}
-						wall={wall}
-					/>
+					<Wall localeParam={localeParam} strings={strings} wall={wall} />
 				) : null}
 				{topics.length > 0 ? (
 					<div className="mt-14 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">

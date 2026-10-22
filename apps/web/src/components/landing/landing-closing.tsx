@@ -51,6 +51,9 @@ function OpenSource({ strings }: { strings: LandingStrings }) {
 			<p className="mt-3 text-[15px] text-[var(--text-secondary)] leading-relaxed">
 				{strings.openBody}
 			</p>
+			<p className="mt-3 text-[15px] text-[var(--text-secondary)] leading-relaxed">
+				{strings.openSelfHost}
+			</p>
 			<div className="mt-6 flex flex-wrap items-center gap-3">
 				<a
 					className={SECONDARY_BUTTON_CLASS}
@@ -110,7 +113,7 @@ export function LandingClosing({
 }) {
 	return (
 		<>
-			<section className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] py-16 sm:py-24">
+			<section className="border-[var(--border-default)] border-t py-16 sm:py-24">
 				<div
 					className={`${CONTAINER_CLASS} grid gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-16`}
 				>
@@ -118,12 +121,12 @@ export function LandingClosing({
 					<Faq strings={strings} />
 				</div>
 			</section>
-			<section className="border-[var(--border-default)] border-t py-16 sm:py-20">
+			<section className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] py-16 sm:py-20">
 				<div
 					className={`${CONTAINER_CLASS} flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between`}
 				>
 					<p className="max-w-xl text-balance font-semibold text-[24px] text-[var(--text-heading)] leading-tight tracking-tight">
-						{strings.heroTitle}
+						{strings.finalTitle}
 					</p>
 					<Link
 						className={PRIMARY_BUTTON_CLASS}

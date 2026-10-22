@@ -1,6 +1,6 @@
 import { env } from "@opentrends/env/web";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Rss } from "lucide-react";
+import { ArrowRight, Check, Rss } from "lucide-react";
 
 import { formatRelativeTime } from "@/components/trends/relative-time";
 import type { ArchivedDigestEntry } from "@/components/trends/types";
@@ -19,9 +19,10 @@ import {
 	TopicTag,
 } from "./landing-ui";
 
-// The first screen: what this is, in one sentence, and the product itself
-// underneath. The brief preview is today's real featured brief, rendered on
-// the server so it is in the first HTML.
+// The first screen: what this is, in one sentence, the three things that
+// set it apart, and the product itself underneath. The brief preview is
+// today's real featured brief, rendered on the server so it is in the
+// first HTML.
 
 const MAX_CITATIONS_SHOWN = 2;
 
@@ -162,12 +163,23 @@ export function LandingHero({
 				<p className="text-[12px] text-[var(--text-muted)]">
 					{strings.eyebrow}
 				</p>
-				<h1 className="mt-4 max-w-3xl text-balance font-semibold text-[30px] text-[var(--text-heading)] leading-[1.15] tracking-tight sm:text-[40px]">
+				<h1 className="mt-4 max-w-3xl text-balance font-semibold text-[34px] text-[var(--text-heading)] leading-[1.12] tracking-tight sm:text-[46px]">
 					{strings.heroTitle}
 				</h1>
 				<p className="mt-5 max-w-2xl text-[16px] text-[var(--text-secondary)] leading-relaxed sm:text-[18px]">
 					{strings.heroBody(sourceCount)}
 				</p>
+				<ul className="mt-5 flex flex-col gap-2 text-[14px] text-[var(--text-primary)] sm:flex-row sm:flex-wrap sm:gap-x-6">
+					{strings.heroPoints.map((point) => (
+						<li className="flex items-start gap-2" key={point}>
+							<Check
+								aria-hidden
+								className="mt-[3px] size-3.5 shrink-0 text-[var(--accent-blue)]"
+							/>
+							{point}
+						</li>
+					))}
+				</ul>
 				<div className="mt-7 flex flex-wrap items-center gap-3">
 					<Link
 						className={PRIMARY_BUTTON_CLASS}

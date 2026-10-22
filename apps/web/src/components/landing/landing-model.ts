@@ -77,6 +77,7 @@ export interface EventSource {
 
 export interface LandingEventInput {
 	eventId: string;
+	imageUrl?: string;
 	lastSeenAt?: string;
 	primarySource?: { url?: string };
 	sources?: EventSource[];
@@ -87,6 +88,8 @@ export interface LandingEventInput {
 
 export interface CrossCheckedStory {
 	id: string;
+	// The primary report's cover, when it had one.
+	image: string | null;
 	outlets: WallSource[];
 	summary: string;
 	title: string;
@@ -312,6 +315,7 @@ export function crossCheckedStories(
 			: Number.NaN;
 		stories.push({
 			id: event.eventId,
+			image: event.imageUrl || null,
 			outlets,
 			summary: event.summary ?? "",
 			title: event.title,

@@ -1,11 +1,9 @@
+import { env } from "@opentrends/env/web";
 import { buttonVariants } from "@opentrends/ui/components/button";
 import { cn } from "@opentrends/ui/lib/utils";
 import type { ReactNode } from "react";
 
-import { SourceFavicon } from "@/components/trends/source-favicon";
-
 import { logoSrc } from "./landing-logos";
-
 import type { ContentTopicId, WallSource } from "./landing-model";
 
 // Building blocks shared by the landing sections, in the site's own
@@ -31,6 +29,25 @@ export const TEXT_LINK_CLASS =
 
 export const CARD_CLASS =
 	"border border-[var(--border-default)] bg-[var(--surface-card)]";
+
+const WWW_PREFIX_RE = /^www\./;
+
+// Remote images go through the API's image proxy, which resizes them and
+// keeps them on Cloudflare's edge for a month, so a wall of favicons loads
+// from one nearby cache instead of dozens of origins.
+export function proxiedImage(url: string, variant: "card" | "row"): string {
+	const search = new URLSearchParams({ url, variant });
+	return `${env.VITE_SERVER_URL}/api/image?${search}`;
+}
+
+function faviconSrc(homeUrl: string): string | null {
+	try {
+		const host = new URL(homeUrl).hostname.replace(WWW_PREFIX_RE, "");
+		return proxiedImage(`https://favicon.im/${host}`, "row");
+	} catch {
+		return null;
+	}
+}
 
 // The digest's per-topic tag colours, as on the topic pages.
 const TOPIC_TAG_CLASS: Record<ContentTopicId, string> = {
@@ -93,35 +110,32 @@ export function SectionHeader({
 	);
 }
 
-// A source's mark: the hand-prepared logo when there is one, otherwise
-// its favicon, in a white square either way.
+// A source's mark: the hand-prepared logo when there is one, otherwise its
+// favicon through the image proxy.
 export function SourceLogo({
 	className,
+	eager = false,
 	size,
 	source,
 }: {
 	className?: string;
+	eager?: boolean;
 	size: number;
 	source: WallSource;
 }) {
-	const logo = logoSrc(source.id);
-	if (logo) {
-		return (
-			<img
-				alt=""
-				className={cn("shrink-0", className)}
-				height={size}
-				loading="lazy"
-				src={logo}
-				width={size}
-			/>
-		);
+	const src = logoSrc(source.id) ?? faviconSrc(source.homeUrl);
+	if (!src) {
+		return null;
 	}
 	return (
-		<SourceFavicon
-			className={cn("rounded-none", className)}
-			homeUrl={source.homeUrl}
-			size={size}
+		<img
+			alt=""
+			className={cn("shrink-0", className)}
+			decoding="async"
+			height={size}
+			loading={eager ? "eager" : "lazy"}
+			src={src}
+			width={size}
 		/>
 	);
 }
@@ -180,5 +194,35 @@ export function AppWindow({
 			</div>
 			{children}
 		</div>
+	);
+}
+
+// A real screenshot of the product (taken from the live site, under
+// public/landing) in a window frame.
+export function Screenshot({
+	alt,
+	className,
+	height,
+	src,
+	width,
+}: {
+	alt: string;
+	className?: string;
+	height: number;
+	src: string;
+	width: number;
+}) {
+	return (
+		<AppWindow className={className}>
+			<img
+				alt={alt}
+				className="block w-full"
+				decoding="async"
+				height={height}
+				loading="lazy"
+				src={src}
+				width={width}
+			/>
+		</AppWindow>
 	);
 }
