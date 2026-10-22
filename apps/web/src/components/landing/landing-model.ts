@@ -1,8 +1,3 @@
-import type {
-	ArchivedDigestEntry,
-	DigestJsonData,
-} from "@/components/trends/types";
-
 // What the landing page shows from the live API: today's featured brief,
 // the stories most outlets are reporting, and the sources by topic. Every
 // field may be missing; the page reads fine without any of them.
@@ -22,7 +17,6 @@ export type ContentTopicId = Exclude<LandingTopicId, "featured">;
 
 const WWW_PREFIX_RE = /^www\./;
 
-export const LANDING_DIGEST_LINES = 5;
 export const SOURCE_WALL_TILES = 48;
 export const SOURCES_PER_TOPIC = 8;
 
@@ -68,14 +62,7 @@ export interface TopicSources {
 	topic: ContentTopicId;
 }
 
-export interface LandingBrief {
-	degraded: boolean;
-	generatedAt: number | null;
-	lines: ArchivedDigestEntry[];
-}
-
 export interface LandingData {
-	digest: LandingBrief | null;
 	sourceCount: number | null;
 	topics: TopicSources[];
 	wall: WallSource[];
@@ -168,7 +155,19 @@ export function wallSources(
 		hosts.set(tile.id, host);
 		wall.push(tile);
 	}
-	return wall;
+	// Own channels first, hot lists last, so the first screen shows the
+	// first-hand sources and the rankings sit at the end.
+	return wall
+		.map((tile, index) => ({ index, tile }))
+		.sort(
+			(a, b) =>
+				kindRank(a.tile.kind) - kindRank(b.tile.kind) || a.index - b.index
+		)
+		.map((entry) => entry.tile);
+}
+
+function kindRank(kind: SourceKind | null): number {
+	return kind ? SOURCE_KIND_ORDER.indexOf(kind) : SOURCE_KIND_ORDER.length;
 }
 
 // Each topic's first few sources, in the order the API lists them, plus
@@ -201,30 +200,4 @@ export function sourcesByTopic(
 		groups.push({ count: inTopic.length, sources: picked, topic });
 	}
 	return groups;
-}
-
-export function digestPreview(
-	digest: DigestJsonData | null | undefined
-): LandingBrief | null {
-	if (!(Array.isArray(digest?.entries) && digest.entries.length > 0)) {
-		return null;
-	}
-	return {
-		degraded: digest.degraded === true,
-		generatedAt:
-			typeof digest.generatedAt === "number" ? digest.generatedAt : null,
-		lines: digest.entries.slice(0, LANDING_DIGEST_LINES),
-	};
-}
-
-// The topic a featured line came from, for its tag: the first cited topic
-// that is not the featured mix itself.
-export function lineTopic(entry: ArchivedDigestEntry): ContentTopicId | null {
-	for (const citation of entry.citations ?? []) {
-		const topic = citation.topic;
-		if (topic && isContentTopic(topic)) {
-			return topic;
-		}
-	}
-	return null;
 }

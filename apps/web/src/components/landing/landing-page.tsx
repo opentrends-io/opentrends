@@ -1,10 +1,9 @@
 import { type Locale, localePathParam } from "@/lib/i18n";
 
-import { LandingAgents } from "./landing-agents";
 import { LandingClosing } from "./landing-closing";
 import { landingStrings } from "./landing-copy";
+import { LandingCustomize } from "./landing-customize";
 import { LandingEvents } from "./landing-events";
-import { LandingFollow } from "./landing-follow";
 import { LandingHero } from "./landing-hero";
 import { LandingLanguages } from "./landing-languages";
 import type { LandingData } from "./landing-model";
@@ -12,10 +11,10 @@ import { LandingSources } from "./landing-sources";
 import { LandingUseCases } from "./landing-usecases";
 import { LandingViews } from "./landing-views";
 
-// The page at `/`: the product first (today's brief), the three ways to
-// read it, then what sets it apart (events, languages, your own sources,
-// agents, the sources themselves, the code). Every visitor and crawler
-// gets the same page.
+// The page at `/`: a radar shared by people and AI. The first screen shows
+// both readers; then the three ways to read, events, languages, making it
+// yours (sources, brief, your agent), who it is for, the sources, the code.
+// Every visitor and crawler gets the same page.
 
 export function LandingPage({
 	data,
@@ -29,7 +28,7 @@ export function LandingPage({
 	return (
 		<div className="bg-[var(--surface-app)]">
 			<LandingHero
-				digest={data.digest}
+				locale={locale}
 				localeParam={localeParam}
 				sourceCount={data.sourceCount}
 				strings={strings}
@@ -41,17 +40,13 @@ export function LandingPage({
 				strings={strings}
 			/>
 			<LandingLanguages locale={locale} strings={strings} />
-			<LandingFollow
+			<LandingCustomize
 				locale={locale}
 				localeParam={localeParam}
+				sourceCount={data.sourceCount}
 				strings={strings}
 			/>
 			<LandingUseCases strings={strings} />
-			<LandingAgents
-				lines={data.digest?.lines ?? []}
-				localeParam={localeParam}
-				strings={strings}
-			/>
 			<LandingSources
 				localeParam={localeParam}
 				sourceCount={data.sourceCount}

@@ -3,7 +3,6 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { landingStrings } from "@/components/landing/landing-copy";
 import {
-	digestPreview,
 	type LandingData,
 	type LandingSource,
 	sourcesByTopic,
@@ -11,8 +10,7 @@ import {
 } from "@/components/landing/landing-model";
 import { LandingPage } from "@/components/landing/landing-page";
 import { readApiJsonForSsr } from "@/components/trends/load-trends-ssr";
-import type { DigestJsonData } from "@/components/trends/types";
-import { isLocale, type Locale, resolveLocale } from "@/lib/i18n";
+import { isLocale, resolveLocale } from "@/lib/i18n";
 import { buildSeo } from "@/lib/seo";
 import { faqPage } from "@/lib/structured-data";
 
@@ -21,10 +19,6 @@ const CLIENT_FETCH_TIMEOUT_MS = 5000;
 
 interface SourcesResponse {
 	sources?: LandingSource[];
-}
-
-function digestPath(locale: Locale): string {
-	return `/api/trends/featured/summary?format=json&window=today&lang=${locale}`;
 }
 
 // Same reads on both sides: over the service binding while server
@@ -57,14 +51,10 @@ async function readApiJson<T>(path: string): Promise<T | null> {
 	return await fetchApiJson<T>(path);
 }
 
-async function loadLandingData(locale: Locale): Promise<LandingData> {
-	const [digest, sources] = await Promise.all([
-		readApiJson<DigestJsonData>(digestPath(locale)),
-		readApiJson<SourcesResponse>("/api/sources"),
-	]);
+async function loadLandingData(): Promise<LandingData> {
+	const sources = await readApiJson<SourcesResponse>("/api/sources");
 	const sourceList = sources?.sources;
 	return {
-		digest: digestPreview(digest),
 		sourceCount: sourceList?.length ? sourceList.length : null,
 		topics: sourcesByTopic(sourceList),
 		wall: wallSources(sourceList),
@@ -77,7 +67,7 @@ export const Route = createFileRoute("/{-$locale}/")({
 			throw notFound();
 		}
 	},
-	loader: ({ params }) => loadLandingData(resolveLocale(params.locale)),
+	loader: () => loadLandingData(),
 	staleTime: LANDING_STALE_MS,
 	head: ({ params }) => {
 		const locale = resolveLocale(params.locale);

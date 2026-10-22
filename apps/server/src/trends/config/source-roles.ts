@@ -110,6 +110,10 @@ const COMMUNITY_SOURCE_IDS = new Set<string>([
 	"ros-discourse",
 ]);
 
+// Aggregators and rankings that arrive over a plain feed: kept as a
+// reference for what people are reading, like the hot lists.
+const HOT_SOURCE_IDS = new Set<string>(["google-news"]);
+
 // Journals that arrive over a plain feed rather than the slow class.
 const JOURNAL_SOURCE_IDS = new Set<string>([
 	"frontiers-human-neuro",
@@ -136,6 +140,9 @@ export function sourceRole(sourceId: string, refresh: string): SourceRole {
 	}
 	if (AUTHOR_SOURCE_IDS.has(sourceId)) {
 		return "author";
+	}
+	if (HOT_SOURCE_IDS.has(sourceId)) {
+		return "hot";
 	}
 	if (COMMUNITY_SOURCE_IDS.has(sourceId)) {
 		return "community";

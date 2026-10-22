@@ -2,20 +2,25 @@ import { cn } from "@opentrends/ui/lib/utils";
 import { Languages } from "lucide-react";
 import { useState } from "react";
 
-import type { Locale } from "@/lib/i18n";
+import { LOCALES, type Locale, useT } from "@/lib/i18n";
 
 import type { LandingStrings } from "./landing-copy";
-import { TRANSLATION_ORIGINAL, translationExamples } from "./landing-examples";
+import { LANGUAGE_LABELS, languageFeed } from "./landing-examples";
 import {
 	AppWindow,
 	CONTAINER_CLASS,
 	SectionHeader,
 	SourceLogo,
+	TopicTag,
 } from "./landing-ui";
 
-// One news item the way the product shows it: the headline in the reading
-// language, the original underneath, and the language it is being read in
-// switchable below. Starts in the reader's own language.
+// Sources in several languages, all read in one: a mini feed of four
+// items from differently-worded originals, shown in the reading language
+// the visitor picks. Starts in the visitor's own language.
+
+function orderedLocales(first: Locale): Locale[] {
+	return [first, ...LOCALES.filter((locale) => locale !== first)];
+}
 
 export function LandingLanguages({
 	locale,
@@ -24,12 +29,9 @@ export function LandingLanguages({
 	locale: Locale;
 	strings: LandingStrings;
 }) {
-	const examples = translationExamples(locale);
-	const [index, setIndex] = useState(0);
-	const current = examples[index] ?? examples[0];
-	if (!current) {
-		return null;
-	}
+	const t = useT();
+	const [reading, setReading] = useState<Locale>(locale);
+	const items = languageFeed(reading);
 	return (
 		<section className="border-[var(--border-default)] border-t py-16 sm:py-24">
 			<div
@@ -42,61 +44,68 @@ export function LandingLanguages({
 				/>
 				<div>
 					<AppWindow>
-						<div className="flex items-center gap-2 border-[var(--border-default)] border-b px-4 py-2.5 text-[12px]">
-							<span className="inline-flex size-5 items-center justify-center border border-[var(--border-default)] bg-white">
-								<SourceLogo
-									className="size-3.5"
-									size={14}
-									source={{
-										homeUrl: TRANSLATION_ORIGINAL.homeUrl,
-										id: "the-verge",
-										kind: "press",
-										name: TRANSLATION_ORIGINAL.source,
-										topics: [],
-									}}
-								/>
-							</span>
-							<span className="font-semibold text-[var(--text-primary)]">
-								{TRANSLATION_ORIGINAL.source}
-							</span>
-							<span className="ml-auto inline-flex items-center gap-1 text-[11px] text-[var(--text-muted)]">
-								<Languages aria-hidden className="size-3.5" />
-								{current.label}
-							</span>
-						</div>
-						<div className="px-4 py-5 sm:px-5">
-							<p
-								className="font-semibold text-[18px] text-[var(--text-primary)] leading-snug sm:text-[20px]"
-								key={current.code}
-							>
-								{current.text}
-							</p>
-							<p className="mt-3 flex gap-2 text-[12px] text-[var(--text-muted)] leading-snug">
-								<span className="shrink-0 font-medium">
-									{strings.languagesOriginalLabel}
-								</span>
-								<span className="min-w-0">{TRANSLATION_ORIGINAL.title}</span>
-							</p>
-						</div>
-						<fieldset className="flex flex-wrap gap-1 border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] px-3 py-2.5">
+						<fieldset className="flex flex-wrap items-center gap-1 border-[var(--border-default)] border-b bg-[var(--surface-sidebar)] px-3 py-2">
 							<legend className="sr-only">{strings.languagesPick}</legend>
-							{examples.map((example, exampleIndex) => (
+							<span className="mr-1 inline-flex items-center gap-1 text-[11px] text-[var(--text-muted)]">
+								<Languages aria-hidden className="size-3.5" />
+								{strings.languagesPick}
+							</span>
+							{orderedLocales(locale).map((code) => (
 								<button
-									aria-pressed={exampleIndex === index}
+									aria-pressed={code === reading}
 									className={cn(
-										"h-7 border px-2.5 text-[12px] transition-colors",
-										exampleIndex === index
+										"h-7 border px-2 text-[12px] transition-colors",
+										code === reading
 											? "border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--text-inverse)]"
 											: "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
 									)}
-									key={example.code}
-									onClick={() => setIndex(exampleIndex)}
+									key={code}
+									onClick={() => setReading(code)}
 									type="button"
 								>
-									{example.label}
+									{LANGUAGE_LABELS[code]}
 								</button>
 							))}
 						</fieldset>
+						<ol className="divide-y divide-[var(--border-subtle)]">
+							{items.map((item) => (
+								<li className="flex gap-3 px-4 py-3" key={item.source}>
+									<span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center border border-[var(--border-default)] bg-white">
+										<SourceLogo
+											className="size-3.5"
+											size={14}
+											source={{
+												homeUrl: item.homeUrl,
+												id: item.source,
+												kind: item.kind,
+												name: item.source,
+												topics: [],
+											}}
+										/>
+									</span>
+									<div className="min-w-0">
+										<p className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+											{item.source}
+											<TopicTag
+												label={t(`topic.${item.topic}`)}
+												topic={item.topic}
+											/>
+										</p>
+										<p className="mt-0.5 font-medium text-[14px] text-[var(--text-primary)] leading-snug">
+											{item.translated}
+										</p>
+										{item.original === item.translated ? null : (
+											<p className="mt-1 flex gap-2 text-[11px] text-[var(--text-muted)] leading-snug">
+												<span className="shrink-0 font-medium">
+													{strings.languagesOriginalLabel} · {item.originalLang}
+												</span>
+												<span className="min-w-0">{item.original}</span>
+											</p>
+										)}
+									</div>
+								</li>
+							))}
+						</ol>
 					</AppWindow>
 					<p className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[12px] text-[var(--text-muted)]">
 						<span>{strings.languagesOriginal}</span>

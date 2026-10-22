@@ -3,8 +3,8 @@ import { Bot, Briefcase, PenLine, Radar } from "lucide-react";
 import type { LandingStrings } from "./landing-copy";
 import { CARD_CLASS, CONTAINER_CLASS, SectionHeader } from "./landing-ui";
 
-// Who the radar is for: four readers, what each does with it, and the
-// part of the product that does the job.
+// Who the radar is for: four readers, one sentence each, and the parts of
+// the product that do the job.
 
 const ICONS = [PenLine, Briefcase, Bot, Radar] as const;
 
@@ -23,20 +23,29 @@ export function LandingUseCases({ strings }: { strings: LandingStrings }) {
 						return (
 							<article
 								className={`${CARD_CLASS} flex flex-col p-5`}
-								key={useCase.title}
+								key={useCase.label}
 							>
-								<span className="inline-flex size-8 items-center justify-center bg-[var(--accent-blue-bg)] text-[var(--accent-blue)]">
-									<Icon aria-hidden className="size-4" />
-								</span>
-								<h3 className="mt-4 font-semibold text-[15px] text-[var(--text-heading)] leading-snug">
-									{useCase.title}
-								</h3>
-								<p className="mt-2 text-[13px] text-[var(--text-secondary)] leading-relaxed">
-									{useCase.body}
+								<div className="flex items-center gap-2.5">
+									<span className="inline-flex size-8 shrink-0 items-center justify-center bg-[var(--accent-blue-bg)] text-[var(--accent-blue)]">
+										<Icon aria-hidden className="size-4" />
+									</span>
+									<h3 className="font-semibold text-[15px] text-[var(--text-heading)]">
+										{useCase.label}
+									</h3>
+								</div>
+								<p className="mt-4 text-[14px] text-[var(--text-primary)] leading-relaxed">
+									{useCase.scenario}
 								</p>
-								<p className="mt-auto pt-4 text-[11px] text-[var(--text-muted)]">
-									{useCase.feature}
-								</p>
+								<ul className="mt-auto flex flex-wrap gap-1.5 pt-5">
+									{useCase.chips.map((chip) => (
+										<li
+											className="inline-flex h-6 items-center border border-[var(--border-default)] bg-[var(--surface-sidebar)] px-2 text-[11px] text-[var(--text-secondary)]"
+											key={chip}
+										>
+											{chip}
+										</li>
+									))}
+								</ul>
 							</article>
 						);
 					})}
