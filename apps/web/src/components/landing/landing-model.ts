@@ -23,7 +23,6 @@ export type ContentTopicId = Exclude<LandingTopicId, "featured">;
 const WWW_PREFIX_RE = /^www\./;
 
 export const LANDING_DIGEST_LINES = 5;
-export const CROSS_CHECKED_COUNT = 3;
 export const SOURCE_WALL_TILES = 48;
 export const SOURCES_PER_TOPIC = 8;
 
@@ -69,37 +68,6 @@ export interface TopicSources {
 	topic: ContentTopicId;
 }
 
-export interface EventSource {
-	homeUrl?: string;
-	sourceId: string;
-	title: string;
-}
-
-export interface LandingEventInput {
-	eventId: string;
-	imageUrl?: string;
-	lastSeenAt?: string;
-	primarySource?: { url?: string };
-	sources?: EventSource[];
-	summary?: string;
-	title: string;
-	topicIds?: string[];
-}
-
-export interface CrossCheckedStory {
-	id: string;
-	// The primary report's cover, when it had one.
-	image: string | null;
-	outlets: WallSource[];
-	summary: string;
-	title: string;
-	topic: ContentTopicId | null;
-	// When the story was last seen in a source, as a timestamp; null when
-	// the API did not say.
-	updatedAt: number | null;
-	url: string | null;
-}
-
 export interface LandingBrief {
 	degraded: boolean;
 	generatedAt: number | null;
@@ -109,7 +77,6 @@ export interface LandingBrief {
 export interface LandingData {
 	digest: LandingBrief | null;
 	sourceCount: number | null;
-	stories: CrossCheckedStory[];
 	topics: TopicSources[];
 	wall: WallSource[];
 }
@@ -260,71 +227,4 @@ export function lineTopic(entry: ArchivedDigestEntry): ContentTopicId | null {
 		}
 	}
 	return null;
-}
-
-// One outlet per site that carried the event.
-function eventOutlets(
-	event: LandingEventInput,
-	kinds: ReadonlyMap<string | undefined, SourceKind | null>
-): WallSource[] {
-	const hosts = new Set<string>();
-	const outlets: WallSource[] = [];
-	for (const source of event.sources ?? []) {
-		const host = hostOf(source.homeUrl);
-		if (!(host && source.homeUrl) || hosts.has(host)) {
-			continue;
-		}
-		hosts.add(host);
-		outlets.push({
-			homeUrl: source.homeUrl,
-			id: source.sourceId,
-			kind: kinds.get(source.sourceId) ?? null,
-			name: source.title,
-			topics: [],
-		});
-	}
-	return outlets;
-}
-
-function kindRank(kind: SourceKind | null): number {
-	const index = kind ? SOURCE_KIND_ORDER.indexOf(kind) : -1;
-	return index === -1 ? SOURCE_KIND_ORDER.length : index;
-}
-
-// The stories the most outlets are reporting right now: distinct sites
-// per event, most sites first.
-export function crossCheckedStories(
-	events: readonly LandingEventInput[] | undefined,
-	sources: readonly LandingSource[] | undefined,
-	limit = CROSS_CHECKED_COUNT
-): CrossCheckedStory[] {
-	const kinds = new Map(
-		(sources ?? []).map((source) => [source.sourceId, sourceKind(source)])
-	);
-	const stories: CrossCheckedStory[] = [];
-	for (const event of events ?? []) {
-		const outlets = eventOutlets(event, kinds);
-		if (outlets.length < 2) {
-			continue;
-		}
-		// Official channels first, then the press, so a reader sees at a
-		// glance whether the story started with the organisation itself.
-		outlets.sort((a, b) => kindRank(a.kind) - kindRank(b.kind));
-		const updatedAt = event.lastSeenAt
-			? Date.parse(event.lastSeenAt)
-			: Number.NaN;
-		stories.push({
-			id: event.eventId,
-			image: event.imageUrl || null,
-			outlets,
-			summary: event.summary ?? "",
-			title: event.title,
-			topic: event.topicIds?.find(isContentTopic) ?? null,
-			updatedAt: Number.isFinite(updatedAt) ? updatedAt : null,
-			url: event.primarySource?.url ?? null,
-		});
-	}
-	return stories
-		.sort((a, b) => b.outlets.length - a.outlets.length)
-		.slice(0, limit);
 }

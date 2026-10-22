@@ -59,7 +59,7 @@ interface Strings {
 const EN: Strings = {
 	agents: "For agents",
 	api: "JSON API",
-	archive: "Digest archive",
+	archive: "Brief archive",
 	guide: "Setup guide",
 	explore: "Explore",
 	languages: "Languages",
@@ -73,7 +73,7 @@ const EN: Strings = {
 const ZH: Strings = {
 	agents: "Agent 接入",
 	api: "JSON 接口",
-	archive: "摘要归档",
+	archive: "简报归档",
 	guide: "接入指南",
 	explore: "浏览",
 	languages: "语言",
@@ -87,7 +87,7 @@ const ZH: Strings = {
 const ZH_HANT: Strings = {
 	agents: "Agent 接入",
 	api: "JSON 介面",
-	archive: "摘要歸檔",
+	archive: "簡報歸檔",
 	guide: "接入指南",
 	explore: "瀏覽",
 	languages: "語言",

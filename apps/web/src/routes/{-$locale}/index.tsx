@@ -3,10 +3,8 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { landingStrings } from "@/components/landing/landing-copy";
 import {
-	crossCheckedStories,
 	digestPreview,
 	type LandingData,
-	type LandingEventInput,
 	type LandingSource,
 	sourcesByTopic,
 	wallSources,
@@ -20,23 +18,13 @@ import { faqPage } from "@/lib/structured-data";
 
 const LANDING_STALE_MS = 10 * 60_000;
 const CLIENT_FETCH_TIMEOUT_MS = 5000;
-// The API returns at most 80; multi-outlet events are a small share of them.
-const EVENTS_TO_SCAN = 80;
 
 interface SourcesResponse {
 	sources?: LandingSource[];
 }
 
-interface EventsResponse {
-	events?: LandingEventInput[];
-}
-
 function digestPath(locale: Locale): string {
 	return `/api/trends/featured/summary?format=json&window=today&lang=${locale}`;
-}
-
-function eventsPath(locale: Locale): string {
-	return `/api/events?limit=${EVENTS_TO_SCAN}&lang=${locale}`;
 }
 
 // Same reads on both sides: over the service binding while server
@@ -70,16 +58,14 @@ async function readApiJson<T>(path: string): Promise<T | null> {
 }
 
 async function loadLandingData(locale: Locale): Promise<LandingData> {
-	const [digest, sources, events] = await Promise.all([
+	const [digest, sources] = await Promise.all([
 		readApiJson<DigestJsonData>(digestPath(locale)),
 		readApiJson<SourcesResponse>("/api/sources"),
-		readApiJson<EventsResponse>(eventsPath(locale)),
 	]);
 	const sourceList = sources?.sources;
 	return {
 		digest: digestPreview(digest),
 		sourceCount: sourceList?.length ? sourceList.length : null,
-		stories: crossCheckedStories(events?.events, sourceList),
 		topics: sourcesByTopic(sourceList),
 		wall: wallSources(sourceList),
 	};

@@ -1,139 +1,50 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
-import { useState } from "react";
+import { ArrowDown, ArrowRight, CircleCheck } from "lucide-react";
 
-import { formatRelativeTime } from "@/components/trends/relative-time";
-import { useT } from "@/lib/i18n";
+import { type Locale, useT } from "@/lib/i18n";
 
 import type { LandingStrings } from "./landing-copy";
-import type { CrossCheckedStory } from "./landing-model";
+import { eventExample } from "./landing-examples";
+import type { WallSource } from "./landing-model";
 import {
 	CARD_CLASS,
 	CONTAINER_CLASS,
 	type LocaleParam,
-	proxiedImage,
 	SectionHeader,
 	SourceMark,
 	TEXT_LINK_CLASS,
 	TopicTag,
 } from "./landing-ui";
 
-// The events the most outlets are reporting right now, each with its
-// cover, its outlets by role, and when it was last seen. Straight from the
-// live events feed.
+// One story as five outlets reported it, and the one event OpenTrends
+// makes of them. A fixed example rather than the live feed, so the
+// section reads the same whatever the API is doing.
 
-const COVER_WIDTH = 640;
-const COVER_HEIGHT = 360;
-
-// A cover that quietly disappears when the upstream image cannot be
-// fetched, instead of leaving a broken-image box in the card.
-function Cover({ src }: { src: string }) {
-	const [failed, setFailed] = useState(false);
-	if (failed) {
-		return null;
-	}
-	return (
-		// The error listener hides a failed decorative cover; it is not a user interaction.
-		// biome-ignore lint/a11y/noNoninteractiveElementInteractions: see explanation above
-		<img
-			alt=""
-			className="aspect-video w-full border-[var(--border-subtle)] border-b bg-[var(--surface-sidebar)] object-cover"
-			decoding="async"
-			height={COVER_HEIGHT}
-			loading="lazy"
-			onError={() => setFailed(true)}
-			src={proxiedImage(src, "card")}
-			width={COVER_WIDTH}
-		/>
-	);
-}
-
-function StoryCard({
-	story,
-	strings,
-}: {
-	story: CrossCheckedStory;
-	strings: LandingStrings;
-}) {
-	const t = useT();
-	const Title = story.url ? "a" : "span";
-	const updated = story.updatedAt
-		? formatRelativeTime(story.updatedAt, t)
-		: null;
-	return (
-		<article className={`${CARD_CLASS} flex flex-col overflow-hidden`}>
-			{story.image ? <Cover src={story.image} /> : null}
-			<div className="flex flex-1 flex-col p-5">
-				<div className="flex items-center justify-between gap-3">
-					<span className="font-medium text-[12px] text-[var(--accent-blue)]">
-						{strings.eventsReported(story.outlets.length)}
-					</span>
-					{story.topic ? (
-						<TopicTag label={t(`topic.${story.topic}`)} topic={story.topic} />
-					) : null}
-				</div>
-				<h3 className="mt-3 font-semibold text-[16px] text-[var(--text-heading)] leading-snug">
-					<Title
-						className="hover:underline"
-						{...(story.url
-							? { href: story.url, rel: "noopener", target: "_blank" }
-							: {})}
-					>
-						{story.title}
-						{story.url ? (
-							<ArrowUpRight
-								aria-hidden
-								className="ml-1 inline size-3.5 text-[var(--text-muted)]"
-							/>
-						) : null}
-					</Title>
-				</h3>
-				{story.summary ? (
-					<p className="mt-2 line-clamp-3 text-[13px] text-[var(--text-secondary)] leading-relaxed">
-						{story.summary}
-					</p>
-				) : null}
-				<ul className="mt-4 flex flex-col gap-1.5 border-[var(--border-subtle)] border-t pt-4">
-					{story.outlets.map((outlet) => (
-						<li
-							className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)]"
-							key={outlet.id}
-						>
-							<SourceMark size="sm" source={outlet} />
-							<span className="truncate">{outlet.name}</span>
-							{outlet.kind ? (
-								<span
-									className={
-										outlet.kind === "official"
-											? "ml-auto shrink-0 bg-[var(--accent-blue-bg)] px-1 font-medium text-[10px] text-[var(--accent-blue)]"
-											: "ml-auto shrink-0 text-[10px] text-[var(--text-muted)]"
-									}
-								>
-									{strings.kindLabels[outlet.kind]}
-								</span>
-							) : null}
-						</li>
-					))}
-				</ul>
-				{updated ? (
-					<p className="mt-auto pt-3 text-[11px] text-[var(--text-muted)]">
-						{strings.eventsUpdated(updated)}
-					</p>
-				) : null}
-			</div>
-		</article>
-	);
+function asSource(outlet: {
+	homeUrl: string;
+	source: string;
+	kind: WallSource["kind"];
+}): WallSource {
+	return {
+		homeUrl: outlet.homeUrl,
+		id: outlet.source,
+		kind: outlet.kind,
+		name: outlet.source,
+		topics: [],
+	};
 }
 
 export function LandingEvents({
+	locale,
 	localeParam,
-	stories,
 	strings,
 }: {
+	locale: Locale;
 	localeParam: LocaleParam;
-	stories: CrossCheckedStory[];
 	strings: LandingStrings;
 }) {
+	const t = useT();
+	const example = eventExample(locale);
 	return (
 		<section className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] py-16 sm:py-24">
 			<div className={CONTAINER_CLASS}>
@@ -142,20 +53,71 @@ export function LandingEvents({
 					kicker={strings.eventsKicker}
 					title={strings.eventsTitle}
 				/>
-				{stories.length > 0 ? (
-					<div className="mt-10 grid gap-4 md:grid-cols-3">
-						{stories.map((story) => (
-							<StoryCard key={story.id} story={story} strings={strings} />
+				<div className="mt-10 grid items-center gap-5 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-6">
+					<ul className="space-y-2">
+						{example.outlets.map((outlet) => (
+							<li
+								className={`${CARD_CLASS} flex items-start gap-3 px-4 py-3`}
+								key={outlet.source}
+							>
+								<SourceMark size="sm" source={asSource(outlet)} />
+								<div className="min-w-0">
+									<p className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+										{outlet.source}
+										<span>{strings.kindLabels[outlet.kind]}</span>
+									</p>
+									<p className="mt-0.5 text-[13px] text-[var(--text-secondary)] leading-snug">
+										{outlet.title}
+									</p>
+								</div>
+							</li>
 						))}
-					</div>
-				) : (
-					<p
-						className={`${CARD_CLASS} mt-10 px-5 py-8 text-[13px] text-[var(--text-secondary)]`}
+					</ul>
+					<div
+						aria-hidden
+						className="flex flex-col items-center gap-1 text-[11px] text-[var(--text-muted)]"
 					>
-						{strings.eventsEmpty}
+						<ArrowDown className="size-5 text-[var(--accent-blue)] lg:hidden" />
+						<ArrowRight className="hidden size-6 text-[var(--accent-blue)] lg:block" />
+						<span className="max-w-24 text-center">{strings.eventsMerged}</span>
+					</div>
+					<article
+						className={`${CARD_CLASS} border-[var(--accent-blue)] p-5 shadow-[0_12px_32px_-12px_rgba(26,78,220,0.25)] sm:p-6`}
+					>
+						<h3 className="font-semibold text-[20px] text-[var(--text-heading)] leading-tight">
+							{example.title}
+						</h3>
+						<p className="mt-2 text-[13px] text-[var(--text-secondary)] leading-relaxed">
+							{example.summary}
+						</p>
+						<span className="mt-4 inline-flex h-7 items-center gap-1.5 border border-[var(--accent-blue)] bg-[var(--accent-blue-bg)] px-2 font-medium text-[12px] text-[var(--accent-blue)]">
+							<CircleCheck aria-hidden className="size-3.5" />
+							{strings.eventsHighSignal}
+						</span>
+						<div className="mt-4 flex flex-wrap items-center gap-2.5 text-[12px] text-[var(--text-muted)]">
+							<TopicTag label={t("topic.ai")} topic="ai" />
+							<span className="flex -space-x-1">
+								{example.outlets.map((outlet) => (
+									<SourceMark
+										key={outlet.source}
+										size="sm"
+										source={asSource(outlet)}
+									/>
+								))}
+							</span>
+							<span className="font-medium text-[var(--text-secondary)]">
+								{strings.eventsReported(example.outlets.length)}
+							</span>
+						</div>
+						<p className="mt-4 border-[var(--border-subtle)] border-t pt-3 text-[12px] text-[var(--text-muted)]">
+							{example.outlets.map((outlet) => outlet.source).join(" · ")}
+						</p>
+					</article>
+				</div>
+				<div className="mt-8 flex flex-wrap items-center justify-between gap-4">
+					<p className="text-[11px] text-[var(--text-muted)]">
+						{strings.eventsExampleNote(example.date)}
 					</p>
-				)}
-				<div className="mt-6">
 					<Link
 						className={TEXT_LINK_CLASS}
 						params={{ locale: localeParam }}

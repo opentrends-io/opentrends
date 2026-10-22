@@ -63,10 +63,12 @@ function WallTile({
 
 function Wall({
 	localeParam,
+	sourceCount,
 	strings,
 	wall,
 }: {
 	localeParam: LocaleParam;
+	sourceCount: number | null;
 	strings: LandingStrings;
 	wall: WallSource[];
 }) {
@@ -118,7 +120,12 @@ function Wall({
 					</button>
 				))}
 			</div>
-			<ul className="mt-5 flex flex-wrap gap-2">
+			{sourceCount ? (
+				<p className="mt-3 text-[11px] text-[var(--text-muted)]">
+					{strings.sourcesSitesNote(wall.length, sourceCount)}
+				</p>
+			) : null}
+			<ul className="mt-4 flex flex-wrap gap-2">
 				{tiles.map((source, index) => (
 					<WallTile
 						eager={index < EAGER_TILES}
@@ -219,7 +226,12 @@ export function LandingSources({
 					title={strings.sourcesTitle}
 				/>
 				{wall.length > 0 ? (
-					<Wall localeParam={localeParam} strings={strings} wall={wall} />
+					<Wall
+						localeParam={localeParam}
+						sourceCount={sourceCount}
+						strings={strings}
+						wall={wall}
+					/>
 				) : null}
 				{topics.length > 0 ? (
 					<div className="mt-14 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">

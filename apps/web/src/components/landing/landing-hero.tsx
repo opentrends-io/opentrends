@@ -57,7 +57,7 @@ function BriefLine({ line }: { line: ArchivedDigestEntry }) {
 						rel="noopener"
 						target="_blank"
 					>
-						{citation.n}
+						[{citation.n}]
 					</a>
 				))}
 			</p>
@@ -87,10 +87,14 @@ function BriefPreview({
 					</span>
 					<span className="mx-1.5 text-[var(--text-muted)]">·</span>
 					{strings.briefLabel}
+					<span className="hidden sm:inline">
+						<span className="mx-1.5 text-[var(--text-muted)]">·</span>
+						{strings.briefCited}
+					</span>
 				</p>
 				<span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
 					<span className="size-1.5 rounded-full bg-[var(--accent-green)]" />
-					{updated ? strings.briefUpdated(updated) : t("card.statusLive")}
+					{updated ? strings.briefUpdated(updated) : strings.briefLive}
 				</span>
 			</div>
 			{digest?.degraded ? (

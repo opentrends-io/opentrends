@@ -3,7 +3,6 @@ import { describe, expect, test } from "bun:test";
 import type { ArchivedDigestEntry } from "@/components/trends/types";
 
 import {
-	crossCheckedStories,
 	digestPreview,
 	LANDING_DIGEST_LINES,
 	lineTopic,
@@ -135,87 +134,5 @@ describe("lineTopic", () => {
 
 	test("has no tag when no citation names a topic", () => {
 		expect(lineTopic(entry(1, [{ url: "https://a.example" }]))).toBeNull();
-	});
-});
-
-describe("crossCheckedStories", () => {
-	const verge = {
-		sourceId: "the-verge",
-		title: "The Verge",
-		homeUrl: "https://www.theverge.com/",
-	};
-	const vergeAi = {
-		sourceId: "the-verge-ai",
-		title: "The Verge · AI",
-		homeUrl: "https://www.theverge.com/ai",
-	};
-	const tc = {
-		sourceId: "techcrunch",
-		title: "TechCrunch",
-		homeUrl: "https://techcrunch.com/",
-	};
-	const reuters = {
-		sourceId: "reuters",
-		title: "Reuters",
-		homeUrl: "https://www.reuters.com/",
-	};
-	const openai = {
-		sourceId: "openai-news",
-		title: "OpenAI News",
-		homeUrl: "https://openai.com/news",
-	};
-
-	test("counts distinct sites and sorts the widest coverage first", () => {
-		const stories = crossCheckedStories(
-			[
-				{ eventId: "a", title: "Two sites", sources: [verge, vergeAi, tc] },
-				{ eventId: "b", title: "One site", sources: [verge, vergeAi] },
-				{
-					eventId: "c",
-					title: "Three sites",
-					sources: [verge, tc, reuters],
-					topicIds: ["featured", "ai"],
-					primarySource: { url: "https://techcrunch.com/x" },
-					lastSeenAt: "2026-10-20T07:00:00.000Z",
-				},
-			],
-			[{ sourceId: "reuters", refresh: "rss" }]
-		);
-		expect(stories.map((story) => story.id)).toEqual(["c", "a"]);
-		// Reuters is the only outlet with a known kind, so it leads.
-		expect(stories[0]?.outlets.map((outlet) => outlet.name)).toEqual([
-			"Reuters",
-			"The Verge",
-			"TechCrunch",
-		]);
-		expect(stories[0]?.topic).toBe("ai");
-		expect(stories[0]?.outlets.map((outlet) => outlet.kind)).toEqual([
-			"press",
-			null,
-			null,
-		]);
-		expect(stories[0]?.updatedAt).toBe(Date.parse("2026-10-20T07:00:00.000Z"));
-		expect(stories[0]?.url).toBe("https://techcrunch.com/x");
-	});
-
-	test("puts the organisation's own channel ahead of the press", () => {
-		const [story] = crossCheckedStories(
-			[{ eventId: "a", title: "Launch", sources: [verge, openai, tc] }],
-			[
-				{ sourceId: "openai-news", role: "official", refresh: "rss" },
-				{ sourceId: "the-verge", role: "press", refresh: "rss" },
-			]
-		);
-		expect(story?.outlets.map((outlet) => outlet.id)).toEqual([
-			"openai-news",
-			"the-verge",
-			"techcrunch",
-		]);
-		expect(story?.updatedAt).toBeNull();
-		expect(story?.image).toBeNull();
-	});
-
-	test("is empty without events", () => {
-		expect(crossCheckedStories(undefined, undefined)).toEqual([]);
 	});
 });

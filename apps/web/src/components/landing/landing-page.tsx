@@ -9,6 +9,7 @@ import { LandingHero } from "./landing-hero";
 import { LandingLanguages } from "./landing-languages";
 import type { LandingData } from "./landing-model";
 import { LandingSources } from "./landing-sources";
+import { LandingUseCases } from "./landing-usecases";
 import { LandingViews } from "./landing-views";
 
 // The page at `/`: the product first (today's brief), the three ways to
@@ -33,14 +34,19 @@ export function LandingPage({
 				sourceCount={data.sourceCount}
 				strings={strings}
 			/>
-			<LandingViews strings={strings} />
+			<LandingViews localeParam={localeParam} strings={strings} />
 			<LandingEvents
+				locale={locale}
 				localeParam={localeParam}
-				stories={data.stories}
 				strings={strings}
 			/>
 			<LandingLanguages locale={locale} strings={strings} />
-			<LandingFollow localeParam={localeParam} strings={strings} />
+			<LandingFollow
+				locale={locale}
+				localeParam={localeParam}
+				strings={strings}
+			/>
+			<LandingUseCases strings={strings} />
 			<LandingAgents
 				lines={data.digest?.lines ?? []}
 				localeParam={localeParam}
