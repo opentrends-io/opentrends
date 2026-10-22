@@ -27,14 +27,30 @@ export const CROSS_CHECKED_COUNT = 3;
 export const SOURCE_WALL_TILES = 48;
 export const SOURCES_PER_TOPIC = 8;
 
-// How a source is read, as the API reports it; the page shows it as what
-// kind of place the source is.
-export type SourceKind = "community" | "hot" | "journal" | "publication";
+// What kind of place a source is, as the API reports it (`role`); older
+// API builds only had the refresh class, which gives a coarser answer.
+export type SourceKind =
+	| "author"
+	| "community"
+	| "hot"
+	| "journal"
+	| "official"
+	| "press";
+
+export const SOURCE_KIND_ORDER: readonly SourceKind[] = [
+	"official",
+	"press",
+	"author",
+	"journal",
+	"community",
+	"hot",
+];
 
 export interface LandingSource {
 	homeUrl?: string;
 	name?: string;
 	refresh?: string;
+	role?: string;
 	sourceId?: string;
 	topics?: readonly string[];
 }
@@ -61,6 +77,7 @@ export interface EventSource {
 
 export interface LandingEventInput {
 	eventId: string;
+	lastSeenAt?: string;
 	primarySource?: { url?: string };
 	sources?: EventSource[];
 	summary?: string;
@@ -74,6 +91,9 @@ export interface CrossCheckedStory {
 	summary: string;
 	title: string;
 	topic: ContentTopicId | null;
+	// When the story was last seen in a source, as a timestamp; null when
+	// the API did not say.
+	updatedAt: number | null;
 	url: string | null;
 }
 
@@ -110,8 +130,18 @@ function hostOf(url: string | undefined): string | null {
 	}
 }
 
-export function sourceKind(refresh: string | undefined): SourceKind | null {
-	switch (refresh) {
+function isSourceKind(value: string | undefined): value is SourceKind {
+	return (SOURCE_KIND_ORDER as readonly string[]).includes(value ?? "");
+}
+
+export function sourceKind(source: {
+	refresh?: string;
+	role?: string;
+}): SourceKind | null {
+	if (isSourceKind(source.role)) {
+		return source.role;
+	}
+	switch (source.refresh) {
 		case "community":
 			return "community";
 		case "hot":
@@ -120,7 +150,7 @@ export function sourceKind(refresh: string | undefined): SourceKind | null {
 			return "journal";
 		case "rss":
 		case "daily":
-			return "publication";
+			return "press";
 		default:
 			return null;
 	}
@@ -133,7 +163,7 @@ function asWallSource(source: LandingSource): WallSource | null {
 	return {
 		homeUrl: source.homeUrl,
 		id: source.sourceId,
-		kind: sourceKind(source.refresh),
+		kind: sourceKind(source),
 		name: source.name,
 		topics: (source.topics ?? []).filter(isContentTopic),
 	};
@@ -229,6 +259,35 @@ export function lineTopic(entry: ArchivedDigestEntry): ContentTopicId | null {
 	return null;
 }
 
+// One outlet per site that carried the event.
+function eventOutlets(
+	event: LandingEventInput,
+	kinds: ReadonlyMap<string | undefined, SourceKind | null>
+): WallSource[] {
+	const hosts = new Set<string>();
+	const outlets: WallSource[] = [];
+	for (const source of event.sources ?? []) {
+		const host = hostOf(source.homeUrl);
+		if (!(host && source.homeUrl) || hosts.has(host)) {
+			continue;
+		}
+		hosts.add(host);
+		outlets.push({
+			homeUrl: source.homeUrl,
+			id: source.sourceId,
+			kind: kinds.get(source.sourceId) ?? null,
+			name: source.title,
+			topics: [],
+		});
+	}
+	return outlets;
+}
+
+function kindRank(kind: SourceKind | null): number {
+	const index = kind ? SOURCE_KIND_ORDER.indexOf(kind) : -1;
+	return index === -1 ? SOURCE_KIND_ORDER.length : index;
+}
+
 // The stories the most outlets are reporting right now: distinct sites
 // per event, most sites first.
 export function crossCheckedStories(
@@ -237,38 +296,27 @@ export function crossCheckedStories(
 	limit = CROSS_CHECKED_COUNT
 ): CrossCheckedStory[] {
 	const kinds = new Map(
-		(sources ?? []).map((source) => [
-			source.sourceId,
-			sourceKind(source.refresh),
-		])
+		(sources ?? []).map((source) => [source.sourceId, sourceKind(source)])
 	);
 	const stories: CrossCheckedStory[] = [];
 	for (const event of events ?? []) {
-		const hosts = new Set<string>();
-		const outlets: WallSource[] = [];
-		for (const source of event.sources ?? []) {
-			const host = hostOf(source.homeUrl);
-			if (!(host && source.homeUrl) || hosts.has(host)) {
-				continue;
-			}
-			hosts.add(host);
-			outlets.push({
-				homeUrl: source.homeUrl,
-				id: source.sourceId,
-				kind: kinds.get(source.sourceId) ?? null,
-				name: source.title,
-				topics: [],
-			});
-		}
+		const outlets = eventOutlets(event, kinds);
 		if (outlets.length < 2) {
 			continue;
 		}
+		// Official channels first, then the press, so a reader sees at a
+		// glance whether the story started with the organisation itself.
+		outlets.sort((a, b) => kindRank(a.kind) - kindRank(b.kind));
+		const updatedAt = event.lastSeenAt
+			? Date.parse(event.lastSeenAt)
+			: Number.NaN;
 		stories.push({
 			id: event.eventId,
 			outlets,
 			summary: event.summary ?? "",
 			title: event.title,
 			topic: event.topicIds?.find(isContentTopic) ?? null,
+			updatedAt: Number.isFinite(updatedAt) ? updatedAt : null,
 			url: event.primarySource?.url ?? null,
 		});
 	}

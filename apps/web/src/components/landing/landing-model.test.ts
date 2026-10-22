@@ -159,6 +159,11 @@ describe("crossCheckedStories", () => {
 		title: "Reuters",
 		homeUrl: "https://www.reuters.com/",
 	};
+	const openai = {
+		sourceId: "openai-news",
+		title: "OpenAI News",
+		homeUrl: "https://openai.com/news",
+	};
 
 	test("counts distinct sites and sorts the widest coverage first", () => {
 		const stories = crossCheckedStories(
@@ -171,23 +176,42 @@ describe("crossCheckedStories", () => {
 					sources: [verge, tc, reuters],
 					topicIds: ["featured", "ai"],
 					primarySource: { url: "https://techcrunch.com/x" },
+					lastSeenAt: "2026-10-20T07:00:00.000Z",
 				},
 			],
 			[{ sourceId: "reuters", refresh: "rss" }]
 		);
 		expect(stories.map((story) => story.id)).toEqual(["c", "a"]);
+		// Reuters is the only outlet with a known kind, so it leads.
 		expect(stories[0]?.outlets.map((outlet) => outlet.name)).toEqual([
+			"Reuters",
 			"The Verge",
 			"TechCrunch",
-			"Reuters",
 		]);
 		expect(stories[0]?.topic).toBe("ai");
 		expect(stories[0]?.outlets.map((outlet) => outlet.kind)).toEqual([
+			"press",
 			null,
 			null,
-			"publication",
 		]);
+		expect(stories[0]?.updatedAt).toBe(Date.parse("2026-10-20T07:00:00.000Z"));
 		expect(stories[0]?.url).toBe("https://techcrunch.com/x");
+	});
+
+	test("puts the organisation's own channel ahead of the press", () => {
+		const [story] = crossCheckedStories(
+			[{ eventId: "a", title: "Launch", sources: [verge, openai, tc] }],
+			[
+				{ sourceId: "openai-news", role: "official", refresh: "rss" },
+				{ sourceId: "the-verge", role: "press", refresh: "rss" },
+			]
+		);
+		expect(story?.outlets.map((outlet) => outlet.id)).toEqual([
+			"openai-news",
+			"the-verge",
+			"techcrunch",
+		]);
+		expect(story?.updatedAt).toBeNull();
 	});
 
 	test("is empty without events", () => {

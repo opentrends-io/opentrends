@@ -6,6 +6,7 @@ import {
 	type SourceSnapshotSummary,
 } from "../cache/source-cache";
 import { getRssHubBaseUrls } from "../config/rsshub-instances";
+import { type SourceRole, sourceRole } from "../config/source-roles";
 import {
 	isEventEligibleSource,
 	sourceNotes,
@@ -35,6 +36,8 @@ export interface SourceStatusEntry {
 	note: string;
 	provider: SourceProvider;
 	refresh: string;
+	// Official channel, press, author, community, hot list or journal.
+	role: SourceRole;
 	sourceId: string;
 	staleUntil?: number;
 	status: SourceStatus | "missing";
@@ -152,6 +155,7 @@ function buildSourcesStatusFromSnapshots(
 			homeUrl: "homeUrl" in preset ? preset.homeUrl : undefined,
 			endpointUrl: computeEndpointUrl(preset),
 			refresh: preset.refresh,
+			role: sourceRole(sourceId, preset.refresh),
 			topics: topicIndex.get(sourceId) ?? [],
 			status,
 			itemCount: snapshot?.itemCount ?? 0,

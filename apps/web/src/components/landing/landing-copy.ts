@@ -26,6 +26,7 @@ export interface LandingStrings {
 	crossMore: string;
 	crossReported: (count: number) => string;
 	crossTitle: string;
+	crossUpdated: (ago: string) => string;
 	ctaFeed: string;
 	ctaRss: string;
 	eyebrow: string;
@@ -84,11 +85,14 @@ const EN: LandingStrings = {
 		"Most feeds show you one headline at a time. OpenTrends reads every outlet separately, so when several of them report the same story their reports are merged into one event with every outlet listed: official releases, publications and community threads side by side. Nothing is fact-checked for you; you can see who said what and go straight to the original.",
 	crossReported: (count) => `Reported by ${count} outlets`,
 	kindLabels: {
+		author: "Author",
 		community: "Community",
 		hot: "Hot list",
 		journal: "Journal",
-		publication: "Publication",
+		official: "Official",
+		press: "Press",
 	},
+	crossUpdated: (ago) => `Updated ${ago}`,
 	crossEmpty:
 		"The events feed is quiet right now. Check back in a few minutes.",
 	crossMore: "Browse today's events",
@@ -185,11 +189,14 @@ const ZH: LandingStrings = {
 		"大多数信息流一次只给你一条标题。OpenTrends 分别读取每一家，同一件事在多家出现时合并成一个事件，并列出每一个来源：官方发布、媒体报道和社区讨论并排放着。我们不替你做事实核查；你能看到是谁说的，并直接去看原文。",
 	crossReported: (count) => `${count} 家报道`,
 	kindLabels: {
+		author: "个人",
 		community: "社区",
 		hot: "热榜",
 		journal: "期刊",
-		publication: "媒体 / 博客",
+		official: "官方",
+		press: "媒体",
 	},
+	crossUpdated: (ago) => `更新于${ago}`,
 	crossEmpty: "事件流暂时没有内容，过几分钟再来看。",
 	crossMore: "浏览今日事件",
 	sourcesKicker: "信源",
@@ -279,11 +286,14 @@ const ZH_HANT: LandingStrings = {
 		"大多數資訊流一次只給你一條標題。OpenTrends 分別讀取每一家，同一件事在多家出現時合併成一個事件，並列出每一個來源：官方發布、媒體報導和社群討論並排放著。我們不替你做事實查核；你能看到是誰說的，並直接去看原文。",
 	crossReported: (count) => `${count} 家報導`,
 	kindLabels: {
+		author: "個人",
 		community: "社群",
 		hot: "熱榜",
 		journal: "期刊",
-		publication: "媒體 / 部落格",
+		official: "官方",
+		press: "媒體",
 	},
+	crossUpdated: (ago) => `更新於${ago}`,
 	crossEmpty: "事件流暫時沒有內容，過幾分鐘再來看。",
 	crossMore: "瀏覽今日事件",
 	sourcesKicker: "信源",

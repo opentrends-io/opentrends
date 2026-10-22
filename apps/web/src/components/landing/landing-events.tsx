@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 
+import { formatRelativeTime } from "@/components/trends/relative-time";
 import { useT } from "@/lib/i18n";
 
 import type { LandingStrings } from "./landing-copy";
@@ -27,6 +28,9 @@ function StoryCard({
 }) {
 	const t = useT();
 	const Title = story.url ? "a" : "span";
+	const updated = story.updatedAt
+		? formatRelativeTime(story.updatedAt, t)
+		: null;
 	return (
 		<article className={`${CARD_CLASS} flex flex-col p-5`}>
 			<div className="flex items-center justify-between gap-3">
@@ -67,13 +71,24 @@ function StoryCard({
 						<SourceMark size="sm" source={outlet} />
 						<span className="truncate">{outlet.name}</span>
 						{outlet.kind ? (
-							<span className="ml-auto shrink-0 text-[10px] text-[var(--text-muted)]">
+							<span
+								className={
+									outlet.kind === "official"
+										? "ml-auto shrink-0 bg-[var(--accent-blue-bg)] px-1 font-medium text-[10px] text-[var(--accent-blue)]"
+										: "ml-auto shrink-0 text-[10px] text-[var(--text-muted)]"
+								}
+							>
 								{strings.kindLabels[outlet.kind]}
 							</span>
 						) : null}
 					</li>
 				))}
 			</ul>
+			{updated ? (
+				<p className="mt-3 text-[11px] text-[var(--text-muted)]">
+					{strings.crossUpdated(updated)}
+				</p>
+			) : null}
 		</article>
 	);
 }

@@ -40,11 +40,13 @@ function BriefLine({ line }: { line: ArchivedDigestEntry }) {
 						<TopicTag label={t(`topic.${topic}`)} topic={topic} />
 					</span>
 				) : null}
-				<span className="font-medium text-[var(--text-primary)]">
+				<span className="font-semibold text-[var(--text-primary)]">
 					{line.takeaway}
 				</span>
 				{line.reason ? (
-					<span className="text-[var(--text-secondary)]"> — {line.reason}</span>
+					<span className="mt-0.5 block text-[var(--text-secondary)]">
+						{line.reason}
+					</span>
 				) : null}
 				{citations.map((citation) => (
 					<a
