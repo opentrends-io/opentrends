@@ -1,4 +1,6 @@
 {
+  "summary_retrying": "Zusammenfassung noch nicht verfügbar; erneuter Versuch…",
+  "summary_refresh_failed": "Aktualisierung fehlgeschlagen. Die bisherige Zusammenfassung bleibt sichtbar.",
   "feed_load_error": "Der Feed konnte nicht geladen werden. Bitte erneut versuchen.",
   "feed_retry": "Erneut versuchen",
   "nav_home": "Start",

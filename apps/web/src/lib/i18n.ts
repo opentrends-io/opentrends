@@ -103,6 +103,8 @@ const MESSAGE_IDS = {
 	"summary.preparing": "summary_preparing",
 	"summary.reading": "summary_reading",
 	"summary.error": "summary_error",
+	"summary.retrying": "summary_retrying",
+	"summary.refreshFailed": "summary_refresh_failed",
 	"summary.windowLabel": "summary_window_label",
 	"summary.windowToday": "summary_window_today",
 	"summary.windowWeek": "summary_window_week",

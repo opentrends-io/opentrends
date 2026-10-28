@@ -45,6 +45,7 @@ import {
 	normalizeTranslationLanguage,
 	type TranslationMode,
 } from "../trends/services/translate-news-items";
+import { TRANSLATION_PAGE_CACHE_CONTROL } from "../trends/services/translation-http-cache";
 import { requestTranslationPrewarmsForPage } from "../trends/services/translation-prewarm-jobs";
 import type { TopicId } from "../trends/types";
 
@@ -75,9 +76,6 @@ export function getWaitUntil(c: WaitUntilContext) {
 		? (promise: Promise<unknown>) => waitUntil.call(c.executionCtx, promise)
 		: undefined;
 }
-
-const PUBLIC_TRENDS_CACHE_CONTROL =
-	"public, max-age=60, s-maxage=300, stale-while-revalidate=600";
 
 function parsePositiveInteger(value: string | undefined): number | undefined {
 	const parsed = Number.parseInt(value ?? "", 10);
@@ -146,13 +144,10 @@ function summaryProvenanceHeaders(
 
 function withTrendsCacheHeaders(
 	response: Response,
-	translationMode: TranslationMode,
+	_translationMode: TranslationMode,
 	cacheStatus: TrendsPageCacheStatus
 ): Response {
-	response.headers.set(
-		"Cache-Control",
-		translationMode === "background" ? PUBLIC_TRENDS_CACHE_CONTROL : "no-store"
-	);
+	response.headers.set("Cache-Control", TRANSLATION_PAGE_CACHE_CONTROL);
 	response.headers.set("X-Trends-Cache", cacheStatus);
 	response.headers.set("Access-Control-Expose-Headers", "X-Trends-Cache");
 	return response;

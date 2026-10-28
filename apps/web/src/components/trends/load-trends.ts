@@ -1,7 +1,10 @@
 import { env } from "@opentrends/env/web";
 
 import type { Locale } from "@/lib/i18n";
-import { TRENDS_FULL_ITEMS_PER_SOURCE } from "./trends-limits";
+import {
+	TRANSLATION_CACHE_REVISION,
+	TRENDS_FULL_ITEMS_PER_SOURCE,
+} from "./trends-limits";
 import type {
 	ArchivedDigestData,
 	EventDetailData,
@@ -44,6 +47,7 @@ export function trendsPageUrl(
 		items: String(itemsPerSource),
 		lang: locale,
 		translations: "background",
+		translationCache: TRANSLATION_CACHE_REVISION,
 	});
 	if (sourceIds) {
 		search.set("sources", sourceIds.join(","));
@@ -68,6 +72,7 @@ export async function loadTrends(
 			trendsPageUrl(topic, locale, itemsPerSource, sourceIds),
 			{
 				credentials: "same-origin",
+				cache: "no-store",
 				signal: controller.signal,
 			}
 		);
@@ -93,6 +98,7 @@ export async function loadTrendSource(
 		items: String(itemsPerSource),
 		lang: locale,
 		translations: "background",
+		translationCache: TRANSLATION_CACHE_REVISION,
 	});
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), TRENDS_FETCH_TIMEOUT_MS);
@@ -102,6 +108,7 @@ export async function loadTrendSource(
 			`${env.VITE_SERVER_URL}/api/trends/${encodeURIComponent(topic)}/sources/${encodeURIComponent(sourceId)}?${search}`,
 			{
 				credentials: "omit",
+				cache: "no-store",
 				signal: controller.signal,
 			}
 		);

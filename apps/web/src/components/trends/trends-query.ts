@@ -46,8 +46,12 @@ export function trendsPageQueryOptions(
 		],
 		queryFn: () => loadTrends(topic, locale, itemsPerSource, sourceIds),
 		gcTime: TRENDS_PAGE_GC_MS,
+		retry: 2,
 		refetchInterval: (query) =>
-			query.state.data && pageNeedsTranslationWarmup(query.state.data, locale)
+			query.state.dataUpdateCount < 30 &&
+			query.state.errorUpdateCount < 3 &&
+			query.state.data &&
+			pageNeedsTranslationWarmup(query.state.data, locale)
 				? 10_000
 				: false,
 		refetchOnWindowFocus: false,

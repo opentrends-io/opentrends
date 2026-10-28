@@ -1,4 +1,6 @@
 {
+  "summary_retrying": "Résumé indisponible pour le moment ; nouvelle tentative…",
+  "summary_refresh_failed": "Actualisation impossible. Le résumé précédent reste affiché.",
   "feed_load_error": "Impossible de charger le fil. Veuillez réessayer.",
   "feed_retry": "Réessayer",
   "nav_home": "Accueil",

@@ -1,5 +1,8 @@
 import type { Locale } from "@/lib/i18n";
-import { TRENDS_FULL_ITEMS_PER_SOURCE } from "./trends-limits";
+import {
+	TRANSLATION_CACHE_REVISION,
+	TRENDS_FULL_ITEMS_PER_SOURCE,
+} from "./trends-limits";
 import type { TrendsPageData } from "./types";
 
 export const SSR_TRENDS_TIMEOUT_MS = 3000;
@@ -17,6 +20,7 @@ export async function readTrendsSnapshot(
 		items: String(TRENDS_FULL_ITEMS_PER_SOURCE),
 		lang: locale,
 		translations: "background",
+		translationCache: TRANSLATION_CACHE_REVISION,
 	}).toString();
 	const controller = new AbortController();
 	let timer: ReturnType<typeof setTimeout> | undefined;

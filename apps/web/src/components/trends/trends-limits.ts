@@ -4,6 +4,10 @@
 // layout/content jump and one request per card.
 export const TRENDS_FULL_ITEMS_PER_SOURCE = 30;
 
+// One stable key retires old multi-hour browser/CDN responses. Never use a
+// timestamp here: that would defeat all server-side request coalescing.
+export const TRANSLATION_CACHE_REVISION = "2";
+
 // Render two desktop rows initially. Later rows are appended as the reader
 // approaches them, so SSR and hydration never build every topic card at once.
 export const SOURCE_RENDER_BATCH_SIZE = 8;

@@ -29,6 +29,7 @@ import { runBriefingDeliveryTick } from "./trends/services/briefing-subscription
 import { runEventMergeJob } from "./trends/services/event-merge-jobs";
 import { runTrendsRefreshTick } from "./trends/services/refresh-scheduler";
 import { runSummaryPrewarmJob } from "./trends/services/summary-prewarm-jobs";
+import { isTranslationPagePath } from "./trends/services/translation-http-cache";
 import { runTranslationPrewarmJob } from "./trends/services/translation-prewarm-jobs";
 
 const app = new Hono<{ Bindings: WorkerBindings }>();
@@ -103,6 +104,11 @@ app.on(["POST", "GET"], "/api/auth/*", async (context) => {
 // answers repeat requests without touching KV or building the JSON again.
 // The Cache API is a no-op on workers.dev and works on custom domains.
 app.use("/api/trends/*", async (c, next) => {
+	// Bypass even already-stored HTTP responses from previous releases.
+	if (isTranslationPagePath(c.req.path)) {
+		await next();
+		return;
+	}
 	const cache = (globalThis as { caches?: { default?: Cache } }).caches
 		?.default;
 	if (c.req.method !== "GET" || !cache) {

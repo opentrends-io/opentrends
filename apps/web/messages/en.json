@@ -1,4 +1,6 @@
 {
+  "summary_retrying": "Summary not ready; retrying…",
+  "summary_refresh_failed": "Couldn’t refresh. Showing the previous summary.",
   "nav_home": "Home",
   "nav_trends": "Trends",
   "nav_events": "Events",

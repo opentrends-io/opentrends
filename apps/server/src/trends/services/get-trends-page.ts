@@ -58,6 +58,39 @@ const memoryTrendsPageCache = new Map<
 >();
 const inFlightTrendsPageRefreshes = new Map<string, Promise<TrendsPageData>>();
 
+// Page snapshots and translations have different lifecycles. A fresh KV page
+// can still contain English after another isolate has saved its Chinese text.
+// Reconcile only missing translations, using the read-only background path.
+// Coalesce readers of the same snapshot; never rebuild sources or call a model.
+const translationReads = new WeakMap<
+	TrendsPageData,
+	Map<
+		TranslationLanguage,
+		{
+			expiresAt: number;
+			result: Promise<TrendsPageData>;
+		}
+	>
+>();
+
+function refreshCachedTranslations(
+	page: TrendsPageData,
+	lang: TranslationLanguage
+): Promise<TrendsPageData> {
+	if (!hasPendingTranslations(page, lang)) {
+		return Promise.resolve(page);
+	}
+	const reads = translationReads.get(page) ?? new Map();
+	const existing = reads.get(lang);
+	if (existing && existing.expiresAt > Date.now()) {
+		return existing.result;
+	}
+	const result = translateTrendsPage(page, lang, "background");
+	reads.set(lang, { expiresAt: Date.now() + 10_000, result });
+	translationReads.set(page, reads);
+	return result;
+}
+
 interface TrendsPageCacheOptions {
 	waitUntil?: (promise: Promise<unknown>) => void;
 }
@@ -534,7 +567,7 @@ export async function getFollowedSourcesPage(
 	if (cacheable) {
 		const memory = followedPageCache.get(key);
 		if (memory && memory.freshUntil > now) {
-			return memory.page;
+			return refreshCachedTranslations(memory.page, lang);
 		}
 		const hot = await hotCache.get<TrendsPageData>(key).catch(() => null);
 		if (hot && hot.freshUntil > now) {
@@ -542,7 +575,7 @@ export async function getFollowedSourcesPage(
 				freshUntil: hot.freshUntil,
 				page: hot.value,
 			});
-			return hot.value;
+			return refreshCachedTranslations(hot.value, lang);
 		}
 	}
 	const page = await buildPageFromPreset(
@@ -642,7 +675,10 @@ export async function getTrendsPageWithCacheInfo(
 		: undefined;
 	if (cached && cached.freshUntil > now) {
 		refreshExpiredSnapshotsInBackground(cached.page, options.waitUntil);
-		return { cacheStatus: "hit", page: cached.page };
+		return {
+			cacheStatus: "hit",
+			page: await refreshCachedTranslations(cached.page, lang),
+		};
 	}
 
 	if (cached && cached.staleUntil > now) {
@@ -656,7 +692,10 @@ export async function getTrendsPageWithCacheInfo(
 		);
 		refreshMissingSnapshotsInBackground(cached.page, options.waitUntil);
 		refreshExpiredSnapshotsInBackground(cached.page, options.waitUntil);
-		return { cacheStatus: "stale", page: cached.page };
+		return {
+			cacheStatus: "stale",
+			page: await refreshCachedTranslations(cached.page, lang),
+		};
 	}
 
 	let hotCached: CacheEnvelope<TrendsPageData> | null = null;
@@ -668,7 +707,10 @@ export async function getTrendsPageWithCacheInfo(
 	if (hotCached && hotCached.freshUntil > now) {
 		hydrateMemoryTrendsPageCache(cacheKey, hotCached, lang, translationMode);
 		refreshExpiredSnapshotsInBackground(hotCached.value, options.waitUntil);
-		return { cacheStatus: "hit", page: hotCached.value };
+		return {
+			cacheStatus: "hit",
+			page: await refreshCachedTranslations(hotCached.value, lang),
+		};
 	}
 
 	if (hotCached) {
@@ -684,7 +726,10 @@ export async function getTrendsPageWithCacheInfo(
 			);
 			refreshMissingSnapshotsInBackground(hotCached.value, options.waitUntil);
 			refreshExpiredSnapshotsInBackground(hotCached.value, options.waitUntil);
-			return { cacheStatus: "stale", page: hotCached.value };
+			return {
+				cacheStatus: "stale",
+				page: await refreshCachedTranslations(hotCached.value, lang),
+			};
 		}
 	}
 

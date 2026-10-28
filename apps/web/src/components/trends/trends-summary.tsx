@@ -44,6 +44,7 @@ import {
 import { FOLLOWED_TOPIC_ID } from "./followed-sources";
 import { parseDigest } from "./share-image";
 import { SourceLogoStack, type SourceLogoStackItem } from "./source-favicon";
+import { requestSummary } from "./summary-request";
 import { SummaryShareDialog } from "./summary-share-dialog";
 import { topicDigestHref } from "./topic-digest-href";
 import type {
@@ -75,7 +76,6 @@ type SummaryStatus =
 	| "streaming"
 	| "done"
 	| "empty"
-	| "unavailable"
 	| "error";
 
 const SUMMARY_WINDOWS = ["today", "week", "month"] as const;
@@ -102,16 +102,14 @@ interface StreamHandlers {
 	onDone: () => void;
 	onEmpty: () => void;
 	onError: (message: string) => void;
-	onPending: () => void;
+	onRetry: () => void;
 	onStreamingStart: (origin: string | null) => void;
-	onUnavailable: () => void;
 	signal: AbortSignal;
 }
 
 const CITATIONS_HEADER = "X-Trends-Citations";
 const SUMMARY_ORIGIN_HEADER = "X-Trends-Summary-Origin";
 const CITATION_RE = /\[(\d+)\]/g;
-const SUMMARY_PENDING_RETRY_MS = 10_000;
 
 const CITATION_PREAMBLE_PREFIX = '{"citations":';
 
@@ -295,38 +293,26 @@ async function readStream(
 	const decoder = new TextDecoder();
 	let buffer = "";
 	let citationsSent = false;
-	while (!handlers.isCancelled()) {
-		const { done, value } = await reader.read();
-		if (done) {
-			return;
+	try {
+		while (!handlers.isCancelled()) {
+			const { done, value } = await reader.read();
+			if (done) {
+				return;
+			}
+			buffer += decoder.decode(value, { stream: true });
+			const summary = splitCitationPreamble(buffer);
+			if (!summary || handlers.isCancelled()) {
+				continue;
+			}
+			if (summary.citations && !citationsSent) {
+				citationsSent = true;
+				handlers.onCitations(summary.citations);
+			}
+			handlers.onChunk(summary.text);
 		}
-		buffer += decoder.decode(value, { stream: true });
-		const summary = splitCitationPreamble(buffer);
-		if (!summary || handlers.isCancelled()) {
-			continue;
-		}
-		if (summary.citations && !citationsSent) {
-			citationsSent = true;
-			handlers.onCitations(summary.citations);
-		}
-		handlers.onChunk(summary.text);
+	} finally {
+		reader.releaseLock();
 	}
-}
-
-// 503, 202 and 204 carry no digest; each maps to one handler.
-function settleWithoutBody(status: number, handlers: StreamHandlers): boolean {
-	const settle = {
-		202: handlers.onPending,
-		204: handlers.onEmpty,
-		503: handlers.onUnavailable,
-	}[status];
-	if (!settle) {
-		return false;
-	}
-	if (!handlers.isCancelled()) {
-		settle();
-	}
-	return true;
 }
 
 async function streamSummary(
@@ -354,31 +340,39 @@ async function streamSummary(
 	}
 	const url = `${env.VITE_SERVER_URL}/api/trends/${encodeURIComponent(topicId)}/summary?${search}`;
 	try {
-		const response = await fetch(url, {
-			cache: "no-store",
-			credentials: "omit",
+		const result = await requestSummary(url, {
 			signal: handlers.signal,
+			onRetry: handlers.onRetry,
+			consume: async (response) => {
+				if (handlers.isCancelled()) {
+					return;
+				}
+				if (!response.body) {
+					throw new Error("Empty summary response");
+				}
+				handlers.onStreamingStart(response.headers.get(SUMMARY_ORIGIN_HEADER));
+				handlers.onCitations(
+					parseCitationsHeader(response.headers.get(CITATIONS_HEADER))
+				);
+				let hasText = false;
+				await readStream(response.body, {
+					...handlers,
+					onChunk: (text) => {
+						hasText = Boolean(text.trim());
+						handlers.onChunk(text);
+					},
+				});
+				if (!hasText) {
+					throw new Error("Empty summary response");
+				}
+			},
 		});
-
-		if (settleWithoutBody(response.status, handlers)) {
-			return;
-		}
-
-		if (!(response.ok && response.body)) {
-			throw new Error(`Failed to load summary (${response.status})`);
-		}
-
-		if (handlers.isCancelled()) {
-			return;
-		}
-		const citations = parseCitationsHeader(
-			response.headers.get(CITATIONS_HEADER)
-		);
-		handlers.onCitations(citations);
-		handlers.onStreamingStart(response.headers.get(SUMMARY_ORIGIN_HEADER));
-		await readStream(response.body, handlers);
 		if (!handlers.isCancelled()) {
-			handlers.onDone();
+			if (result === "empty") {
+				handlers.onEmpty();
+			} else {
+				handlers.onDone();
+			}
 		}
 	} catch (err) {
 		if (handlers.isCancelled() || isAbort(err)) {
@@ -721,6 +715,42 @@ function digestMemoKey(
 	return `${topicId}:${locale}:${summaryWindow}:${followedIds?.join(",") ?? ""}:${keywords?.join(",") ?? ""}`;
 }
 
+function SummaryRecoveryNotice({
+	retrying,
+	error,
+	hasSummary,
+	onRetry,
+}: {
+	retrying: boolean;
+	error: string | null;
+	hasSummary: boolean;
+	onRetry: () => void;
+}) {
+	const t = useT();
+	if (!(retrying || error)) {
+		return null;
+	}
+	let label = t("summary.error");
+	if (retrying) {
+		label = t("summary.retrying");
+	} else if (hasSummary) {
+		label = t("summary.refreshFailed");
+	}
+	return (
+		<div
+			className="my-1 flex flex-wrap items-center gap-2 text-[12px] text-[var(--text-secondary)]"
+			role="status"
+		>
+			<span>{label}</span>
+			{retrying ? null : (
+				<button className={segmentClassName} onClick={onRetry} type="button">
+					{t("feed.retry")}
+				</button>
+			)}
+		</div>
+	);
+}
+
 export function TrendsSummary({
 	collapsed,
 	initialDigest,
@@ -738,6 +768,7 @@ export function TrendsSummary({
 		initialDigest ? "done" : "loading"
 	);
 	const [error, setError] = useState<string | null>(null);
+	const [retrying, setRetrying] = useState(false);
 	const [citations, setCitations] = useState<CitationMap>(() =>
 		initialDigest
 			? citationsFromEntries(initialDigest.entries)
@@ -795,6 +826,9 @@ export function TrendsSummary({
 		[status, text]
 	);
 
+	// The semantic identity, not freshly allocated page/source arrays, owns the
+	// request lifecycle. Background page refreshes must not reset its retry budget.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: memoKey covers topic, locale, window, sources and keywords; retryNonce is explicit user retry
 	const containerRef = useCallback(
 		(el: HTMLDivElement | null) => {
 			if (!el) {
@@ -803,7 +837,7 @@ export function TrendsSummary({
 
 			const controller = new AbortController();
 			let cancelled = false;
-			let retryTimer: number | undefined;
+			setRetrying(false);
 
 			// The server-rendered digest counts as a stale memo: it stays on
 			// screen while the live one streams in behind it.
@@ -829,7 +863,7 @@ export function TrendsSummary({
 				setCitations(memo.citations);
 				setError(null);
 				setStatus("done");
-				if (Date.now() - memo.at < DIGEST_MEMO_FRESH_MS) {
+				if (retryNonce === 0 && Date.now() - memo.at < DIGEST_MEMO_FRESH_MS) {
 					return;
 				}
 			} else {
@@ -852,6 +886,9 @@ export function TrendsSummary({
 					signal: controller.signal,
 					isCancelled: () => cancelled,
 					onStreamingStart: (origin) => {
+						latestText = "";
+						latestCitations = EMPTY_CITATIONS;
+						hold = holdMemo;
 						if (holdMemo) {
 							return;
 						}
@@ -879,16 +916,24 @@ export function TrendsSummary({
 							setCitations(next);
 						}
 					},
-					onUnavailable: () => setStatus("unavailable"),
-					onEmpty: () => setStatus("empty"),
-					onPending: () => {
-						setStatus("pending");
-						retryTimer = window.setTimeout(
-							() => setRetryNonce((value) => value + 1),
-							SUMMARY_PENDING_RETRY_MS
-						);
+					onEmpty: () => {
+						setRetrying(false);
+						DIGEST_MEMO.delete(memoKey);
+						setText("");
+						setCitations(EMPTY_CITATIONS);
+						setStatus("empty");
+					},
+					onRetry: () => {
+						setRetrying(true);
+						setStatus(memo ? "done" : "pending");
+						if (!memo) {
+							setText("");
+							setCitations(EMPTY_CITATIONS);
+						}
 					},
 					onDone: () => {
+						setRetrying(false);
+						setError(null);
 						setStatus("done");
 						if (hold && latestText.trim()) {
 							setText(latestText);
@@ -903,7 +948,12 @@ export function TrendsSummary({
 						}
 					},
 					onError: (message) => {
-						setStatus("error");
+						setRetrying(false);
+						setStatus(memo ? "done" : "error");
+						if (!memo) {
+							setText("");
+							setCitations(EMPTY_CITATIONS);
+						}
 						setError(message);
 					},
 				}
@@ -914,18 +964,12 @@ export function TrendsSummary({
 
 			return () => {
 				cancelled = true;
-				if (retryTimer !== undefined) {
-					window.clearTimeout(retryTimer);
-				}
 				controller.abort();
 			};
 		},
-		[topicId, locale, summaryWindow, retryNonce, followedIds, keywords, memoKey]
+		[memoKey, retryNonce]
 	);
 
-	if (status === "unavailable") {
-		return null;
-	}
 	let activityLabel = t("summary.writing");
 	if (status === "pending") {
 		activityLabel = t("summary.preparing");
@@ -935,14 +979,14 @@ export function TrendsSummary({
 
 	return (
 		<div
-			// The first line is the same 40px row whether the digest is open or
-			// closed, so collapsing only removes the body and nothing jumps.
+			// Keep the header at least 40px tall, but let mobile controls wrap
+			// without overlapping the recovery notice or digest below.
 			className={`border-[var(--border-default)] border-b bg-[var(--surface-sidebar)] px-3 sm:px-4 ${collapsed ? "" : "pb-3"}`}
 			ref={containerRef}
 		>
 			<div className="flex min-w-0 flex-1 items-start gap-3">
 				<div className="min-w-0 flex-1">
-					<div className="flex h-10 flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+					<div className="flex min-h-10 flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
 						<TitleTag className="m-0 font-normal text-[12px] text-[var(--text-primary)]">
 							{subject}
 						</TitleTag>
@@ -1035,6 +1079,14 @@ export function TrendsSummary({
 						/>
 					) : null}
 					{collapsed ? null : (
+						<SummaryRecoveryNotice
+							error={error}
+							hasSummary={status === "done"}
+							onRetry={() => setRetryNonce((value) => value + 1)}
+							retrying={retrying}
+						/>
+					)}
+					{collapsed || status === "error" ? null : (
 						<SummaryBody
 							citations={citations}
 							contentKey={memoKey}
