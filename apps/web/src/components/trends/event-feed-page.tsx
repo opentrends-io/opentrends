@@ -32,7 +32,7 @@ import {
 import { formatRelativeTime } from "./relative-time";
 import { retainEventTranslations } from "./retain-event-translations";
 import { SourceLogoStack } from "./source-favicon";
-import { TranslationIndicator, TranslationNotice } from "./translation-state";
+import { TranslationIndicator } from "./translation-state";
 import { translationRefetchInterval } from "./translation-status";
 import { trendEventDetailQueryOptions } from "./trends-query";
 import type { EventDetailData, EventFeedData, EventFeedItem } from "./types";
@@ -274,7 +274,6 @@ export function EventFeedPage({ selectedTopic }: EventFeedPageProps) {
 				</div>
 			</div>
 			<div className="p-3 sm:p-4">
-				<TranslationNotice items={events} />
 				<EventPagesStrip />
 				{eventContent}
 			</div>
@@ -574,7 +573,6 @@ function EventDetailDialog({
 				</DialogHeader>
 				<ScrollArea className="min-h-0 flex-1 overflow-hidden">
 					<div className="flex flex-col gap-3 p-1">
-						<TranslationNotice items={detail?.sourceItems ?? []} />
 						{event?.summary ? (
 							<p className="text-[13px] text-[var(--text-secondary)] leading-[1.5]">
 								{event.summary}

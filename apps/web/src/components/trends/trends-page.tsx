@@ -76,7 +76,7 @@ import {
 	applyCachedTranslations,
 	storePageTranslations,
 } from "./translation-snapshot-cache";
-import { TranslationIndicator, TranslationNotice } from "./translation-state";
+import { TranslationIndicator } from "./translation-state";
 import { pageNeedsTranslationWarmup } from "./translation-status";
 import { SOURCE_RENDER_BATCH_SIZE } from "./trends-limits";
 import { trendSourceQueryOptions } from "./trends-query";
@@ -505,11 +505,6 @@ export function TrendsPage({ displaySettingsStore, page }: TrendsPageProps) {
 							topicTitle={displayPage.title}
 						/>
 					) : null}
-					<TranslationNotice
-						items={displayPage.sections.flatMap((section) =>
-							section.sources.flatMap((source) => source.items)
-						)}
-					/>
 					{sourceContent}
 				</div>
 				{dragPreview ? (

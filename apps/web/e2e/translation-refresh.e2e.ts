@@ -1,94 +1,108 @@
 import { expect, test } from "@playwright/test";
 
-test("queued is replaced by explicit pause and daily call cap; manual GET refresh stays visible in dark mobile layout", async ({
-	page,
-}, testInfo) => {
-	await page.clock.install();
-	await page.route("**/*", (route) =>
-		new URL(route.request().url()).origin === "http://127.0.0.1:4178"
-			? route.continue()
-			: route.abort()
-	);
-	await page.route("**/api/auth/**", (route) => route.fulfill({ json: null }));
-	let calls = 0;
-	await page.route("**/api/trends/featured?**", (route) => {
-		calls++;
-		expect(route.request().method()).toBe("GET");
-		return route.fulfill({
-			json: {
-				id: "featured",
-				title: "精选",
-				updatedAt: 1,
-				sections: [
-					{
-						id: "test",
-						title: "News",
-						sources: [
-							{
-								sourceId: "hackernews",
-								title: "Hacker News",
-								status: "ok",
-								items: [
-									{
-										id: "1",
-										sourceId: "hackernews",
-										title: "Researchers publish a new model",
-										url: "https://example.test/1",
-										fetchedAt: 1,
-										translation: {
-											state: "blocked",
-											reason: calls === 1 ? "paused" : "call_limit",
-											language: "zh",
-											textHash: "fixture",
-											checkedAt: Date.now(),
+for (const [reason, label] of [
+	["paused", "后台翻译已暂停，保留原文"],
+	["call_limit", "今日翻译调用次数已达上限，保留原文"],
+] as const) {
+	test(`queued becomes ${reason} without a notice row in dark mobile layout`, async ({
+		page,
+	}, testInfo) => {
+		await page.clock.install();
+		await page.route("**/*", (route) =>
+			new URL(route.request().url()).origin === "http://127.0.0.1:4178"
+				? route.continue()
+				: route.abort()
+		);
+		await page.route("**/api/auth/**", (route) =>
+			route.fulfill({ json: null })
+		);
+		let calls = 0;
+		await page.route("**/api/trends/featured?**", (route) => {
+			calls++;
+			expect(route.request().method()).toBe("GET");
+			return route.fulfill({
+				json: {
+					id: "featured",
+					title: "精选",
+					updatedAt: 1,
+					sections: [
+						{
+							id: "test",
+							title: "News",
+							sources: [
+								{
+									sourceId: "hackernews",
+									title: "Hacker News",
+									status: "ok",
+									items: [
+										{
+											id: "1",
+											sourceId: "hackernews",
+											title: "Researchers publish a new model",
+											url: "https://example.test/1",
+											fetchedAt: 1,
+											translation: {
+												state: "blocked",
+												reason,
+												language: "zh",
+												textHash: "fixture",
+												checkedAt: Date.now(),
+											},
 										},
-									},
-								],
-							},
-						],
-					},
-				],
-			},
+									],
+								},
+							],
+						},
+					],
+				},
+			});
+		});
+		await page.goto("/e2e/fixtures/translation-refresh.html?state=queued");
+		const article = page.locator('a[href="https://example.test/1"]');
+		await expect(
+			article.locator('[data-translation-state="queued"]')
+		).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: "刷新翻译状态" })
+		).toHaveCount(0);
+		await expect(
+			page.getByText("部分条目保留原文", { exact: false })
+		).toHaveCount(0);
+		expect(calls).toBe(0);
+		await page.clock.runFor(10_000);
+		await expect(
+			article.locator('[data-translation-state="blocked"]')
+		).toHaveAttribute("title", label);
+		await page.clock.fastForward(300_000);
+		expect(calls).toBe(1);
+		await expect(article).toContainText("Researchers publish a new model");
+		await page.setViewportSize({ width: 375, height: 812 });
+		await page.evaluate(() => {
+			document.documentElement.classList.add("dark");
+			document.documentElement.setAttribute("data-theme", "dark");
+		});
+		const indicator = article.locator('[data-translation-state="blocked"]');
+		await indicator.scrollIntoViewIfNeeded();
+		await indicator.hover();
+		await expect(indicator).toBeInViewport();
+		await expect(
+			page.getByRole("button", { name: "刷新翻译状态" })
+		).toHaveCount(0);
+		await expect(
+			page.getByText("刷新只检查进度，不会重新生成或重复扣费。", {
+				exact: false,
+			})
+		).toHaveCount(0);
+		expect(
+			await page.evaluate(
+				() => document.documentElement.scrollWidth <= innerWidth
+			)
+		).toBe(true);
+		await page.screenshot({
+			path: testInfo.outputPath(`${reason}-mobile-dark.png`),
 		});
 	});
-	await page.goto("/e2e/fixtures/translation-refresh.html?state=queued");
-	const article = page.locator('a[href="https://example.test/1"]');
-	await expect(
-		article.locator('[data-translation-state="queued"]')
-	).toBeVisible();
-	expect(calls).toBe(0);
-	await page.clock.runFor(10_000);
-	await expect(
-		article.locator('[data-translation-state="blocked"]')
-	).toHaveAttribute("title", "后台翻译已暂停，保留原文");
-	await page.clock.fastForward(300_000);
-	expect(calls).toBe(1);
-	await page.getByRole("button", { name: "刷新翻译状态" }).click();
-	await expect(
-		article.locator('[data-translation-state="blocked"]')
-	).toHaveAttribute("title", "今日翻译调用次数已达上限，保留原文");
-	await expect(article).toContainText("Researchers publish a new model");
-	await page.setViewportSize({ width: 375, height: 812 });
-	await page.evaluate(() => {
-		document.documentElement.classList.add("dark");
-		document.documentElement.setAttribute("data-theme", "dark");
-	});
-	const refresh = page.getByRole("button", { name: "刷新翻译状态" });
-	await refresh.scrollIntoViewIfNeeded();
-	await refresh.hover();
-	await expect(refresh).toBeInViewport();
-	await expect(
-		page.getByText("刷新只检查进度，不会重新生成或重复扣费。", { exact: false })
-	).toBeVisible();
-	expect(
-		await page.evaluate(
-			() => document.documentElement.scrollWidth <= innerWidth
-		)
-	).toBe(true);
-	await page.screenshot({
-		path: testInfo.outputPath("call-cap-mobile-dark.png"),
-	});
-});
+}
 
 test("a visible English card becomes Chinese, persists, and stops polling", async ({
 	page,
@@ -157,12 +171,17 @@ test("a visible English card becomes Chinese, persists, and stops polling", asyn
 	const article = page.locator('a[href="https://example.test/1"]');
 	await expect(article).toContainText("Researchers publish a new model");
 	await expect(article).toContainText("标题翻译中");
+	await expect(page.getByRole("button", { name: "刷新翻译状态" })).toHaveCount(
+		0
+	);
+	await expect(
+		page.getByText("部分条目保留原文", { exact: false })
+	).toHaveCount(0);
 	expect(calls).toBe(0);
 	await page.clock.fastForward(10_000);
 	await expect(article).toContainText("研究人员发布新模型");
 	await page.reload();
 	await expect(article).toContainText("研究人员发布新模型");
-	await expect(article).not.toContainText("标题翻译中");
 	await expect(article).not.toContainText("标题翻译中");
 	await expect
 		.poll(() =>
@@ -182,7 +201,7 @@ test("a visible English card becomes Chinese, persists, and stops polling", asyn
 	await page.screenshot({ path: testInfo.outputPath("translated-card.png") });
 });
 
-test("network failure keeps the original, expires the spinner and bounds polling; manual refresh is read-only", async ({
+test("network failure keeps the original, expires the spinner and bounds polling without a notice row", async ({
 	page,
 }, testInfo) => {
 	await page.clock.install();
@@ -223,15 +242,18 @@ test("network failure keeps the original, expires the spinner and bounds polling
 	await page.waitForTimeout(200);
 	expect(calls).toBe(stopped);
 	expect(calls).toBeLessThanOrEqual(9);
-	const refresh = page.getByRole("button", { name: "刷新翻译状态" });
-	await expect(refresh).toBeEnabled();
-	await refresh.click();
-	await expect.poll(() => calls).toBeGreaterThan(stopped);
+	await expect(page.getByRole("button", { name: "刷新翻译状态" })).toHaveCount(
+		0
+	);
+	await expect(
+		page.getByText("部分条目保留原文", { exact: false })
+	).toHaveCount(0);
 	await expect(article).toContainText("Researchers publish a new model");
 	await page.setViewportSize({ width: 375, height: 812 });
-	await refresh.scrollIntoViewIfNeeded();
-	await refresh.hover();
-	await expect(refresh).toBeInViewport();
+	const indicator = article.locator('[data-translation-state="unknown"]');
+	await indicator.scrollIntoViewIfNeeded();
+	await indicator.hover();
+	await expect(indicator).toBeInViewport();
 	expect(
 		await page.evaluate(
 			() => document.documentElement.scrollWidth <= window.innerWidth

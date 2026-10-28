@@ -47,7 +47,7 @@ import {
 	applyCachedTranslations,
 	storePageTranslations,
 } from "./translation-snapshot-cache";
-import { TranslationIndicator, TranslationNotice } from "./translation-state";
+import { TranslationIndicator } from "./translation-state";
 import { trendsPageQueryOptions } from "./trends-query";
 import { FeedSkeleton } from "./trends-skeleton";
 import type { NewsItem, SourceCardData, TrendsPageData } from "./types";
@@ -271,13 +271,6 @@ export function FeedPage({ topicId }: FeedPageProps) {
 
 	return (
 		<div className="min-w-0">
-			<TranslationNotice
-				items={pages.flatMap((page) =>
-					page.sections.flatMap((section) =>
-						section.sources.flatMap((source) => source.items)
-					)
-				)}
-			/>
 			<div className="flex h-10 items-center justify-between gap-3 border-[var(--border-default)] border-b bg-[var(--surface-sidebar)] px-3 sm:px-4">
 				<ViewSwitch localeParam={localeParam} topicId={topicId} view="feed" />
 				<div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)] tabular-nums">

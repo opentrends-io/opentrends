@@ -2,14 +2,10 @@ import {
 	effectiveTranslationState,
 	type TranslationStatus,
 } from "@opentrends/api/translation-contract";
-import { useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, Clock3, LoaderCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocale, useT } from "@/lib/i18n";
-import {
-	resetTranslationPolling,
-	textNeedsTranslation,
-} from "./translation-status";
+import { textNeedsTranslation } from "./translation-status";
 
 interface Subject {
 	description?: string;
@@ -124,74 +120,5 @@ export function TranslationIndicator({ item }: { item: Subject }) {
 			/>
 			<span className="sr-only">{label}</span>
 		</span>
-	);
-}
-
-// Inline, nonmodal and read-only. Refreshing does not reset backend attempts
-// or the spending budget; existing React Query data is retained on errors.
-export function TranslationNotice({ items }: { items: readonly Subject[] }) {
-	const locale = useLocale();
-	const t = useT();
-	const client = useQueryClient();
-	const [refreshing, setRefreshing] = useState(false);
-	const statuses = items
-		.filter((item) => isOriginalOnly(item, locale))
-		.map((item) => item.translation)
-		.filter(
-			(status): status is TranslationStatus => status?.language === locale
-		);
-	const clockStatus = statuses
-		.filter((status) => (statusExpiry(status) ?? 0) > Date.now())
-		.sort((a, b) => (statusExpiry(a) ?? 0) - (statusExpiry(b) ?? 0))[0];
-	const now = useStatusClock(clockStatus);
-	const blocked = statuses.find(
-		(status) => effectiveTranslationState(status, now) === "blocked"
-	);
-	if (!items.some((item) => isOriginalOnly(item, locale))) {
-		return null;
-	}
-	return (
-		<div className="flex flex-wrap items-center justify-between gap-2 border-[var(--border-default)] border-b px-3 py-2 text-[12px] text-[var(--text-secondary)]">
-			<span>
-				{blocked ? t(statusLabel(blocked, now)) : t("translation.notice")}{" "}
-				{t("translation.refreshHint")}
-			</span>
-			<button
-				className="shrink-0 rounded border border-[var(--border-default)] px-2 py-1 hover:bg-[var(--state-hover-subtle)] disabled:opacity-50"
-				disabled={refreshing}
-				onClick={async () => {
-					setRefreshing(true);
-					try {
-						const queries = client.getQueryCache().findAll({
-							type: "active",
-							predicate: (query) =>
-								[
-									"trends-page",
-									"trend-source",
-									"trend-events",
-									"trend-event-detail",
-								].includes(String(query.queryKey[0])),
-						});
-						for (const query of queries) {
-							resetTranslationPolling(query);
-						}
-						await Promise.all(
-							queries.map((query) =>
-								client.refetchQueries({
-									queryKey: query.queryKey,
-									exact: true,
-									type: "active",
-								})
-							)
-						);
-					} finally {
-						setRefreshing(false);
-					}
-				}}
-				type="button"
-			>
-				{t("translation.refresh")}
-			</button>
-		</div>
 	);
 }
