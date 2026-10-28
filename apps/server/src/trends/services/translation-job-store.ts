@@ -1,3 +1,5 @@
+import { getEventEligibleSourceIds } from "../config/sources";
+import { topicPresets } from "../config/topics";
 import {
 	TRANSLATION_POLICY,
 	type TranslationSubject,
@@ -8,6 +10,7 @@ import {
 export const TRANSLATION_LEASE_MS = 90_000;
 export interface TranslationJob {
 	attempts: number;
+	created_at: number;
 	error_code: string | null;
 	id: string;
 	item_id: string;
@@ -47,6 +50,8 @@ const CURRENT = `((subject_type='source' AND EXISTS (
  SELECT 1 FROM trend_event e WHERE e.event_id=translation_job.item_id
  AND e.title=translation_job.original_title
  AND coalesce(e.summary,'')=coalesce(translation_job.original_description,'')
+ AND e.primary_source_id IN (SELECT value FROM json_each('${JSON.stringify(getEventEligibleSourceIds()).replaceAll("'", "''")}'))
+ AND EXISTS(SELECT 1 FROM trend_event_topic t WHERE t.event_id=e.event_id AND t.topic_id IN (SELECT value FROM json_each('${JSON.stringify(Object.keys(topicPresets)).replaceAll("'", "''")}')))
 )))`;
 const DUE =
 	"attempts<3 AND ((state IN ('queued','retry_wait') AND next_attempt_at<=?) OR (state='running' AND lease_until<=?))";
@@ -99,14 +104,12 @@ export async function claimTranslationBatch(
  SELECT id FROM translation_job WHERE state IN ('queued','retry_wait','running') AND NOT ${CURRENT} LIMIT 200)`)
 		.bind(now)
 		.run();
-	await database
-		.prepare(`UPDATE translation_job SET state='failed',error_code='attempts',updated_at=?
- WHERE state='running' AND lease_until<=? AND attempts>=3`)
-		.bind(now, now)
-		.run();
+	await expireTranslationLeases(database, now);
 	const candidates = await database
 		.prepare(
-			`SELECT * FROM translation_job WHERE lang=? AND ${DUE} AND ${CURRENT} ORDER BY created_at,id LIMIT 6`
+			`SELECT * FROM translation_job WHERE lang=? AND ${DUE} AND ${CURRENT} ORDER BY
+ CASE WHEN subject_type='source' AND EXISTS(SELECT 1 FROM source_item s JOIN source p ON p.source_id=s.source_id WHERE s.source_id=translation_job.source_id AND s.item_id=translation_job.item_id AND s.generation=p.generation) THEN 0 ELSE 1 END,
+ coalesce((SELECT rank FROM source_item s WHERE s.source_id=translation_job.source_id AND s.item_id=translation_job.item_id),999),created_at,id LIMIT 6`
 		)
 		.bind(lang, now, now)
 		.all<TranslationJob>();
@@ -227,20 +230,30 @@ export async function failTranslationAttempt(
 			.bind(owner),
 	];
 	if (reason === "provider" || reason === "rate_limit") {
+		const blockedUntil =
+			now +
+			(reason === "provider" ? 24 * 3_600_000 : Math.max(30_000, retryAfterMs));
 		statements.push(
 			database
 				.prepare(
-					"UPDATE translation_control SET blocked_until=?,reason='provider' WHERE id=1"
+					"UPDATE translation_control SET reason=CASE WHEN blocked_until<=? THEN ? ELSE reason END,blocked_until=max(blocked_until,?) WHERE id=1"
 				)
-				.bind(
-					now +
-						(reason === "provider"
-							? 24 * 3_600_000
-							: Math.max(30_000, retryAfterMs))
-				)
+				.bind(blockedUntil, reason, blockedUntil)
 		);
 	}
 	await database.batch(statements);
+}
+
+export async function expireTranslationLeases(
+	database: D1Database,
+	now = Date.now()
+): Promise<void> {
+	await database
+		.prepare(
+			"UPDATE translation_job SET state='failed',error_code='attempts',updated_at=? WHERE state='running' AND lease_until<=? AND attempts>=3"
+		)
+		.bind(now, now)
+		.run();
 }
 
 export async function settleTranslationAttempt(
@@ -279,9 +292,13 @@ export async function translationBudgetSnapshot(
 			}>(),
 		database
 			.prepare(
-				"SELECT blocked_until blockedUntil,reason FROM translation_control WHERE id=1"
+				"SELECT blocked_until blockedUntil,reason,scheduler_seen_at schedulerSeenAt FROM translation_control WHERE id=1"
 			)
-			.first<{ blockedUntil: number; reason: string | null }>(),
+			.first<{
+				blockedUntil: number;
+				reason: string | null;
+				schedulerSeenAt: number;
+			}>(),
 	]);
 	return { day: translationDay(now), ...usage, ...control };
 }

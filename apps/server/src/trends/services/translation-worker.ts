@@ -96,15 +96,17 @@ export async function runTranslationBatch(
 ): Promise<boolean> {
 	const database = getWorkerBindings()?.DB;
 	const policy = translationPolicy();
-	if (!(database && policy)) {
+	if (!(database && policy) || env.TRANSLATION_SCHEDULER_ENABLED !== "true") {
 		return false;
 	}
 	const batch = await claimTranslationBatch(database, lang, policy);
 	if (!batch) {
 		return false;
 	}
-	const inputs = batch.jobs.map((job) => ({
-		id: job.id,
+	// The model copies short batch-local ids, never 64-character durable hashes.
+	// Mapping back remains exact and every row must appear once.
+	const inputs = batch.jobs.map((job, index) => ({
+		id: String(index),
 		title: job.original_title,
 		description: job.original_description,
 	}));
@@ -152,15 +154,15 @@ export async function runTranslationBatch(
 	}
 	const parsed = parseTranslatedBatch(
 		result.text,
-		batch.jobs.map((job) => job.id)
+		inputs.map((item) => item.id)
 	);
 	if ("error" in parsed) {
 		await failTranslationAttempt(database, batch.id, "output");
 		return true;
 	}
 	let invalid = false;
-	for (const job of batch.jobs) {
-		const row = parsed.items.find((item) => item.id === job.id);
+	for (const [index, job] of batch.jobs.entries()) {
+		const row = parsed.items.find((item) => item.id === String(index));
 		if (
 			!row ||
 			(job.original_description?.trim() && !row.description?.trim())

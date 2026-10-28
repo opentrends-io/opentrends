@@ -1,4 +1,12 @@
 {
+  "translation_call_limit": "Tägliches Übersetzungslimit erreicht; Originaltext",
+  "translation_paused": "Hintergrundübersetzung pausiert; Originaltext",
+  "translation_stalled": "Hintergrundübersetzung antwortet nicht; Originaltext",
+  "translation_rate_limit": "Anfragelimit erreicht; späterer Wiederholungsversuch",
+  "translation_provider": "Übersetzungsdienst nicht verfügbar; Originaltext",
+  "translation_configuration": "Übersetzungsdienst noch nicht konfiguriert",
+  "translation_registration": "Warten auf Registrierung der Übersetzungsaufgabe",
+  "translation_refresh_hint": "Aktualisieren prüft nur den Fortschritt, ohne erneute Übersetzung oder Berechnung.",
   "translation_queued": "Übersetzung vorgemerkt",
   "translation_running": "Titel wird übersetzt",
   "translation_retry": "Warten auf Wiederholung",

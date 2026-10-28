@@ -1,14 +1,30 @@
+import { env } from "@opentrends/env/server";
 import { getWorkerBindings } from "../../runtime";
 import { readSnapshot } from "../cache/source-cache";
-import { sourcePresets } from "../config/sources";
+import { getEventEligibleSourceIds, sourcePresets } from "../config/sources";
+import { topicPresets } from "../config/topics";
 import type { NewsItem, SourceId, TrendsPageData } from "../types";
 import {
 	needsTranslation,
 	type TranslationLanguage,
 } from "./translate-news-items";
-import { registerTranslationJobs } from "./translation-job-store";
+import {
+	expireTranslationLeases,
+	registerTranslationJobs,
+	translationBudgetSnapshot,
+} from "./translation-job-store";
 import { translationPolicy } from "./translation-policy";
-import { runTranslationBatch } from "./translation-worker";
+import {
+	claimTranslationLane,
+	releaseTranslationLane,
+	releaseTranslationWake,
+	reserveTranslationWake,
+	touchTranslationLane,
+} from "./translation-service";
+import {
+	runTranslationBatch,
+	type TranslationGenerator,
+} from "./translation-worker";
 
 export const TRANSLATION_PREWARM_LANGUAGES = ["zh", "en"] as const;
 export interface TranslationPrewarmMessage {
@@ -64,8 +80,31 @@ async function registerItems(items: NewsItem[]): Promise<void> {
 
 async function wake(lang: "zh" | "en"): Promise<void> {
 	const queue = getWorkerBindings()?.SUMMARY_PREWARM_QUEUE;
-	if (!queue) {
+	const database = getWorkerBindings()?.DB;
+	const policy = translationPolicy();
+	if (
+		!(queue && database && policy) ||
+		env.TRANSLATION_SCHEDULER_ENABLED !== "true"
+	) {
 		return; // Durable jobs remain available for the next scheduled reconciliation.
+	}
+	const now = Date.now();
+	const budget = await translationBudgetSnapshot(database, now);
+	if (
+		(budget.calls ?? 0) >= policy.dailyCalls ||
+		(budget.chargedMicros ?? 0) + policy.reserveMicros > policy.dailyMicros ||
+		(budget.blockedUntil ?? 0) > now
+	) {
+		return;
+	}
+	const due = await database
+		.prepare(
+			"SELECT 1 FROM translation_job WHERE lang=? AND attempts<3 AND ((state IN ('queued','retry_wait') AND next_attempt_at<=?) OR (state='running' AND lease_until<=?)) LIMIT 1"
+		)
+		.bind(lang, now, now)
+		.first();
+	if (!(due && (await reserveTranslationWake(database, lang, now)))) {
+		return;
 	}
 	try {
 		await queue.send({
@@ -73,6 +112,7 @@ async function wake(lang: "zh" | "en"): Promise<void> {
 			payload: { sourceId: "", lang },
 		});
 	} catch {
+		await releaseTranslationWake(database, lang);
 		console.warn("[translation-jobs] wakeup failed; durable jobs retained");
 	}
 }
@@ -91,21 +131,44 @@ export async function dispatchTranslationPrewarmJobs(
 // Old queue messages remain safe: unsupported locales drain, supported ones
 // register the latest input before using the same durable attempt budget.
 export async function runTranslationPrewarmJob(
-	message: TranslationPrewarmMessage
+	message: TranslationPrewarmMessage,
+	generator?: TranslationGenerator
 ): Promise<void> {
 	if (
 		!translationPolicy() ||
+		env.TRANSLATION_SCHEDULER_ENABLED !== "true" ||
 		(message.lang !== "zh" && message.lang !== "en")
 	) {
 		return;
 	}
-	if (message.sourceId) {
-		const snapshot = await readSnapshot(message.sourceId);
-		if (snapshot) {
-			await registerItems(snapshot.items);
-		}
+	const database = getWorkerBindings()?.DB;
+	if (!database) {
+		return;
 	}
-	await runTranslationBatch(message.lang);
+	const owner = await claimTranslationLane(database, message.lang);
+	if (!owner) {
+		return;
+	}
+	const started = Date.now();
+	try {
+		if (message.sourceId) {
+			const snapshot = await readSnapshot(message.sourceId);
+			if (snapshot) {
+				await registerItems(snapshot.items);
+			}
+		}
+		for (let batch = 0; batch < 6 && Date.now() - started < 90_000; batch++) {
+			if (!(await touchTranslationLane(database, message.lang, owner))) {
+				break;
+			}
+			if (!(await runTranslationBatch(message.lang, generator))) {
+				break;
+			}
+			await touchTranslationLane(database, message.lang, owner, true);
+		}
+	} finally {
+		await releaseTranslationLane(database, message.lang, owner);
+	}
 }
 
 // Event text identical to a source item uses its translation, not a second job.
@@ -155,51 +218,88 @@ export async function resolveEventTranslationItems(
 
 // Recovers a crash between source persistence and registration, lost queue
 // deliveries, and expired leases without depending on a visitor. Bounded sweep.
-export async function reconcileTranslationJobs(): Promise<void> {
+export async function reconcileTranslationJobs(
+	dependencies: { readSource?: typeof readSnapshot; sourceIds?: string[] } = {}
+): Promise<void> {
 	const database = getWorkerBindings()?.DB;
-	if (!(database && translationPolicy())) {
+	if (
+		!(database && translationPolicy()) ||
+		env.TRANSLATION_SCHEDULER_ENABLED !== "true"
+	) {
 		return;
 	}
+	await database
+		.prepare("UPDATE translation_control SET scheduler_seen_at=? WHERE id=1")
+		.bind(Date.now())
+		.run();
+	await expireTranslationLeases(database);
+	// Wake already durable work before ingestion: a bad source cannot stop
+	// unrelated translations. Sending is idempotent per language/lease.
+	await Promise.all(TRANSLATION_PREWARM_LANGUAGES.map(wake));
 	const control = await database
 		.prepare(
 			"SELECT reconcile_cursor,event_cursor FROM translation_control WHERE id=1"
 		)
 		.first<{ reconcile_cursor: number; event_cursor: string }>();
-	const sources = Object.keys(sourcePresets);
+	const sources = dependencies.sourceIds ?? [
+		...new Set([
+			...topicPresets.featured.sections.flatMap((section) => [
+				...section.sourceIds,
+			]),
+			...Object.keys(sourcePresets),
+		]),
+	];
 	const cursor = control?.reconcile_cursor ?? 0;
-	for (let offset = 0; offset < 4; offset++) {
+	for (let offset = 0; offset < Math.min(16, sources.length); offset++) {
 		const sourceId = sources[(cursor + offset) % sources.length];
 		if (!sourceId) {
 			continue;
 		}
-		const snapshot = await readSnapshot(sourceId);
-		if (snapshot) {
-			await registerItems(snapshot.items);
+		try {
+			const snapshot = await (dependencies.readSource ?? readSnapshot)(
+				sourceId
+			);
+			if (snapshot) {
+				await registerItems(snapshot.items);
+			}
+		} catch {
+			console.warn(
+				"[translation-jobs] one source failed; continuing reconciliation"
+			);
 		}
 	}
-	const events = await database
-		.prepare(
-			"SELECT event_id,title,summary FROM trend_event WHERE event_id>? ORDER BY event_id LIMIT 20"
-		)
-		.bind(control?.event_cursor ?? "")
-		.all<{ event_id: string; title: string; summary: string | null }>();
-	await registerItems(
-		await resolveEventTranslationItems(
-			events.results.map((event) => ({
-				id: event.event_id,
-				sourceId: `event:${event.event_id}`,
-				title: event.title,
-				description: event.summary ?? undefined,
-				url: "",
-				fetchedAt: 0,
-			}))
-		)
-	);
 	await database
-		.prepare(
-			"UPDATE translation_control SET reconcile_cursor=?,event_cursor=? WHERE id=1"
-		)
-		.bind((cursor + 4) % sources.length, events.results.at(-1)?.event_id ?? "")
+		.prepare("UPDATE translation_control SET reconcile_cursor=? WHERE id=1")
+		.bind(sources.length ? (cursor + 16) % sources.length : 0)
 		.run();
-	await Promise.all(TRANSLATION_PREWARM_LANGUAGES.map(wake));
+	try {
+		const events = await database
+			.prepare(
+				"SELECT event_id,title,summary FROM trend_event e WHERE event_id>? AND primary_source_id IN (SELECT value FROM json_each(?)) AND EXISTS(SELECT 1 FROM trend_event_topic t WHERE t.event_id=e.event_id AND t.topic_id IN (SELECT value FROM json_each(?))) ORDER BY event_id LIMIT 20"
+			)
+			.bind(
+				control?.event_cursor ?? "",
+				JSON.stringify(getEventEligibleSourceIds()),
+				JSON.stringify(Object.keys(topicPresets))
+			)
+			.all<{ event_id: string; title: string; summary: string | null }>();
+		await registerItems(
+			await resolveEventTranslationItems(
+				events.results.map((event) => ({
+					id: event.event_id,
+					sourceId: `event:${event.event_id}`,
+					title: event.title,
+					description: event.summary ?? undefined,
+					url: "",
+					fetchedAt: 0,
+				}))
+			)
+		);
+		await database
+			.prepare("UPDATE translation_control SET event_cursor=? WHERE id=1")
+			.bind(events.results.at(-1)?.event_id ?? "")
+			.run();
+	} finally {
+		await Promise.all(TRANSLATION_PREWARM_LANGUAGES.map(wake));
+	}
 }

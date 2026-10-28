@@ -113,7 +113,9 @@ export function trendEventDetailQueryOptions(
 		refetchInterval: (query) =>
 			translationRefetchInterval(
 				query,
-				query.state.data?.sourceItems ?? [],
+				query.state.data
+					? [query.state.data, ...query.state.data.sourceItems]
+					: [],
 				locale
 			),
 		gcTime: TRENDS_PAGE_GC_MS,

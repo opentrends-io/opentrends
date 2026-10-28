@@ -24,11 +24,16 @@ export const translationHealthRoutes = new Hono().get("/", async (c) => {
 		return c.json({ error: "storage_unavailable" }, 503);
 	}
 	const now = Date.now();
-	const [budget, jobs] = await Promise.all([
+	const [budget, jobs, lanes] = await Promise.all([
 		translationBudgetSnapshot(database, now),
 		database
 			.prepare(
 				"SELECT state,error_code,count(*) count,min(created_at) oldestAt FROM translation_job GROUP BY state,error_code"
+			)
+			.all(),
+		database
+			.prepare(
+				"SELECT lang,consumer_seen_at,progress_at,lease_until,wake_until FROM translation_lane"
 			)
 			.all(),
 	]);
@@ -36,9 +41,13 @@ export const translationHealthRoutes = new Hono().get("/", async (c) => {
 	return c.json({
 		checkedAt: now,
 		enabled: Boolean(policy),
+		schedulerEnabled: env.TRANSLATION_SCHEDULER_ENABLED === "true",
+		schedulerSeenAt: budget.schedulerSeenAt,
+		lanes: lanes.results,
 		budget: {
 			...budget,
 			dailyLimitMicros: policy?.dailyMicros ?? 0,
+			dailyCallLimit: policy?.dailyCalls ?? 0,
 			accountBalanceAvailable: false,
 			basis: "local model usage; unknown usage retains reservation",
 		},

@@ -1,4 +1,12 @@
 {
+  "translation_call_limit": "Daily translation call limit reached; showing original",
+  "translation_paused": "Background translation is paused; showing original",
+  "translation_stalled": "Background translation is not responding; showing original",
+  "translation_rate_limit": "Translation is rate limited; retrying later",
+  "translation_provider": "Translation service unavailable; showing original",
+  "translation_configuration": "Translation service is not configured",
+  "translation_registration": "Waiting for background task registration",
+  "translation_refresh_hint": "Refresh only checks progress; it does not regenerate translations or charge again.",
   "translation_queued": "Translation queued",
   "translation_running": "Translating title",
   "translation_retry": "Waiting to retry",

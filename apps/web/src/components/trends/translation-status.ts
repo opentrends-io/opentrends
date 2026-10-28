@@ -32,7 +32,10 @@ function itemNeedsTranslation(item: NewsItem, locale: Locale): boolean {
 	);
 }
 
-const pollSessions = new WeakMap<object, number>();
+const pollSessions = new WeakMap<
+	object,
+	{ started: number; errors: number; updates: number }
+>();
 export function resetTranslationPolling(query: object): void {
 	pollSessions.delete(query);
 }
@@ -44,12 +47,18 @@ export function translationRefetchInterval(
 	locale: Locale,
 	now = Date.now()
 ): number | false {
-	const started = pollSessions.get(query) ?? now;
-	pollSessions.set(query, started);
+	const session = pollSessions.get(query) ?? {
+		started: now,
+		errors: query.state.errorUpdateCount,
+		// Include the response already displayed when this session begins.
+		updates: Math.max(0, query.state.dataUpdateCount - 1),
+	};
+	pollSessions.set(query, session);
+	const { started } = session;
 	if (
 		now - started >= 300_000 ||
-		query.state.errorUpdateCount >= 3 ||
-		query.state.dataUpdateCount >= 30
+		query.state.errorUpdateCount - session.errors >= 3 ||
+		query.state.dataUpdateCount - session.updates >= 30
 	) {
 		return false;
 	}

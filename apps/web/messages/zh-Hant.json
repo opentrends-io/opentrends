@@ -1,4 +1,12 @@
 {
+  "translation_call_limit": "今日翻譯呼叫次數已達上限，保留原文",
+  "translation_paused": "背景翻譯已暫停，保留原文",
+  "translation_stalled": "背景翻譯暫未回應，保留原文",
+  "translation_rate_limit": "翻譯服務正在限流，稍後自動重試",
+  "translation_provider": "翻譯服務暫不可用，保留原文",
+  "translation_configuration": "翻譯服務尚未設定完成",
+  "translation_registration": "等待背景登記翻譯任務",
+  "translation_refresh_hint": "重新整理只檢查進度，不會重新產生翻譯或重複收費。",
   "translation_queued": "翻譯排隊中",
   "translation_running": "標題翻譯中",
   "translation_retry": "等待重試",

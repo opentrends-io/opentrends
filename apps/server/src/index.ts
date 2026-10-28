@@ -243,8 +243,8 @@ export default {
 		});
 	},
 	scheduled(controller, bindings, executionContext) {
-		// Bounded translation-only canary: do not enable unrelated summary,
-		// embedding or briefing work when validating the new durable pipeline.
+		// Isolated translation schedule: keep Preview consumption continuous
+		// without enabling unrelated summary, embedding or briefing work.
 		if (bindings.TRANSLATION_ONLY_SCHEDULED === "true") {
 			executionContext.waitUntil(
 				runWithWorkerBindings(bindings, reconcileTranslationJobs)

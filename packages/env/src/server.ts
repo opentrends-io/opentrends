@@ -40,6 +40,7 @@ const serverEnvSchema = z
 		LLM_MODEL: z.string().min(1).default("deepseek/deepseek-v4-pro"),
 		LLM_TRANSLATION_MODEL: z.string().min(1).optional(),
 		TRANSLATION_JOBS_ENABLED: z.enum(["true", "false"]).default("false"),
+		TRANSLATION_SCHEDULER_ENABLED: z.enum(["true", "false"]).default("false"),
 		TRANSLATION_ONLY_SCHEDULED: z.enum(["true", "false"]).default("false"),
 		TRANSLATION_DAILY_BUDGET_CNY: z.coerce.number().min(0).max(50).default(0),
 		TRANSLATION_DAILY_CALL_LIMIT: z.coerce

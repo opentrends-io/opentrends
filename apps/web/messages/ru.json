@@ -1,4 +1,12 @@
 {
+  "translation_call_limit": "Дневной лимит запросов исчерпан; показан оригинал",
+  "translation_paused": "Фоновый перевод приостановлен; показан оригинал",
+  "translation_stalled": "Фоновый перевод не отвечает; показан оригинал",
+  "translation_rate_limit": "Частота запросов ограничена; повторим позже",
+  "translation_provider": "Сервис перевода недоступен; показан оригинал",
+  "translation_configuration": "Сервис перевода ещё не настроен",
+  "translation_registration": "Ожидание регистрации задачи перевода",
+  "translation_refresh_hint": "Обновление только проверяет прогресс, без повторного перевода и списания средств.",
   "translation_queued": "Перевод в очереди",
   "translation_running": "Перевод заголовка",
   "translation_retry": "Ожидание повторной попытки",

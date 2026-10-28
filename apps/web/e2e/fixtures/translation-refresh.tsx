@@ -38,11 +38,15 @@ const initialData: TrendsPageData = {
 							url: "https://example.test/1",
 							fetchedAt: 1,
 							translation: {
-								state: "running",
+								state:
+									new URLSearchParams(location.search).get("state") === "queued"
+										? "queued"
+										: "running",
 								language: "zh",
 								textHash: "fixture",
 								checkedAt: Date.now(),
 								leaseUntil: Date.now() + 90_000,
+								serviceValidUntil: Date.now() + 180_000,
 								nextPollAt: Date.now() + 10_000,
 							},
 						},

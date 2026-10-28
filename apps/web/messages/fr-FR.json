@@ -1,4 +1,12 @@
 {
+  "translation_call_limit": "Limite quotidienne de requêtes atteinte ; texte original",
+  "translation_paused": "Traduction en arrière-plan suspendue ; texte original",
+  "translation_stalled": "La traduction ne répond pas ; texte original",
+  "translation_rate_limit": "Débit limité ; nouvelle tentative plus tard",
+  "translation_provider": "Service de traduction indisponible ; texte original",
+  "translation_configuration": "Service de traduction non configuré",
+  "translation_registration": "En attente de création de la tâche de traduction",
+  "translation_refresh_hint": "L’actualisation vérifie uniquement la progression, sans nouvelle traduction ni facturation.",
   "translation_queued": "Traduction en attente",
   "translation_running": "Traduction du titre",
   "translation_retry": "Nouvelle tentative en attente",

@@ -1,4 +1,5 @@
 import type { TranslationStatus } from "@opentrends/api/translation-contract";
+import { env } from "@opentrends/env/server";
 import { getWorkerBindings } from "../../runtime";
 import { readItemTranslations } from "../cache/item-translation-cache";
 import type { NewsItem, TrendsPageData } from "../types";
@@ -72,6 +73,37 @@ export function isTranslationConfigured(): boolean {
 	return translationPolicy() !== null;
 }
 
+function blockedReasonForService(
+	policy: ReturnType<typeof translationPolicy>,
+	budget: Awaited<ReturnType<typeof translationBudgetSnapshot>> | undefined,
+	lang: TranslationLanguage,
+	now: number
+): TranslationStatus["reason"] {
+	if (lang !== "zh" && lang !== "en") {
+		return "unsupported";
+	}
+	if (!(policy && getWorkerBindings()?.SUMMARY_PREWARM_QUEUE)) {
+		return "configuration";
+	}
+	if (env.TRANSLATION_SCHEDULER_ENABLED !== "true") {
+		return "paused";
+	}
+	if (!budget) {
+		return "storage";
+	}
+	if ((budget.blockedUntil ?? 0) > now) {
+		return budget.reason === "rate_limit" || budget.reason === "configuration"
+			? budget.reason
+			: "provider";
+	}
+	if ((budget.calls ?? 0) >= policy.dailyCalls) {
+		return "call_limit";
+	}
+	if ((budget.chargedMicros ?? 0) + policy.reserveMicros > policy.dailyMicros) {
+		return "budget";
+	}
+}
+
 async function readStatuses(
 	items: NewsItem[],
 	lang: TranslationLanguage
@@ -86,26 +118,12 @@ async function readStatuses(
 	const budget = policy
 		? await translationBudgetSnapshot(database, now)
 		: undefined;
-	const budgetBlocked =
-		policy &&
-		budget &&
-		((budget.chargedMicros ?? 0) + policy.reserveMicros > policy.dailyMicros ||
-			(budget.calls ?? 0) >= policy.dailyCalls);
-	const providerBlocked = budget && (budget.blockedUntil ?? 0) > now;
-	let blockedReason: TranslationStatus["reason"];
-	if (budgetBlocked) {
-		blockedReason = "budget";
-	}
-	if (providerBlocked) {
-		blockedReason = "provider";
-	}
-	if (!policy) {
-		blockedReason = "configuration";
-	}
-	if (lang !== "zh" && lang !== "en") {
-		blockedReason = "unsupported";
-	}
+	const blockedReason = blockedReasonForService(policy, budget, lang, now);
 	const jobs = new Map<string, TranslationJob>();
+	const lane = await database
+		.prepare("SELECT consumer_seen_at FROM translation_lane WHERE lang=?")
+		.bind(lang)
+		.first<{ consumer_seen_at: number }>();
 	const ids = items.map((item) =>
 		translationJobId({
 			subjectType: item.sourceId.startsWith("event:") ? "event" : "source",
@@ -136,7 +154,14 @@ async function readStatuses(
 			textHash: translationHash(item),
 			checkedAt: now,
 		};
-		Object.assign(status, jobStatus(job, now, blockedReason));
+		const serviceValidUntil = Math.min(
+			(budget?.schedulerSeenAt ?? 0) + 180_000,
+			Math.max(lane?.consumer_seen_at ?? 0, job?.created_at ?? now) + 180_000
+		);
+		const reason =
+			blockedReason ?? (serviceValidUntil <= now ? "stalled" : undefined);
+		Object.assign(status, jobStatus(job, now, reason));
+		status.serviceValidUntil = serviceValidUntil;
 		status.updatedAt = job?.updated_at;
 		statuses.set(`${item.sourceId}:${item.id}`, status);
 	});
@@ -170,7 +195,9 @@ function jobStatus(
 			nextPollAt: Math.max(now + 10_000, job.next_attempt_at),
 		};
 	}
-	return { state: "unknown" };
+	return job
+		? { state: "unknown" }
+		: { state: "unknown", reason: "registration", nextPollAt: now + 10_000 };
 }
 
 async function boundedRead<T>(read: Promise<T>, fallback: T): Promise<T> {

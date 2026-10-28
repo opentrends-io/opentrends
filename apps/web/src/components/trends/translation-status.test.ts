@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { pageNeedsTranslationWarmup } from "./translation-status";
+import {
+	pageNeedsTranslationWarmup,
+	resetTranslationPolling,
+	translationRefetchInterval,
+} from "./translation-status";
 import type { TrendsPageData } from "./types";
 
 function page(title: string, originalTitle?: string): TrendsPageData {
@@ -38,6 +42,34 @@ function page(title: string, originalTitle?: string): TrendsPageData {
 }
 
 describe("translation warmup status", () => {
+	test("manual refresh starts a bounded session relative to existing query counters", () => {
+		const now = 1_000_000;
+		const query = { state: { errorUpdateCount: 4, dataUpdateCount: 40 } };
+		const items = [
+			{
+				translation: {
+					state: "queued" as const,
+					language: "zh" as const,
+					textHash: "a",
+					checkedAt: now,
+					nextPollAt: now + 10_000,
+					serviceValidUntil: now + 180_000,
+				},
+			},
+		];
+		expect(translationRefetchInterval(query, items, "zh", now)).toBe(10_000);
+		query.state.errorUpdateCount += 3;
+		expect(translationRefetchInterval(query, items, "zh", now)).toBe(false);
+		resetTranslationPolling(query);
+		expect(translationRefetchInterval(query, items, "zh", now)).toBe(10_000);
+		query.state.dataUpdateCount += 30;
+		expect(translationRefetchInterval(query, items, "zh", now)).toBe(false);
+		resetTranslationPolling(query);
+		expect(translationRefetchInterval(query, items, "zh", now)).toBe(10_000);
+		expect(translationRefetchInterval(query, items, "zh", now + 300_001)).toBe(
+			false
+		);
+	});
 	test("polls only while a supported locale still shows untranslated text", () => {
 		expect(pageNeedsTranslationWarmup(page("OpenAI ships a model"), "zh")).toBe(
 			false

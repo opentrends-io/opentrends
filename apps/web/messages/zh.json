@@ -1,4 +1,12 @@
 {
+  "translation_call_limit": "今日翻译调用次数已达上限，保留原文",
+  "translation_paused": "后台翻译已暂停，保留原文",
+  "translation_stalled": "后台翻译暂未响应，保留原文",
+  "translation_rate_limit": "翻译服务正在限流，稍后自动重试",
+  "translation_provider": "翻译服务暂不可用，保留原文",
+  "translation_configuration": "翻译服务尚未配置完成",
+  "translation_registration": "等待后台登记翻译任务",
+  "translation_refresh_hint": "刷新只检查进度，不会重新生成或重复扣费。",
   "translation_queued": "翻译排队中",
   "translation_running": "标题翻译中",
   "translation_retry": "等待重试",

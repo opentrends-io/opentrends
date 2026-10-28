@@ -22,6 +22,12 @@ function setup() {
 		"INSERT INTO source(source_id) VALUES('fixture'); INSERT INTO source_item(source_id,item_id,generation,url,title,rank,fetched_at,last_seen_at,content_hash) VALUES('fixture','1',1,'https://example.test','A new discovery',1,1,1,'hash')"
 	);
 	const messages: unknown[] = [];
+	database.database
+		.query("UPDATE translation_control SET scheduler_seen_at=?")
+		.run(Date.now());
+	database.database
+		.query("UPDATE translation_lane SET consumer_seen_at=?")
+		.run(Date.now());
 	const bindings = {
 		DB: database.binding(),
 		BETTER_AUTH_SECRET: "fixture".repeat(8),
@@ -32,6 +38,7 @@ function setup() {
 		LLM_MODEL: "fixture",
 		LLM_TRANSLATION_MODEL: "fixture",
 		TRANSLATION_JOBS_ENABLED: "true",
+		TRANSLATION_SCHEDULER_ENABLED: "true",
 		TRANSLATION_DAILY_BUDGET_CNY: "50",
 		TRANSLATION_PRICE_MODEL: "fixture",
 		TRANSLATION_INPUT_CNY_PER_MILLION: "1",
@@ -60,7 +67,7 @@ test("ingest registers durable work; 100 public sync reads create no work; worke
 			expect(messages).toHaveLength(0);
 			await dispatchTranslationPrewarmJobs("fixture", [item]);
 			expect(database.all("SELECT * FROM translation_job")).toHaveLength(1);
-			expect(messages).toHaveLength(2);
+			expect(messages).toHaveLength(1);
 			expect(
 				(await translateNewsItems([item], "zh"))[0]?.translation?.state
 			).toBe("queued");
@@ -78,7 +85,7 @@ test("ingest registers durable work; 100 public sync reads create no work; worke
 				}
 				return {
 					text: JSON.stringify({
-						items: [{ id: job.id, title: "一项新发现", description: null }],
+						items: [{ id: "0", title: "一项新发现", description: null }],
 					}),
 					inputTokens: 100,
 					outputTokens: 20,
@@ -167,7 +174,7 @@ test("storage errors never publish ready or invoke the model again within one de
 				}
 				return Promise.resolve({
 					text: JSON.stringify({
-						items: [{ id: job.id, title: "译文", description: null }],
+						items: [{ id: "0", title: "译文", description: null }],
 					}),
 				});
 			});
@@ -222,7 +229,7 @@ test("429 respects provider retry-after globally and health is authenticated and
 				expect(health.budget.calls).toBe(1);
 				expect(health.budget.unknownCalls).toBe(1);
 				expect(JSON.stringify(health)).not.toContain("fixture-token");
-				expect(messages).toHaveLength(2);
+				expect(messages).toHaveLength(1);
 			}
 		);
 	} finally {

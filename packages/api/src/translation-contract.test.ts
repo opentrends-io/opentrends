@@ -2,8 +2,38 @@ import { expect, test } from "bun:test";
 import {
 	effectiveTranslationState,
 	type TranslationStatus,
+	translationPollAt,
 	translationText,
 } from "./translation-contract";
+
+test("fresh GET cannot extend stale service; only explicit registration waits can poll without a job", () => {
+	const status: TranslationStatus = {
+		state: "queued",
+		language: "zh",
+		textHash: "a",
+		checkedAt: 500,
+		serviceValidUntil: 400,
+	};
+	expect(effectiveTranslationState(status, 501)).toBe("blocked");
+	expect(translationPollAt(status, 501)).toBeUndefined();
+	expect(
+		translationPollAt(
+			{ ...status, state: "unknown", serviceValidUntil: 1000 },
+			501
+		)
+	).toBeUndefined();
+	expect(
+		translationPollAt(
+			{
+				...status,
+				state: "unknown",
+				reason: "registration",
+				serviceValidUntil: 1000,
+			},
+			501
+		)
+	).toBeGreaterThan(501);
+});
 
 test("unknown absence is not evidence of running; expired lease is not a spinner", () => {
 	expect(effectiveTranslationState(undefined, 100)).toBe("unknown");

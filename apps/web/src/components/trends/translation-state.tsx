@@ -18,15 +18,21 @@ interface Subject {
 	title: string;
 	translation?: TranslationStatus;
 }
-function useStatusClock(status: TranslationStatus | undefined) {
-	const [now, setNow] = useState(Date.now);
-	let expiry: number | undefined;
+function statusExpiry(status: TranslationStatus | undefined) {
 	if (status?.state === "running") {
-		expiry = status.leaseUntil;
+		return status.leaseUntil;
 	}
 	if (status?.state === "queued" || status?.state === "retry_wait") {
-		expiry = status.checkedAt + 60_000;
+		return Math.min(
+			status.checkedAt + 60_000,
+			status.serviceValidUntil ?? Number.POSITIVE_INFINITY
+		);
 	}
+	return;
+}
+function useStatusClock(status: TranslationStatus | undefined) {
+	const [now, setNow] = useState(Date.now);
+	const expiry = statusExpiry(status);
 	useEffect(() => {
 		setNow(Date.now());
 		if (!expiry) {
@@ -39,6 +45,43 @@ function useStatusClock(status: TranslationStatus | undefined) {
 		return () => clearTimeout(timer);
 	}, [expiry]);
 	return now;
+}
+
+function statusLabel(status: TranslationStatus | undefined, now: number) {
+	const state = effectiveTranslationState(status, now);
+	if (state === "blocked") {
+		const reasons = {
+			budget: "translation.budget",
+			call_limit: "translation.callLimit",
+			paused: "translation.paused",
+			stalled: "translation.stalled",
+			rate_limit: "translation.rateLimit",
+			provider: "translation.provider",
+			configuration: "translation.configuration",
+			storage: "translation.unknown",
+			unsupported: "translation.blocked",
+			attempts: "translation.failed",
+			registration: "translation.registration",
+		} as const;
+		return status?.reason ? reasons[status.reason] : "translation.stalled";
+	}
+	if (state === "unknown" && status?.reason === "registration") {
+		return "translation.registration";
+	}
+	return {
+		queued: "translation.queued",
+		running: "translation.running",
+		retry_wait: "translation.retry",
+		failed: "translation.failed",
+		unknown: "translation.unknown",
+		ready: "translation.unknown",
+		not_needed: "translation.unknown",
+	}[state] as
+		| "translation.queued"
+		| "translation.running"
+		| "translation.retry"
+		| "translation.failed"
+		| "translation.unknown";
 }
 function isOriginalOnly(item: Subject, locale: ReturnType<typeof useLocale>) {
 	return (
@@ -61,20 +104,7 @@ export function TranslationIndicator({ item }: { item: Subject }) {
 	const status =
 		item.translation?.language === locale ? item.translation : undefined;
 	const state = effectiveTranslationState(status, now);
-	const labels = {
-		queued: "translation.queued",
-		running: "translation.running",
-		retry_wait: "translation.retry",
-		failed: "translation.failed",
-		blocked: "translation.blocked",
-		unknown: "translation.unknown",
-		ready: "translation.unknown",
-		not_needed: "translation.unknown",
-	} as const;
-	const label =
-		state === "blocked" && status?.reason === "budget"
-			? t("translation.budget")
-			: t(labels[state]);
+	const label = t(statusLabel(status, now));
 	let Icon = CircleAlert;
 	if (state === "queued" || state === "retry_wait") {
 		Icon = Clock3;
@@ -104,12 +134,28 @@ export function TranslationNotice({ items }: { items: readonly Subject[] }) {
 	const t = useT();
 	const client = useQueryClient();
 	const [refreshing, setRefreshing] = useState(false);
+	const statuses = items
+		.filter((item) => isOriginalOnly(item, locale))
+		.map((item) => item.translation)
+		.filter(
+			(status): status is TranslationStatus => status?.language === locale
+		);
+	const clockStatus = statuses
+		.filter((status) => (statusExpiry(status) ?? 0) > Date.now())
+		.sort((a, b) => (statusExpiry(a) ?? 0) - (statusExpiry(b) ?? 0))[0];
+	const now = useStatusClock(clockStatus);
+	const blocked = statuses.find(
+		(status) => effectiveTranslationState(status, now) === "blocked"
+	);
 	if (!items.some((item) => isOriginalOnly(item, locale))) {
 		return null;
 	}
 	return (
 		<div className="flex flex-wrap items-center justify-between gap-2 border-[var(--border-default)] border-b px-3 py-2 text-[12px] text-[var(--text-secondary)]">
-			<span>{t("translation.notice")}</span>
+			<span>
+				{blocked ? t(statusLabel(blocked, now)) : t("translation.notice")}{" "}
+				{t("translation.refreshHint")}
+			</span>
 			<button
 				className="shrink-0 rounded border border-[var(--border-default)] px-2 py-1 hover:bg-[var(--state-hover-subtle)] disabled:opacity-50"
 				disabled={refreshing}
