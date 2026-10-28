@@ -30,4 +30,20 @@
 - 各浏览器已打开的旧 JS 不能被服务器强制替换；发布后需正常刷新一次取得修复版本。
 - 主线候选：349 项单测通过；5 项真实组件浏览器测试通过；API TypeScript 通过。修改文件 lint / diff 检查通过。
 - 主线全量 lint 仍有未修改的 www 配置格式及 Paraglide 自动生成 `.meta.json` 格式问题；Web TypeScript 仍有基线 `EventFeedItem.signals` 与旧 translation-status fixture 缺 title 两项错误。未扩大范围修改无关代码。
-- 上线回执在发布后补记。
+## 上线回执
+
+- 2026-10-28 14:40（Asia/Shanghai）发布完成。生产源码 `d65fae9369ad0423f29c85602808886e1143558a`，分支 `release/recovery-production-20261028`。
+- 主线修复 PR #30 已合并，merge commit `7f60cee6e3317d7224bb9877b1f8f3d67333d2ca`。主线合并不等于把未批准的落地页发布。
+- API 100%：`c4a114bb-8986-4101-b499-e4e5a7de43b4`；Web 100%：`7f3bfc7a-7d58-42fa-8fc0-85faca43c92e`。
+- 上传后逐字段比较旧/新版本的全部 bindings（含 secret 名称而非值）与 script_runtime，完全一致。版本发布没有同步非版本设置，也没有触发 routes/crons/队列变更。
+- 生产基线集成后 329 项单测、5 项浏览器测试、API 类型检查、修改文件 lint 和生产构建通过。比主线少 20 项为未发布功能相关测试；没有删除测试来通过验收。
+- 正式域名：中文版 featured、英文 featured、关注 mine 均 200/no-store；前三来源 30/30、10/10、20/20 已带译文。登录 providers 保持 Google/GitHub 均 true；sitemap 与 privacy 均 200。
+- 无头独立 Chrome 真实生产页面：HN 可见 12 条中 9 条含中文（产品名保留原文）；Verge 10/10、TechCrunch 12/12 可见标题含中文，三张卡片待译标记均 0；摘要正文可见，pageerror 为 0。桌面与 390px 手机截图已回看，无本轮新增重叠。截图只存任务内忽略目录，不进入仓库/Harness。
+- 隔离浏览器测试证明英文→中文变化及完成后停止轮询；D1 驱动集成测试证明未过期 KV 页面能补入已落库译文，未重建来源/写 KV。线上读取证明生产接线正常，不把 fixture 当作线上任务时延统计。
+
+回滚仅切版本，不回滚数据库或清空缓存：
+
+```sh
+CI=true node apps/web/node_modules/wrangler/bin/wrangler.js versions deploy ab4cb7d0-4284-4eec-8915-d46528f7e868@100 --name opentrends-web-production --yes
+CI=true node apps/web/node_modules/wrangler/bin/wrangler.js versions deploy 16c80878-57a4-422b-a636-c42d283a62c1@100 --name opentrends-api-production --yes
+```
