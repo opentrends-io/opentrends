@@ -1,4 +1,6 @@
 {
+  "summary_retrying": "摘要暂未就绪，正在重试…",
+  "summary_refresh_failed": "更新失败，暂时保留已有摘要。",
   "nav_home": "首页",
   "nav_trends": "趋势",
   "nav_events": "事件",
