@@ -1,3 +1,7 @@
+import {
+	type TranslationStatus,
+	translationPollAt,
+} from "@opentrends/api/translation-contract";
 import type { Locale } from "@/lib/i18n";
 
 import type { NewsItem, TrendsPageData } from "./types";
@@ -23,9 +27,41 @@ function itemNeedsTranslation(item: NewsItem, locale: Locale): boolean {
 		return false;
 	}
 	return (
-		textNeedsTranslation(item.title, locale) ||
-		textNeedsTranslation(item.description, locale)
+		item.translation?.language === locale &&
+		translationPollAt(item.translation) !== undefined
 	);
+}
+
+const pollSessions = new WeakMap<object, number>();
+export function resetTranslationPolling(query: object): void {
+	pollSessions.delete(query);
+}
+export function translationRefetchInterval(
+	query: object & {
+		state: { errorUpdateCount: number; dataUpdateCount: number };
+	},
+	items: readonly { translation?: TranslationStatus; original?: unknown }[],
+	locale: Locale,
+	now = Date.now()
+): number | false {
+	const started = pollSessions.get(query) ?? now;
+	pollSessions.set(query, started);
+	if (
+		now - started >= 300_000 ||
+		query.state.errorUpdateCount >= 3 ||
+		query.state.dataUpdateCount >= 30
+	) {
+		return false;
+	}
+	const times = items
+		.filter((item) => !item.original && item.translation?.language === locale)
+		.map((item) => translationPollAt(item.translation, now))
+		.filter((value): value is number => value !== undefined);
+	if (!times.length) {
+		return false;
+	}
+	const delay = Math.max(10_000, Math.min(...times) - now);
+	return now + delay > started + 300_000 ? false : delay;
 }
 
 export function pageNeedsTranslationWarmup(

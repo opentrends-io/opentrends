@@ -1,216 +1,205 @@
 import { getWorkerBindings } from "../../runtime";
-import { hotCache } from "../cache/hot-cache";
 import { readSnapshot } from "../cache/source-cache";
+import { sourcePresets } from "../config/sources";
 import type { NewsItem, SourceId, TrendsPageData } from "../types";
-import { invalidateTranslatedTrendsPageCache } from "./get-trends-page";
 import {
-	isTranslationConfigured,
 	needsTranslation,
-	prewarmItemTranslations,
 	type TranslationLanguage,
 } from "./translate-news-items";
+import { registerTranslationJobs } from "./translation-job-store";
+import { translationPolicy } from "./translation-policy";
+import { runTranslationBatch } from "./translation-worker";
 
-// Readers should find titles in their language on the first paint, not after
-// their own visit has paid for the translation. Languages are limited to the
-// two the audience reads most, because every language multiplies model cost.
-export const TRANSLATION_PREWARM_LANGUAGES: readonly TranslationLanguage[] = [
-	"zh",
-	"en",
-];
-
+export const TRANSLATION_PREWARM_LANGUAGES = ["zh", "en"] as const;
 export interface TranslationPrewarmMessage {
-	/** Optional so jobs written by deployments that supported per-page
-	 * translations can still drain safely. New jobs only use zh/en. */
 	itemIds?: string[];
 	lang: TranslationLanguage;
 	sourceId: SourceId;
 }
 
-const REQUEST_PREWARM_COOLDOWN_MS = 15 * 60_000;
-const REQUEST_PREWARM_LIMIT = 24;
-// A Worker keeps running about 30s past its response; the inline pass has
-// to fit inside that, batches still in flight at the deadline may finish.
-const REQUEST_TRANSLATION_TIMEOUT_MS = 20_000;
-
-function isPrewarmLanguage(lang: TranslationLanguage): boolean {
-	return TRANSLATION_PREWARM_LANGUAGES.includes(lang);
-}
-
-function requestMarkerKey(message: TranslationPrewarmMessage): string {
-	return `trends:v1:translation-prewarm-request:${message.sourceId}:${message.lang}`;
-}
-
-async function clearRequestMarker(
-	message: TranslationPrewarmMessage
-): Promise<void> {
-	await hotCache.delete(requestMarkerKey(message));
-}
-
-async function reserveRequestMarker(
-	message: TranslationPrewarmMessage
-): Promise<boolean> {
-	const now = Date.now();
-	const key = requestMarkerKey(message);
-	const existing = await hotCache.get<boolean>(key);
-	if (existing && existing.freshUntil > now) {
-		return false;
-	}
-	await hotCache.put(
-		key,
-		{
-			createdAt: now,
-			freshUntil: now + REQUEST_PREWARM_COOLDOWN_MS,
-			schemaVersion: 1,
-			staleUntil: now + REQUEST_PREWARM_COOLDOWN_MS,
-			value: true,
-		},
-		Math.ceil(REQUEST_PREWARM_COOLDOWN_MS / 1000)
-	);
-	return true;
-}
-
-// Only the explicitly supported languages may create model work. Other locale
-// pages keep the source title instead of letting crawlers multiply cost.
+// Pure compatibility helper. Public routes never dispatch these messages.
 export function translationPrewarmMessagesForPage(
 	page: TrendsPageData,
 	lang: TranslationLanguage
 ): TranslationPrewarmMessage[] {
-	if (!isPrewarmLanguage(lang)) {
+	if (lang !== "zh" && lang !== "en") {
 		return [];
 	}
-	const messages = new Map<SourceId, TranslationPrewarmMessage>();
-	for (const section of page.sections) {
-		for (const source of section.sources) {
-			const itemIds = source.items
-				.filter((item) => needsTranslation(item, lang))
-				.map((item) => item.id);
-			if (itemIds.length > 0 && !messages.has(source.sourceId)) {
-				messages.set(source.sourceId, { lang, sourceId: source.sourceId });
-			}
-		}
-	}
-	return [...messages.values()];
+	return [
+		...new Set(
+			page.sections.flatMap((section) =>
+				section.sources
+					.filter((source) =>
+						source.items.some((item) => needsTranslation(item, lang))
+					)
+					.map((source) => source.sourceId)
+			)
+		),
+	].map((sourceId) => ({ sourceId, lang }));
 }
 
+async function registerItems(items: NewsItem[]): Promise<void> {
+	const database = getWorkerBindings()?.DB;
+	if (!(database && translationPolicy())) {
+		return;
+	}
+	await registerTranslationJobs(
+		database,
+		TRANSLATION_PREWARM_LANGUAGES.flatMap((lang) =>
+			items
+				.filter((item) => needsTranslation(item, lang))
+				.map((item) => ({
+					subjectType: item.sourceId.startsWith("event:")
+						? ("event" as const)
+						: ("source" as const),
+					sourceId: item.sourceId,
+					itemId: item.id,
+					lang,
+					title: item.title,
+					description: item.description,
+				}))
+		)
+	);
+}
+
+async function wake(lang: "zh" | "en"): Promise<void> {
+	const queue = getWorkerBindings()?.SUMMARY_PREWARM_QUEUE;
+	if (!queue) {
+		return; // Durable jobs remain available for the next scheduled reconciliation.
+	}
+	try {
+		await queue.send({
+			kind: "translation-prewarm",
+			payload: { sourceId: "", lang },
+		});
+	} catch {
+		console.warn("[translation-jobs] wakeup failed; durable jobs retained");
+	}
+}
+
+export async function dispatchTranslationPrewarmJobs(
+	_sourceId: SourceId,
+	items: NewsItem[]
+): Promise<void> {
+	if (!translationPolicy()) {
+		return;
+	}
+	await registerItems(items);
+	await Promise.all(TRANSLATION_PREWARM_LANGUAGES.map(wake));
+}
+
+// Old queue messages remain safe: unsupported locales drain, supported ones
+// register the latest input before using the same durable attempt budget.
 export async function runTranslationPrewarmJob(
 	message: TranslationPrewarmMessage
 ): Promise<void> {
-	const snapshot = await readSnapshot(message.sourceId);
-	if (!snapshot || snapshot.items.length === 0) {
-		await clearRequestMarker(message);
+	if (
+		!translationPolicy() ||
+		(message.lang !== "zh" && message.lang !== "en")
+	) {
 		return;
 	}
-	const wanted = message.itemIds ? new Set(message.itemIds) : undefined;
-	const items = wanted
-		? snapshot.items.filter((item) => wanted.has(item.id))
-		: snapshot.items;
-	const translated = await prewarmItemTranslations(items, message.lang);
-	if (translated > 0) {
-		await invalidateTranslatedTrendsPageCache(message.sourceId, message.lang);
-		console.info(
-			`[trends-translation] prewarmed ${translated} ${message.lang} items for ${message.sourceId}`
-		);
+	if (message.sourceId) {
+		const snapshot = await readSnapshot(message.sourceId);
+		if (snapshot) {
+			await registerItems(snapshot.items);
+		}
 	}
-	await clearRequestMarker(message);
+	await runTranslationBatch(message.lang);
 }
 
-async function sendToCloudflareQueue(
-	message: TranslationPrewarmMessage
-): Promise<boolean> {
-	// Shares the summary prewarm queue: both are low-priority model work that
-	// follows a source refresh, and a second queue would need new infrastructure.
-	const queue = getWorkerBindings()?.SUMMARY_PREWARM_QUEUE;
-	if (!queue) {
-		return false;
+// Event text identical to a source item uses its translation, not a second job.
+export async function resolveEventTranslationItems(
+	items: NewsItem[]
+): Promise<NewsItem[]> {
+	const database = getWorkerBindings()?.DB;
+	if (!(database && items.length)) {
+		return items;
 	}
-	try {
-		await queue.send({ kind: "translation-prewarm", payload: message });
-		return true;
-	} catch (error) {
-		console.warn(
-			"[trends-translation] Cloudflare queue dispatch failed",
-			error
-		);
-		return false;
+	const matches = new Map<
+		string,
+		{
+			source_id: string;
+			item_id: string;
+			title: string;
+			description: string | null;
+		}
+	>();
+	for (let start = 0; start < items.length; start += 80) {
+		const part = items.slice(start, start + 80);
+		const rows = await database
+			.prepare(
+				`SELECT e.event_id,s.source_id,s.item_id,s.title,s.description FROM trend_event e JOIN source_item s ON s.source_id=e.primary_source_id AND s.item_id=e.primary_item_id WHERE e.event_id IN (${part.map(() => "?").join(",")})`
+			)
+			.bind(...part.map((item) => item.id))
+			.all<{
+				event_id: string;
+				source_id: string;
+				item_id: string;
+				title: string;
+				description: string | null;
+			}>();
+		for (const row of rows.results) {
+			matches.set(row.event_id, row);
+		}
 	}
+	return items.map((item) => {
+		const match = matches.get(item.id);
+		return match &&
+			match.title === item.title &&
+			(match.description ?? "") === (item.description ?? "")
+			? { ...item, sourceId: match.source_id, id: match.item_id }
+			: item;
+	});
 }
 
-// Called after a source refresh with its current items. Cached items are
-// skipped inside the job, while passing the whole snapshot makes provider
-// outages self-healing on the next refresh even when the source did not change.
-export async function dispatchTranslationPrewarmJobs(
-	sourceId: SourceId,
-	changedItems: NewsItem[]
-): Promise<void> {
-	if (!isTranslationConfigured()) {
+// Recovers a crash between source persistence and registration, lost queue
+// deliveries, and expired leases without depending on a visitor. Bounded sweep.
+export async function reconcileTranslationJobs(): Promise<void> {
+	const database = getWorkerBindings()?.DB;
+	if (!(database && translationPolicy())) {
 		return;
 	}
-	for (const lang of TRANSLATION_PREWARM_LANGUAGES) {
-		if (!changedItems.some((item) => needsTranslation(item, lang))) {
+	const control = await database
+		.prepare(
+			"SELECT reconcile_cursor,event_cursor FROM translation_control WHERE id=1"
+		)
+		.first<{ reconcile_cursor: number; event_cursor: string }>();
+	const sources = Object.keys(sourcePresets);
+	const cursor = control?.reconcile_cursor ?? 0;
+	for (let offset = 0; offset < 4; offset++) {
+		const sourceId = sources[(cursor + offset) % sources.length];
+		if (!sourceId) {
 			continue;
 		}
-		const message = { lang, sourceId };
-		if (!(await sendToCloudflareQueue(message))) {
-			await runTranslationPrewarmJob(message);
+		const snapshot = await readSnapshot(sourceId);
+		if (snapshot) {
+			await registerItems(snapshot.items);
 		}
 	}
-}
-
-// Chinese and English readers are waiting on the page they just opened, so
-// their missing titles are translated right here, in the request's
-// background time, instead of queueing behind other languages' work. The
-// page's own items are enough: the scheduled prewarm covers the rest.
-async function translatePageInline(
-	page: TrendsPageData,
-	lang: TranslationLanguage,
-	messages: TranslationPrewarmMessage[]
-): Promise<number> {
-	const reserved: TranslationPrewarmMessage[] = [];
-	for (const message of messages) {
-		if (reserved.length >= REQUEST_PREWARM_LIMIT) {
-			break;
-		}
-		if (await reserveRequestMarker(message)) {
-			reserved.push(message);
-		}
-	}
-	if (reserved.length === 0) {
-		return 0;
-	}
-	const sourceIds = new Set(reserved.map((message) => message.sourceId));
-	const items: NewsItem[] = page.sections
-		.flatMap((section) => section.sources)
-		.filter((source) => sourceIds.has(source.sourceId))
-		.flatMap((source) => source.items);
-	try {
-		const translated = await prewarmItemTranslations(items, lang, {
-			timeoutMs: REQUEST_TRANSLATION_TIMEOUT_MS,
-		});
-		if (translated > 0) {
-			await Promise.all(
-				[...sourceIds].map((sourceId) =>
-					invalidateTranslatedTrendsPageCache(sourceId, lang)
-				)
-			);
-			console.info(
-				`[trends-translation] translated ${translated} ${lang} items for ${page.id} on request`
-			);
-		}
-	} catch (error) {
-		console.warn("[trends-translation] request translation failed", error);
-	} finally {
-		await Promise.all(reserved.map((message) => clearRequestMarker(message)));
-	}
-	return reserved.length;
-}
-
-export function requestTranslationPrewarmsForPage(
-	page: TrendsPageData,
-	lang: TranslationLanguage
-): Promise<number> {
-	if (!isPrewarmLanguage(lang)) {
-		return Promise.resolve(0);
-	}
-	const messages = translationPrewarmMessagesForPage(page, lang);
-	return translatePageInline(page, lang, messages);
+	const events = await database
+		.prepare(
+			"SELECT event_id,title,summary FROM trend_event WHERE event_id>? ORDER BY event_id LIMIT 20"
+		)
+		.bind(control?.event_cursor ?? "")
+		.all<{ event_id: string; title: string; summary: string | null }>();
+	await registerItems(
+		await resolveEventTranslationItems(
+			events.results.map((event) => ({
+				id: event.event_id,
+				sourceId: `event:${event.event_id}`,
+				title: event.title,
+				description: event.summary ?? undefined,
+				url: "",
+				fetchedAt: 0,
+			}))
+		)
+	);
+	await database
+		.prepare(
+			"UPDATE translation_control SET reconcile_cursor=?,event_cursor=? WHERE id=1"
+		)
+		.bind((cursor + 4) % sources.length, events.results.at(-1)?.event_id ?? "")
+		.run();
+	await Promise.all(TRANSLATION_PREWARM_LANGUAGES.map(wake));
 }

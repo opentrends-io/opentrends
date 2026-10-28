@@ -17,8 +17,7 @@ interface WaitUntilContext {
 	};
 }
 
-const PUBLIC_EVENTS_CACHE_CONTROL =
-	"public, max-age=600, s-maxage=1800, stale-while-revalidate=3600";
+const PUBLIC_EVENTS_CACHE_CONTROL = "no-store";
 
 function parsePositiveInteger(value: string | undefined): number | undefined {
 	const parsed = Number.parseInt(value ?? "", 10);

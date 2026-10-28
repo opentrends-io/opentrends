@@ -141,6 +141,7 @@ export async function loadTrendEvents(
 	try {
 		const suffix = search.size > 0 ? `?${search}` : "";
 		response = await fetch(`${env.VITE_SERVER_URL}/api/events${suffix}`, {
+			cache: "no-store",
 			credentials: "omit",
 			signal: controller.signal,
 		});
@@ -183,6 +184,7 @@ export async function loadTrendEventDetail(
 		response = await fetch(
 			`${env.VITE_SERVER_URL}/api/events/${encodeURIComponent(eventId)}${suffix}`,
 			{
+				cache: "no-store",
 				credentials: "omit",
 				signal: controller.signal,
 			}

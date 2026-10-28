@@ -70,6 +70,9 @@ test("a visible English card becomes Chinese, persists, and stops polling", asyn
 	expect(calls).toBe(0);
 	await page.clock.fastForward(10_000);
 	await expect(article).toContainText("研究人员发布新模型");
+	await page.reload();
+	await expect(article).toContainText("研究人员发布新模型");
+	await expect(article).not.toContainText("标题翻译中");
 	await expect(article).not.toContainText("标题翻译中");
 	await expect
 		.poll(() =>
@@ -87,4 +90,62 @@ test("a visible English card becomes Chinese, persists, and stops polling", asyn
 		errors.filter((error) => !error.includes("Failed to load resource"))
 	).toEqual([]);
 	await page.screenshot({ path: testInfo.outputPath("translated-card.png") });
+});
+
+test("network failure keeps the original, expires the spinner and bounds polling; manual refresh is read-only", async ({
+	page,
+}, testInfo) => {
+	await page.clock.install();
+	await page.route("**/*", (route) =>
+		new URL(route.request().url()).origin === "http://127.0.0.1:4178"
+			? route.continue()
+			: route.abort()
+	);
+	await page.route("**/api/auth/**", (route) => route.fulfill({ json: null }));
+	let calls = 0;
+	await page.route("**/api/trends/featured?**", (route) => {
+		calls++;
+		expect(route.request().method()).toBe("GET");
+		return route.fulfill({
+			status: 503,
+			json: { error: "fixture unavailable" },
+		});
+	});
+	await page.goto("/e2e/fixtures/translation-refresh.html");
+	const article = page.locator('a[href="https://example.test/1"]');
+	await expect(
+		article.locator('[data-translation-state="running"]')
+	).toBeVisible();
+	// Advance through retry delays rather than jumping over them. fastForward
+	// deliberately executes each timer only once, unlike elapsed wall time.
+	for (let step = 0; step < 10; step++) {
+		await page.clock.runFor(10_000);
+		await page.waitForTimeout(30);
+	}
+	await expect(
+		article.locator('[data-translation-state="unknown"]')
+	).toBeVisible();
+	await expect(article).toContainText("Researchers publish a new model");
+	await page.clock.fastForward(300_000);
+	await page.waitForTimeout(200);
+	const stopped = calls;
+	await page.clock.fastForward(300_000);
+	await page.waitForTimeout(200);
+	expect(calls).toBe(stopped);
+	expect(calls).toBeLessThanOrEqual(9);
+	const refresh = page.getByRole("button", { name: "刷新翻译状态" });
+	await expect(refresh).toBeEnabled();
+	await refresh.click();
+	await expect.poll(() => calls).toBeGreaterThan(stopped);
+	await expect(article).toContainText("Researchers publish a new model");
+	await page.setViewportSize({ width: 375, height: 812 });
+	await refresh.scrollIntoViewIfNeeded();
+	await refresh.hover();
+	await expect(refresh).toBeInViewport();
+	expect(
+		await page.evaluate(
+			() => document.documentElement.scrollWidth <= window.innerWidth
+		)
+	).toBe(true);
+	await page.screenshot({ path: testInfo.outputPath("failure-mobile.png") });
 });

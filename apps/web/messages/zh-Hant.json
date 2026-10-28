@@ -1,4 +1,13 @@
 {
+  "translation_queued": "翻譯排隊中",
+  "translation_running": "標題翻譯中",
+  "translation_retry": "等待重試",
+  "translation_budget": "翻譯額度已用完，保留原文",
+  "translation_blocked": "翻譯服務暫停，保留原文",
+  "translation_failed": "翻譯失敗，已停止自動重試",
+  "translation_unknown": "翻譯狀態待確認",
+  "translation_notice": "部分條目保留原文；自動重新整理最多 5 分鐘。",
+  "translation_refresh": "重新整理翻譯狀態",
   "summary_retrying": "摘要暫未就緒，正在重試…",
   "summary_refresh_failed": "更新失敗，暫時保留已有摘要。",
   "feed_load_error": "內容載入失敗，請重試。",

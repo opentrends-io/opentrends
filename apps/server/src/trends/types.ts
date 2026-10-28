@@ -1,3 +1,5 @@
+import type { TranslationStatus } from "@opentrends/api/translation-contract";
+
 export type TopicId =
 	| "featured"
 	| "ai"
@@ -37,6 +39,7 @@ export interface NewsItem {
 	rank?: number;
 	sourceId: SourceId;
 	title: string;
+	translation?: TranslationStatus;
 	url: string;
 }
 

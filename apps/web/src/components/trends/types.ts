@@ -1,3 +1,4 @@
+import type { TranslationStatus } from "@opentrends/api/translation-contract";
 export type SourceStatus = "ok" | "stale" | "error";
 
 export interface NewsItem {
@@ -14,6 +15,7 @@ export interface NewsItem {
 	rank?: number;
 	sourceId: string;
 	title: string;
+	translation?: TranslationStatus;
 	url: string;
 }
 
@@ -83,6 +85,7 @@ export interface EventFeedItem {
 	title: string;
 	topicId: string;
 	topicIds?: string[];
+	translation?: TranslationStatus;
 }
 
 export interface EventFeedData {
@@ -122,6 +125,7 @@ export interface EventDetailData {
 	};
 	score: number;
 	sourceItems: Array<{
+		translation?: TranslationStatus;
 		contentFetchedAt?: string;
 		contentStatus: string;
 		description?: string;
@@ -144,6 +148,7 @@ export interface EventDetailData {
 	summary?: string;
 	title: string;
 	topicId: string;
+	translation?: TranslationStatus;
 }
 
 export interface ArchivedDigestCitation {

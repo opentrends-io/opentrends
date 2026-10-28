@@ -1,4 +1,13 @@
 {
+  "translation_queued": "Traducción en cola",
+  "translation_running": "Traduciendo título",
+  "translation_retry": "Esperando reintento",
+  "translation_budget": "Presupuesto agotado; texto original",
+  "translation_blocked": "Traducción pausada; texto original",
+  "translation_failed": "Error; reintentos automáticos detenidos",
+  "translation_unknown": "Estado de traducción no disponible",
+  "translation_notice": "Algunos textos se muestran en su idioma original. Actualización automática limitada a 5 minutos.",
+  "translation_refresh": "Actualizar traducción",
   "summary_retrying": "Resumen aún no disponible; reintentando…",
   "summary_refresh_failed": "No se pudo actualizar. Se muestra el resumen anterior.",
   "feed_load_error": "No se pudo cargar el contenido. Inténtalo de nuevo.",

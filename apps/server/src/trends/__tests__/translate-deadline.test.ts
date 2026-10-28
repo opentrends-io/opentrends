@@ -1,104 +1,257 @@
-import { describe, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
+import { translationHealthRoutes } from "../../routes/translation-health";
+import { runWithWorkerBindings, type WorkerBindings } from "../../runtime";
+import { translateNewsItems } from "../services/translate-news-items";
+import {
+	dispatchTranslationPrewarmJobs,
+	resolveEventTranslationItems,
+} from "../services/translation-prewarm-jobs";
+import { runTranslationBatch } from "../services/translation-worker";
+import { SqliteD1 } from "./support/d1-sqlite";
 
-import type { TranslationCandidate } from "../services/translate-news-items";
-
-function setServerEnv(): void {
-	process.env.BETTER_AUTH_SECRET = "x".repeat(32);
-	process.env.BETTER_AUTH_URL = "http://localhost:3000";
-	process.env.CORS_ORIGIN = "http://localhost:3001";
-	process.env.TRENDS_REFRESH_SCHEDULER = "disabled";
-}
-
-function makeCandidates(count: number): TranslationCandidate[] {
-	return Array.from({ length: count }, (_, index) => ({
-		cacheKey: `zh:source:${index}:hash`,
-		item: {
-			fetchedAt: 0,
-			id: String(index),
-			sourceId: "source",
-			title: `Title ${index}`,
-			url: `https://example.com/${index}`,
+const item = {
+	id: "1",
+	sourceId: "fixture",
+	title: "A new discovery",
+	url: "https://example.test",
+	fetchedAt: 0,
+};
+function setup() {
+	const database = new SqliteD1();
+	database.database.exec(
+		"INSERT INTO source(source_id) VALUES('fixture'); INSERT INTO source_item(source_id,item_id,generation,url,title,rank,fetched_at,last_seen_at,content_hash) VALUES('fixture','1',1,'https://example.test','A new discovery',1,1,1,'hash')"
+	);
+	const messages: unknown[] = [];
+	const bindings = {
+		DB: database.binding(),
+		BETTER_AUTH_SECRET: "fixture".repeat(8),
+		BETTER_AUTH_URL: "http://localhost:3000",
+		CORS_ORIGIN: "http://localhost:3001",
+		LLM_API_KEY: "fixture-only",
+		LLM_BASE_URL: "https://example.test/v1",
+		LLM_MODEL: "fixture",
+		LLM_TRANSLATION_MODEL: "fixture",
+		TRANSLATION_JOBS_ENABLED: "true",
+		TRANSLATION_DAILY_BUDGET_CNY: "50",
+		TRANSLATION_PRICE_MODEL: "fixture",
+		TRANSLATION_INPUT_CNY_PER_MILLION: "1",
+		TRANSLATION_OUTPUT_CNY_PER_MILLION: "4",
+		SUMMARY_PREWARM_QUEUE: {
+			send: (message: unknown) => {
+				messages.push(message);
+				return Promise.resolve();
+			},
 		},
-		sourceId: "source",
-		textHash: "hash",
-	}));
+		TRENDS_REFRESH_SCHEDULER: "disabled",
+	} as unknown as WorkerBindings;
+	return { database, bindings, messages };
 }
 
-describe("sync translation deadline", () => {
-	test("does not split provider failures into more paid requests", async () => {
-		setServerEnv();
-		const { shouldSplitTranslationFailure } = await import(
-			"../services/translate-news-items"
-		);
-		const providerError = Object.assign(new Error("Payment Required"), {
-			name: "AI_APICallError",
-			statusCode: 402,
+test("ingest registers durable work; 100 public sync reads create no work; worker persists shared result", async () => {
+	const { database, bindings, messages } = setup();
+	try {
+		await runWithWorkerBindings(bindings, async () => {
+			for (let i = 0; i < 100; i++) {
+				const [read] = await translateNewsItems([item], "zh", "sync");
+				expect(read?.translation?.state).toBe("unknown");
+			}
+			expect(database.all("SELECT * FROM translation_job")).toHaveLength(0);
+			expect(database.all("SELECT * FROM translation_attempt")).toHaveLength(0);
+			expect(messages).toHaveLength(0);
+			await dispatchTranslationPrewarmJobs("fixture", [item]);
+			expect(database.all("SELECT * FROM translation_job")).toHaveLength(1);
+			expect(messages).toHaveLength(2);
+			expect(
+				(await translateNewsItems([item], "zh"))[0]?.translation?.state
+			).toBe("queued");
+			let calls = 0;
+			await runTranslationBatch("zh", async () => {
+				calls++;
+				expect(
+					(await translateNewsItems([item], "zh"))[0]?.translation?.state
+				).toBe("running");
+				const job = database.all<{ id: string }>(
+					"SELECT id FROM translation_job"
+				)[0];
+				if (!job) {
+					throw new Error("missing fixture job");
+				}
+				return {
+					text: JSON.stringify({
+						items: [{ id: job.id, title: "一项新发现", description: null }],
+					}),
+					inputTokens: 100,
+					outputTokens: 20,
+				};
+			});
+			expect(calls).toBe(1);
+			expect(
+				(await translateNewsItems([item], "zh"))[0]?.translation?.state
+			).toBe("ready");
+			expect((await translateNewsItems([item], "zh"))[0]?.title).toBe(
+				"一项新发现"
+			);
 		});
-		const shapeError = Object.assign(new Error("invalid object"), {
-			name: "AI_NoObjectGeneratedError",
-		});
+	} finally {
+		database.close();
+	}
+});
 
-		expect(shouldSplitTranslationFailure(providerError)).toBe(false);
-		expect(shouldSplitTranslationFailure(shapeError)).toBe(true);
-	});
-
-	test("lets queue callers retry when every provider batch fails", async () => {
-		setServerEnv();
-		const { translateMissingWithinTimeout } = await import(
-			"../services/translate-news-items"
-		);
-		const providerError = Object.assign(new Error("Payment Required"), {
-			name: "AI_APICallError",
-			statusCode: 402,
-		});
-
-		await expect(
-			translateMissingWithinTimeout(
-				"zh",
-				makeCandidates(6),
-				100,
-				{ throwOnTotalFailure: true },
-				() => Promise.reject(providerError)
-			)
-		).rejects.toBe(providerError);
-	});
-
-	test("returns on time and lets in-flight batches finish for the cache", async () => {
-		setServerEnv();
-		const { translateMissingWithinTimeout } = await import(
-			"../services/translate-news-items"
-		);
-		const finishedBatches: number[] = [];
-		const background: Promise<unknown>[] = [];
-		let aborted = false;
-
-		// 30 candidates = 5 batches of 6; four run concurrently and each takes
-		// longer than the 20ms deadline.
-		const started = Date.now();
-		const result = await translateMissingWithinTimeout(
-			"zh",
-			makeCandidates(30),
-			20,
-			{ waitUntil: (promise) => background.push(promise) },
-			async (_lang, batch, signal) => {
-				signal?.addEventListener("abort", () => {
-					aborted = true;
+test("invalid output has exactly three durable calls, no nested parser/SDK retries", async () => {
+	const { database, bindings } = setup();
+	try {
+		await runWithWorkerBindings(bindings, async () => {
+			await dispatchTranslationPrewarmJobs("fixture", [item]);
+			let calls = 0;
+			for (let i = 0; i < 5; i++) {
+				database.database.exec("UPDATE translation_job SET next_attempt_at=0");
+				await runTranslationBatch("zh", () => {
+					calls++;
+					return Promise.resolve({ text: "not JSON" });
 				});
-				await new Promise((resolve) => setTimeout(resolve, 80));
-				finishedBatches.push(batch.length);
-				return [];
+				await dispatchTranslationPrewarmJobs("fixture", [item]);
+			}
+			expect(calls).toBe(3);
+			expect(
+				(await translateNewsItems([item], "zh"))[0]?.translation?.state
+			).toBe("failed");
+		});
+	} finally {
+		database.close();
+	}
+});
+
+test("provider rejection pauses every consumer rather than splitting into paid requests", async () => {
+	const { database, bindings } = setup();
+	try {
+		await runWithWorkerBindings(bindings, async () => {
+			await dispatchTranslationPrewarmJobs("fixture", [item]);
+			let calls = 0;
+			const generate = () => {
+				calls++;
+				return Promise.reject(
+					Object.assign(new Error("fixture rejection"), {
+						statusCode: 402,
+					})
+				);
+			};
+			await runTranslationBatch("zh", generate);
+			database.database.exec("UPDATE translation_job SET next_attempt_at=0");
+			await runTranslationBatch("zh", generate);
+			expect(calls).toBe(1);
+			expect(
+				(await translateNewsItems([item], "zh"))[0]?.translation
+			).toMatchObject({ state: "blocked", reason: "provider" });
+		});
+	} finally {
+		database.close();
+	}
+});
+
+test("storage errors never publish ready or invoke the model again within one delivery", async () => {
+	const { database, bindings } = setup();
+	try {
+		await runWithWorkerBindings(bindings, async () => {
+			await dispatchTranslationPrewarmJobs("fixture", [item]);
+			database.database.exec(
+				"CREATE TRIGGER fail_ready BEFORE UPDATE OF state ON translation_job WHEN new.state='ready' BEGIN SELECT RAISE(ABORT,'fixture failure'); END"
+			);
+			let calls = 0;
+			await runTranslationBatch("zh", () => {
+				calls++;
+				const job = database.all<{ id: string }>(
+					"SELECT id FROM translation_job"
+				)[0];
+				if (!job) {
+					throw new Error("missing fixture job");
+				}
+				return Promise.resolve({
+					text: JSON.stringify({
+						items: [{ id: job.id, title: "译文", description: null }],
+					}),
+				});
+			});
+			expect(calls).toBe(1);
+			expect(
+				database.all("SELECT * FROM source_item_translation")
+			).toHaveLength(0);
+			expect(
+				(await translateNewsItems([item], "zh"))[0]?.translation?.state
+			).toBe("retry_wait");
+		});
+	} finally {
+		database.close();
+	}
+});
+
+test("429 respects provider retry-after globally and health is authenticated and read-only", async () => {
+	const { database, bindings, messages } = setup();
+	try {
+		await runWithWorkerBindings(
+			{ ...bindings, EVENT_PAGES_ADMIN_TOKEN: "fixture-token-not-a-secret" },
+			async () => {
+				await dispatchTranslationPrewarmJobs("fixture", [item]);
+				let calls = 0;
+				const generate = () => {
+					calls++;
+					return Promise.reject(
+						Object.assign(new Error("limited"), {
+							statusCode: 429,
+							responseHeaders: { "retry-after": "180" },
+						})
+					);
+				};
+				const before = Date.now();
+				await runTranslationBatch("zh", generate);
+				database.database.exec("UPDATE translation_job SET next_attempt_at=0");
+				await runTranslationBatch("zh", generate);
+				expect(calls).toBe(1);
+				expect(
+					database.all<{ blocked_until: number }>(
+						"SELECT blocked_until FROM translation_control"
+					)[0]?.blocked_until
+				).toBeGreaterThanOrEqual(before + 180_000);
+				expect((await translationHealthRoutes.request("/")).status).toBe(401);
+				const response = await translationHealthRoutes.request("/", {
+					headers: { Authorization: "Bearer fixture-token-not-a-secret" },
+				});
+				expect(response.status).toBe(200);
+				expect(response.headers.get("cache-control")).toBe("no-store");
+				const health = await response.json();
+				expect(health.budget.accountBalanceAvailable).toBe(false);
+				expect(health.budget.calls).toBe(1);
+				expect(health.budget.unknownCalls).toBe(1);
+				expect(JSON.stringify(health)).not.toContain("fixture-token");
+				expect(messages).toHaveLength(2);
 			}
 		);
+	} finally {
+		database.close();
+	}
+});
 
-		expect(Date.now() - started).toBeLessThan(70);
-		expect(result).toEqual([]);
-		expect(finishedBatches).toEqual([]);
-		expect(background).toHaveLength(1);
-
-		await Promise.all(background);
-
-		// The four batches that were in flight completed; the fifth never started.
-		expect(finishedBatches).toEqual([6, 6, 6, 6]);
-		expect(aborted).toBe(false);
-	});
+test("events reuse an identical source translation but keep independent identity for derived text", async () => {
+	const { database, bindings } = setup();
+	try {
+		database.database.exec(
+			"INSERT INTO trend_event(event_id,topic_id,title,first_seen_at,last_seen_at,updated_at,primary_source_id,primary_item_id) VALUES('event-1','ai','A new discovery',1,1,1,'fixture','1')"
+		);
+		await runWithWorkerBindings(bindings, async () => {
+			const event = { ...item, id: "event-1", sourceId: "event:event-1" };
+			const same = await resolveEventTranslationItems([event]);
+			expect(same[0]).toMatchObject({ id: "1", sourceId: "fixture" });
+			const changed = await resolveEventTranslationItems([
+				{ ...event, title: "Different synthesis" },
+			]);
+			expect(changed[0]).toMatchObject({
+				id: "event-1",
+				sourceId: "event:event-1",
+			});
+			await dispatchTranslationPrewarmJobs("fixture", [item]);
+			await dispatchTranslationPrewarmJobs("fixture", same);
+			expect(database.all("SELECT * FROM translation_job")).toHaveLength(1);
+		});
+	} finally {
+		database.close();
+	}
 });

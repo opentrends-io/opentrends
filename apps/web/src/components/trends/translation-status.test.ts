@@ -10,6 +10,7 @@ function page(title: string, originalTitle?: string): TrendsPageData {
 		sections: [
 			{
 				id: "news",
+				title: "News",
 				sources: [
 					{
 						items: [
@@ -39,7 +40,7 @@ function page(title: string, originalTitle?: string): TrendsPageData {
 describe("translation warmup status", () => {
 	test("polls only while a supported locale still shows untranslated text", () => {
 		expect(pageNeedsTranslationWarmup(page("OpenAI ships a model"), "zh")).toBe(
-			true
+			false
 		);
 		expect(
 			pageNeedsTranslationWarmup(

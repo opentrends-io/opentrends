@@ -1,20 +1,13 @@
-import { createHash } from "node:crypto";
-
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { env } from "@opentrends/env/server";
-import { generateText } from "ai";
+import type { TranslationStatus } from "@opentrends/api/translation-contract";
+import { getWorkerBindings } from "../../runtime";
+import { readItemTranslations } from "../cache/item-translation-cache";
+import type { NewsItem, TrendsPageData } from "../types";
+import { translationHash, translationJobId } from "./translation-identity";
 import {
-	type CachedItemTranslation,
-	readItemTranslations,
-	writeItemTranslations,
-} from "../cache/item-translation-cache";
-import type { NewsItem, SourceCardData, TrendsPageData } from "../types";
-import { llmProviderOptions, translationModelId } from "./llm";
-import { isSiliconFlow, trackSiliconFlowModel } from "./llm-usage";
-import {
-	requestTranslatedBatch,
-	TRANSLATED_BATCH_SHAPE,
-} from "./translation-json";
+	type TranslationJob,
+	translationBudgetSnapshot,
+} from "./translation-job-store";
+import { translationPolicy } from "./translation-policy";
 
 export const TRANSLATION_LANGUAGES = [
 	"en",
@@ -27,35 +20,13 @@ export const TRANSLATION_LANGUAGES = [
 	"pt-BR",
 ] as const;
 export type TranslationLanguage = (typeof TRANSLATION_LANGUAGES)[number];
+// Kept for old callers; neither mode is allowed to generate on a read.
 export type TranslationMode = "background" | "sync";
-
-export interface TranslationCandidate {
-	cacheKey: string;
-	item: NewsItem;
-	sourceId: string;
-	textHash: string;
+export interface TranslationOptions {
+	waitUntil?: (promise: Promise<unknown>) => void;
 }
-
-type WritableTranslation = Omit<
-	CachedItemTranslation,
-	"createdAt" | "updatedAt"
->;
-
-const BATCH_SIZE = 6;
-const BACKGROUND_TRANSLATION_CACHE_TIMEOUT_MS = 3000;
-const SYNC_TRANSLATION_CONCURRENCY = 4;
-const SYNC_TRANSLATION_TIMEOUT_MS = 12_000;
-const SYNC_TRANSLATION_STRAGGLER_MS = 25_000;
-const MAX_SYNC_TRANSLATION_CANDIDATES = 48;
-const CJK_RE = /[\u3400-\u9fff]/;
-const CYRILLIC_RE = /\p{Script=Cyrillic}/u;
-
-class TranslationCacheReadTimeoutError extends Error {
-	constructor() {
-		super("Timed out reading cached item translations.");
-		this.name = "TranslationCacheReadTimeoutError";
-	}
-}
+const CJK = /[\u3400-\u9fff]/;
+const CYRILLIC = /\p{Script=Cyrillic}/u;
 
 export function isTranslationLanguage(
 	value: string | undefined
@@ -65,508 +36,229 @@ export function isTranslationLanguage(
 		(TRANSLATION_LANGUAGES as readonly string[]).includes(value)
 	);
 }
-
 export function normalizeTranslationLanguage(
 	value: string | undefined
 ): TranslationLanguage {
 	return isTranslationLanguage(value) ? value : "en";
 }
-
-function hasCjk(value: string | undefined): boolean {
-	return value ? CJK_RE.test(value) : false;
-}
-
-function hasCyrillic(value: string | undefined): boolean {
-	return value ? CYRILLIC_RE.test(value) : false;
-}
-
-function shouldTranslateText(
-	value: string | undefined,
+function needsText(
+	text: string | undefined,
 	lang: TranslationLanguage
 ): boolean {
-	if (!value?.trim()) {
+	if (!text?.trim()) {
 		return false;
 	}
 	if (lang === "zh") {
-		return !hasCjk(value);
+		return !CJK.test(text);
 	}
-	if (lang === "zh-Hant") {
-		return true;
+	if (lang === "en") {
+		return CJK.test(text) || CYRILLIC.test(text);
 	}
 	if (lang === "ru") {
-		return !hasCyrillic(value);
+		return !CYRILLIC.test(text);
 	}
-	if (
-		lang === "fr-FR" ||
-		lang === "es-ES" ||
-		lang === "de-DE" ||
-		lang === "pt-BR"
-	) {
-		return true;
-	}
-	return hasCjk(value) || hasCyrillic(value);
+	return true;
 }
-
-export function isTranslationConfigured(): boolean {
-	return Boolean(env.LLM_API_KEY);
-}
-
 export function needsTranslation(
 	item: NewsItem,
 	lang: TranslationLanguage
 ): boolean {
-	return !item.original && shouldTranslateItem(item, lang);
-}
-
-function shouldTranslateItem(
-	item: NewsItem,
-	lang: TranslationLanguage
-): boolean {
 	return (
-		shouldTranslateText(item.title, lang) ||
-		shouldTranslateText(item.description, lang)
+		!item.original &&
+		(needsText(item.title, lang) || needsText(item.description, lang))
 	);
 }
-
-function hashItemText(item: NewsItem): string {
-	const payload = JSON.stringify({
-		description: item.description ?? null,
-		title: item.title,
-	});
-	return createHash("sha256").update(payload).digest("hex");
+export function isTranslationConfigured(): boolean {
+	return translationPolicy() !== null;
 }
 
-function makeCacheKey(
-	lang: TranslationLanguage,
-	sourceId: string,
-	itemId: string,
-	textHash: string
-): string {
-	return `${lang}:${sourceId}:${itemId}:${textHash}`;
-}
-
-function makeTranslationMap(
-	rows: CachedItemTranslation[]
-): Map<string, CachedItemTranslation> {
-	const map = new Map<string, CachedItemTranslation>();
-	for (const row of rows) {
-		map.set(`${row.sourceId}:${row.itemId}`, row);
+async function readStatuses(
+	items: NewsItem[],
+	lang: TranslationLanguage
+): Promise<Map<string, TranslationStatus>> {
+	const database = getWorkerBindings()?.DB;
+	const now = Date.now();
+	const statuses = new Map<string, TranslationStatus>();
+	const policy = translationPolicy();
+	if (!database) {
+		return statuses;
 	}
-	return map;
-}
-
-function applyTranslation(
-	item: NewsItem,
-	translation: CachedItemTranslation | WritableTranslation
-): NewsItem {
-	return {
-		...item,
-		description: translation.description ?? undefined,
-		original: {
-			description: item.description,
+	const budget = policy
+		? await translationBudgetSnapshot(database, now)
+		: undefined;
+	const budgetBlocked =
+		policy &&
+		budget &&
+		((budget.chargedMicros ?? 0) + policy.reserveMicros > policy.dailyMicros ||
+			(budget.calls ?? 0) >= policy.dailyCalls);
+	const providerBlocked = budget && (budget.blockedUntil ?? 0) > now;
+	let blockedReason: TranslationStatus["reason"];
+	if (budgetBlocked) {
+		blockedReason = "budget";
+	}
+	if (providerBlocked) {
+		blockedReason = "provider";
+	}
+	if (!policy) {
+		blockedReason = "configuration";
+	}
+	if (lang !== "zh" && lang !== "en") {
+		blockedReason = "unsupported";
+	}
+	const jobs = new Map<string, TranslationJob>();
+	const ids = items.map((item) =>
+		translationJobId({
+			subjectType: item.sourceId.startsWith("event:") ? "event" : "source",
+			sourceId: item.sourceId,
+			itemId: item.id,
+			lang: lang as "zh" | "en",
 			title: item.title,
-		},
-		title: translation.title,
-	};
-}
-
-function chunk<T>(items: T[], size: number): T[][] {
-	const chunks: T[][] = [];
-	for (let i = 0; i < items.length; i += size) {
-		chunks.push(items.slice(i, i + size));
+			description: item.description,
+		})
+	);
+	for (let start = 0; start < ids.length; start += 80) {
+		const part = ids.slice(start, start + 80);
+		const rows = await database
+			.prepare(
+				`SELECT * FROM translation_job WHERE id IN (${part.map(() => "?").join(",")})`
+			)
+			.bind(...part)
+			.all<TranslationJob>();
+		for (const job of rows.results) {
+			jobs.set(job.id, job);
+		}
 	}
-	return chunks;
-}
-
-async function readCachedTranslations(params: {
-	itemIds: string[];
-	lang: TranslationLanguage;
-	mode: TranslationMode;
-	sourceIds: string[];
-}): Promise<CachedItemTranslation[]> {
-	const readPromise = readItemTranslations({
-		itemIds: params.itemIds,
-		lang: params.lang,
-		sourceIds: params.sourceIds,
+	items.forEach((item, index) => {
+		const job = jobs.get(ids[index] ?? "");
+		const status: TranslationStatus = {
+			state: "unknown",
+			language: lang,
+			textHash: translationHash(item),
+			checkedAt: now,
+		};
+		Object.assign(status, jobStatus(job, now, blockedReason));
+		status.updatedAt = job?.updated_at;
+		statuses.set(`${item.sourceId}:${item.id}`, status);
 	});
-	if (params.mode !== "background") {
-		return readPromise;
+	return statuses;
+}
+
+function jobStatus(
+	job: TranslationJob | undefined,
+	now: number,
+	blockedReason: TranslationStatus["reason"]
+): Partial<TranslationStatus> {
+	if (job?.state === "failed") {
+		return {
+			state: "failed",
+			reason: job.error_code === "storage" ? "storage" : "attempts",
+		};
 	}
-	let timeout: ReturnType<typeof setTimeout> | undefined;
+	if (job?.state === "running" && job.lease_until > now) {
+		return {
+			state: "running",
+			leaseUntil: job.lease_until,
+			nextPollAt: now + 10_000,
+		};
+	}
+	if (blockedReason) {
+		return { state: "blocked", reason: blockedReason };
+	}
+	if (job && ["queued", "running", "retry_wait"].includes(job.state)) {
+		return {
+			state: job.state === "queued" ? "queued" : "retry_wait",
+			nextPollAt: Math.max(now + 10_000, job.next_attempt_at),
+		};
+	}
+	return { state: "unknown" };
+}
+
+async function boundedRead<T>(read: Promise<T>, fallback: T): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
 	try {
 		return await Promise.race([
-			readPromise,
-			new Promise<never>((_, reject) => {
-				timeout = setTimeout(
-					() => reject(new TranslationCacheReadTimeoutError()),
-					BACKGROUND_TRANSLATION_CACHE_TIMEOUT_MS
-				);
+			read,
+			new Promise<T>((resolve) => {
+				timer = setTimeout(() => resolve(fallback), 3000);
 			}),
 		]);
+	} catch {
+		return fallback;
 	} finally {
-		if (timeout) {
-			clearTimeout(timeout);
-		}
+		clearTimeout(timer);
 	}
 }
 
-function providerModel() {
-	const provider = createOpenAICompatible({
-		name: "llm",
-		apiKey: env.LLM_API_KEY ?? "",
-		baseURL: env.LLM_BASE_URL,
-		includeUsage: isSiliconFlow(env.LLM_BASE_URL),
+// The only work performed on a public read is cache + durable status lookup.
+// Even legacy ?translation=sync callers cannot invoke the model or enqueue work.
+export async function translateNewsItems(
+	items: NewsItem[],
+	lang: TranslationLanguage,
+	_mode: TranslationMode = "background",
+	_options: TranslationOptions = {}
+): Promise<NewsItem[]> {
+	const pending = items.filter((item) => needsTranslation(item, lang));
+	const [rows, statuses] = pending.length
+		? await Promise.all([
+				boundedRead(
+					readItemTranslations({
+						itemIds: pending.map((item) => item.id),
+						sourceIds: pending.map((item) => item.sourceId),
+						lang,
+					}),
+					[]
+				),
+				boundedRead(
+					readStatuses(pending, lang),
+					new Map<string, TranslationStatus>()
+				),
+			])
+		: ([[], new Map<string, TranslationStatus>()] as const);
+	const cached = new Map(
+		rows.map((row) => [`${row.sourceId}:${row.itemId}`, row])
+	);
+	const now = Date.now();
+	return items.map((item) => {
+		const textHash = translationHash(item.original ?? item);
+		const base = { language: lang, textHash, checkedAt: now };
+		if (item.original) {
+			return {
+				...item,
+				translation: {
+					...base,
+					state: "ready",
+					updatedAt: item.translation?.updatedAt,
+				} as TranslationStatus,
+			};
+		}
+		if (!needsTranslation(item, lang)) {
+			return {
+				...item,
+				translation: { ...base, state: "not_needed" } as TranslationStatus,
+			};
+		}
+		const key = `${item.sourceId}:${item.id}`;
+		const row = cached.get(key);
+		if (row?.textHash === textHash) {
+			return {
+				...item,
+				title: row.title,
+				description: row.description ?? undefined,
+				original: { title: item.title, description: item.description },
+				translation: {
+					...base,
+					state: "ready",
+					updatedAt: row.updatedAt,
+				} as TranslationStatus,
+			};
+		}
+		return {
+			...item,
+			translation:
+				statuses.get(key) ??
+				({ ...base, state: "unknown" } as TranslationStatus),
+		};
 	});
-	return trackSiliconFlowModel(
-		provider(translationModelId()),
-		"translation",
-		env.LLM_BASE_URL
-	);
-}
-
-function targetLanguageName(lang: TranslationLanguage): string {
-	if (lang === "zh") {
-		return "Simplified Chinese";
-	}
-	if (lang === "zh-Hant") {
-		return "Traditional Chinese";
-	}
-	if (lang === "ru") {
-		return "Russian";
-	}
-	if (lang === "fr-FR") {
-		return "French (France)";
-	}
-	if (lang === "es-ES") {
-		return "Spanish (Spain)";
-	}
-	if (lang === "de-DE") {
-		return "German (Germany)";
-	}
-	if (lang === "pt-BR") {
-		return "Portuguese (Brazil)";
-	}
-	return "English";
-}
-
-function cleanDescription(value: string | null): string | null {
-	if (value === null) {
-		return null;
-	}
-	const trimmed = value.trim();
-	return trimmed ? trimmed : null;
-}
-
-async function translateBatch(
-	lang: TranslationLanguage,
-	candidates: TranslationCandidate[],
-	abortSignal?: AbortSignal
-): Promise<WritableTranslation[]> {
-	if (!env.LLM_API_KEY || candidates.length === 0) {
-		return [];
-	}
-
-	const inputs = candidates.map((candidate, index) => ({
-		description: candidate.item.description ?? null,
-		id: String(index),
-		title: candidate.item.title,
-	}));
-	const prompt = [
-		`Translate these news titles and short descriptions into ${targetLanguageName(lang)}.`,
-		"Preserve names, product names, company names, code identifiers, model names, ticker symbols, and URLs exactly when appropriate.",
-		"Do not add facts, commentary, markdown, citations, or surrounding prose.",
-		"Return every input id exactly once. Keep description as null when the input description is null.",
-		`Answer with one JSON object and nothing else, in this shape: ${TRANSLATED_BATCH_SHAPE}`,
-		"",
-		JSON.stringify({ items: inputs }),
-	].join("\n");
-	// The provider does not support schema-constrained output, so the answer
-	// is parsed and checked here (see translation-json.ts).
-	const rows = await requestTranslatedBatch(
-		async (request) => {
-			const { text } = await generateText({
-				abortSignal,
-				model: providerModel(),
-				prompt: request,
-				providerOptions: llmProviderOptions(),
-			});
-			return text;
-		},
-		prompt,
-		inputs.map((input) => input.id)
-	);
-
-	const translations: WritableTranslation[] = [];
-	for (const row of rows) {
-		const index = Number.parseInt(row.id, 10);
-		const candidate = candidates[index];
-		const title = row.title.trim();
-		if (!(candidate && title)) {
-			continue;
-		}
-		translations.push({
-			description: cleanDescription(row.description),
-			itemId: candidate.item.id,
-			lang,
-			model: translationModelId(),
-			sourceId: candidate.sourceId,
-			textHash: candidate.textHash,
-			title,
-		});
-	}
-
-	try {
-		await writeItemTranslations(translations);
-	} catch (error) {
-		console.warn(
-			"[trends-translation] failed to write cached translations",
-			error
-		);
-	}
-	return translations;
-}
-
-async function translateBatchResilient(
-	lang: TranslationLanguage,
-	candidates: TranslationCandidate[],
-	abortSignal?: AbortSignal
-): Promise<WritableTranslation[]> {
-	try {
-		return await translateBatch(lang, candidates, abortSignal);
-	} catch (error) {
-		if (abortSignal?.aborted) {
-			throw error;
-		}
-		if (!shouldSplitTranslationFailure(error)) {
-			throw error;
-		}
-		if (candidates.length <= 1) {
-			console.warn("[trends-translation] failed to translate item", error);
-			return [];
-		}
-		const midpoint = Math.ceil(candidates.length / 2);
-		const [left, right] = await Promise.all([
-			translateBatchResilient(lang, candidates.slice(0, midpoint), abortSignal),
-			translateBatchResilient(lang, candidates.slice(midpoint), abortSignal),
-		]);
-		return [...left, ...right];
-	}
-}
-
-// Splitting is useful when a model returned malformed structured output: a
-// smaller payload often fixes that one item. It is actively harmful for auth,
-// billing, rate-limit, and network failures because one failed request becomes
-// a request tree. Those failures must stay a single queue retry.
-export function shouldSplitTranslationFailure(error: unknown): boolean {
-	if (!(error instanceof Error)) {
-		return false;
-	}
-	return (
-		error.name === "TranslationOutputError" ||
-		error.name === "AI_NoObjectGeneratedError" ||
-		error.name === "AI_TypeValidationError" ||
-		error.name === "AI_JSONParseError"
-	);
-}
-
-export interface TranslationOptions {
-	// Queue prewarm jobs should be retried when the provider rejected every
-	// batch. Interactive requests keep their existing best-effort behavior.
-	throwOnTotalFailure?: boolean;
-	// Lets batches that outlive the response finish and reach the cache. Without
-	// it a slow model loses every batch it has not completed at the deadline,
-	// and each new request starts the same work again.
-	waitUntil?: (promise: Promise<unknown>) => void;
-}
-
-// Translates until `timeoutMs`, then returns what is finished. Batches still
-// in flight keep running for a grace period so their result is cached for the
-// next request instead of being thrown away.
-export async function translateMissingWithinTimeout(
-	lang: TranslationLanguage,
-	candidates: TranslationCandidate[],
-	timeoutMs: number,
-	options: TranslationOptions = {},
-	translate: typeof translateBatchResilient = translateBatchResilient
-): Promise<WritableTranslation[]> {
-	if (candidates.length === 0) {
-		return [];
-	}
-
-	const stragglerLimit = new AbortController();
-	const batches = chunk(candidates, BATCH_SIZE);
-	const translations: WritableTranslation[] = [];
-	const failures: unknown[] = [];
-	let successfulBatches = 0;
-	let nextBatch = 0;
-	let deadlineReached = false;
-
-	async function worker(): Promise<void> {
-		while (!deadlineReached && nextBatch < batches.length) {
-			const batch = batches[nextBatch];
-			nextBatch += 1;
-			if (!batch) {
-				continue;
-			}
-			try {
-				const batchTranslations = await translate(
-					lang,
-					batch,
-					stragglerLimit.signal
-				);
-				successfulBatches += 1;
-				translations.push(...batchTranslations);
-			} catch (error) {
-				failures.push(error);
-				if (!stragglerLimit.signal.aborted) {
-					console.warn("[trends-translation] failed to translate batch", error);
-				}
-			}
-		}
-	}
-
-	const workers = Promise.all(
-		Array.from(
-			{ length: Math.min(SYNC_TRANSLATION_CONCURRENCY, batches.length) },
-			() => worker()
-		)
-	);
-	let deadline: ReturnType<typeof setTimeout> | undefined;
-	await Promise.race([
-		workers,
-		new Promise<void>((resolve) => {
-			deadline = setTimeout(() => {
-				deadlineReached = true;
-				resolve();
-			}, timeoutMs);
-		}),
-	]);
-	clearTimeout(deadline);
-
-	if (deadlineReached) {
-		const stragglerTimer = setTimeout(
-			() => stragglerLimit.abort(),
-			SYNC_TRANSLATION_STRAGGLER_MS
-		);
-		options.waitUntil?.(workers.finally(() => clearTimeout(stragglerTimer)));
-	}
-	if (
-		!deadlineReached &&
-		options.throwOnTotalFailure &&
-		successfulBatches === 0 &&
-		failures.length > 0
-	) {
-		throw failures[0];
-	}
-	return [...translations];
-}
-
-function collectTranslationCandidates(
-	page: TrendsPageData,
-	lang: TranslationLanguage
-): TranslationCandidate[] {
-	const candidates = new Map<string, TranslationCandidate>();
-	for (const section of page.sections) {
-		for (const source of section.sources) {
-			for (const item of source.items) {
-				if (item.original) {
-					continue;
-				}
-				if (!shouldTranslateItem(item, lang)) {
-					continue;
-				}
-				const textHash = hashItemText(item);
-				const cacheKey = makeCacheKey(lang, source.sourceId, item.id, textHash);
-				candidates.set(cacheKey, {
-					cacheKey,
-					item,
-					sourceId: source.sourceId,
-					textHash,
-				});
-			}
-		}
-	}
-	return [...candidates.values()];
-}
-
-type TranslationMap = Map<string, CachedItemTranslation | WritableTranslation>;
-
-async function readCachedTranslationsSafely(params: {
-	itemIds: string[];
-	lang: TranslationLanguage;
-	mode: TranslationMode;
-	sourceIds: string[];
-}): Promise<CachedItemTranslation[] | null> {
-	try {
-		return await readCachedTranslations(params);
-	} catch (error) {
-		if (params.mode === "background") {
-			if (error instanceof TranslationCacheReadTimeoutError) {
-				return null;
-			}
-			console.warn(
-				"[trends-translation] failed to read cached translations",
-				error
-			);
-			return null;
-		}
-		console.warn(
-			"[trends-translation] failed to read cached translations",
-			error
-		);
-		return [];
-	}
-}
-
-function buildTranslationMap(
-	uniqueCandidates: TranslationCandidate[],
-	cachedRows: CachedItemTranslation[]
-): { missing: TranslationCandidate[]; translations: TranslationMap } {
-	const cached = makeTranslationMap(cachedRows);
-	const translations: TranslationMap = new Map();
-	const missing: TranslationCandidate[] = [];
-
-	for (const candidate of uniqueCandidates) {
-		const cachedRow = cached.get(`${candidate.sourceId}:${candidate.item.id}`);
-		if (cachedRow?.textHash === candidate.textHash) {
-			translations.set(`${candidate.sourceId}:${candidate.item.id}`, cachedRow);
-		} else {
-			missing.push(candidate);
-		}
-	}
-
-	return { missing, translations };
-}
-
-async function fillSyncTranslations(
-	missing: TranslationCandidate[],
-	translations: TranslationMap,
-	lang: TranslationLanguage,
-	mode: TranslationMode,
-	options: TranslationOptions
-): Promise<void> {
-	if (mode !== "sync") {
-		return;
-	}
-
-	const missingWithinRequestBudget = missing.slice(
-		0,
-		MAX_SYNC_TRANSLATION_CANDIDATES
-	);
-	if (missingWithinRequestBudget.length < missing.length) {
-		console.warn(
-			`[trends-translation] skipped ${missing.length - missingWithinRequestBudget.length} sync candidates to stay within request budget`
-		);
-	}
-	const translatedRows = await translateMissingWithinTimeout(
-		lang,
-		missingWithinRequestBudget,
-		SYNC_TRANSLATION_TIMEOUT_MS,
-		options
-	);
-	for (const row of translatedRows) {
-		translations.set(`${row.sourceId}:${row.itemId}`, row);
-	}
 }
 
 export async function translateTrendsPage(
@@ -575,150 +267,19 @@ export async function translateTrendsPage(
 	mode: TranslationMode = "background",
 	options: TranslationOptions = {}
 ): Promise<TrendsPageData> {
-	if (!env.LLM_API_KEY) {
-		return page;
-	}
-
-	const uniqueCandidates = collectTranslationCandidates(page, lang);
-	if (uniqueCandidates.length === 0) {
-		return page;
-	}
-
-	const sourceIds = uniqueCandidates.map((candidate) => candidate.sourceId);
-	const itemIds = uniqueCandidates.map((candidate) => candidate.item.id);
-	const cachedRows = await readCachedTranslationsSafely({
-		itemIds,
-		lang,
-		mode,
-		sourceIds,
-	});
-	if (cachedRows === null) {
-		return page;
-	}
-	const { missing, translations } = buildTranslationMap(
-		uniqueCandidates,
-		cachedRows
+	const all = page.sections.flatMap((section) =>
+		section.sources.flatMap((source) => source.items)
 	);
-	await fillSyncTranslations(missing, translations, lang, mode, options);
-
-	if (translations.size === 0) {
-		return page;
-	}
-
+	const translated = await translateNewsItems(all, lang, mode, options);
+	let index = 0;
 	return {
 		...page,
 		sections: page.sections.map((section) => ({
 			...section,
-			sources: section.sources.map(
-				(source): SourceCardData => ({
-					...source,
-					items: source.items.map((item) => {
-						const translation = translations.get(
-							`${source.sourceId}:${item.id}`
-						);
-						return translation ? applyTranslation(item, translation) : item;
-					}),
-				})
-			),
+			sources: section.sources.map((source) => ({
+				...source,
+				items: source.items.map(() => translated[index++] as NewsItem),
+			})),
 		})),
 	};
-}
-
-const PREWARM_TRANSLATION_TIMEOUT_MS = 120_000;
-const MAX_PREWARM_TRANSLATION_CANDIDATES = 60;
-
-// Translates whatever a source's current items are still missing in `lang` and
-// stores it, without a reader waiting on the result. Returns how many items
-// were translated.
-export async function prewarmItemTranslations(
-	items: NewsItem[],
-	lang: TranslationLanguage,
-	options: { timeoutMs?: number } = {}
-): Promise<number> {
-	if (!env.LLM_API_KEY) {
-		return 0;
-	}
-	const candidates = items
-		.filter((item) => needsTranslation(item, lang))
-		.map((item): TranslationCandidate => {
-			const textHash = hashItemText(item);
-			return {
-				cacheKey: makeCacheKey(lang, item.sourceId, item.id, textHash),
-				item,
-				sourceId: item.sourceId,
-				textHash,
-			};
-		});
-	if (candidates.length === 0) {
-		return 0;
-	}
-	const cachedRows = await readItemTranslations({
-		itemIds: candidates.map((candidate) => candidate.item.id),
-		lang,
-		sourceIds: candidates.map((candidate) => candidate.sourceId),
-	});
-	const { missing } = buildTranslationMap(candidates, cachedRows);
-	const translated = await translateMissingWithinTimeout(
-		lang,
-		missing.slice(0, MAX_PREWARM_TRANSLATION_CANDIDATES),
-		options.timeoutMs ?? PREWARM_TRANSLATION_TIMEOUT_MS,
-		{ throwOnTotalFailure: true }
-	);
-	return translated.length;
-}
-
-export async function translateNewsItems(
-	items: NewsItem[],
-	lang: TranslationLanguage,
-	mode: TranslationMode = "background",
-	options: TranslationOptions = {}
-): Promise<NewsItem[]> {
-	if (!env.LLM_API_KEY) {
-		return items;
-	}
-
-	const candidates = new Map<string, TranslationCandidate>();
-	for (const item of items) {
-		if (item.original || !shouldTranslateItem(item, lang)) {
-			continue;
-		}
-		const textHash = hashItemText(item);
-		const cacheKey = makeCacheKey(lang, item.sourceId, item.id, textHash);
-		candidates.set(cacheKey, {
-			cacheKey,
-			item,
-			sourceId: item.sourceId,
-			textHash,
-		});
-	}
-	const uniqueCandidates = [...candidates.values()];
-	if (uniqueCandidates.length === 0) {
-		return items;
-	}
-
-	const sourceIds = uniqueCandidates.map((candidate) => candidate.sourceId);
-	const itemIds = uniqueCandidates.map((candidate) => candidate.item.id);
-	const cachedRows = await readCachedTranslationsSafely({
-		itemIds,
-		lang,
-		mode,
-		sourceIds,
-	});
-	if (cachedRows === null) {
-		return items;
-	}
-	const { missing, translations } = buildTranslationMap(
-		uniqueCandidates,
-		cachedRows
-	);
-	await fillSyncTranslations(missing, translations, lang, mode, options);
-
-	if (translations.size === 0) {
-		return items;
-	}
-
-	return items.map((item) => {
-		const translation = translations.get(`${item.sourceId}:${item.id}`);
-		return translation ? applyTranslation(item, translation) : item;
-	});
 }

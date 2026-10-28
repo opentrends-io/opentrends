@@ -1,4 +1,13 @@
 {
+  "translation_queued": "Übersetzung vorgemerkt",
+  "translation_running": "Titel wird übersetzt",
+  "translation_retry": "Warten auf Wiederholung",
+  "translation_budget": "Budget erreicht; Originaltext",
+  "translation_blocked": "Übersetzung pausiert; Originaltext",
+  "translation_failed": "Fehlgeschlagen; automatische Versuche beendet",
+  "translation_unknown": "Übersetzungsstatus nicht verfügbar",
+  "translation_notice": "Einige Texte bleiben im Original. Automatische Aktualisierung endet nach 5 Minuten.",
+  "translation_refresh": "Übersetzungsstatus aktualisieren",
   "summary_retrying": "Zusammenfassung noch nicht verfügbar; erneuter Versuch…",
   "summary_refresh_failed": "Aktualisierung fehlgeschlagen. Die bisherige Zusammenfassung bleibt sichtbar.",
   "feed_load_error": "Der Feed konnte nicht geladen werden. Bitte erneut versuchen.",

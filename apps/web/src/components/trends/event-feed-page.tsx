@@ -20,10 +20,8 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState, useSyncExternalStore } from "react";
-
 import { toolButtonClassName } from "@/components/chrome-styles";
 import { localePathParam, type Translator, useLocale, useT } from "@/lib/i18n";
-
 import { CoverImage } from "./cover-image";
 import { EventPagesStrip } from "./event-pages-strip";
 import {
@@ -32,9 +30,12 @@ import {
 	TrendsTopicNotFoundError,
 } from "./load-trends";
 import { formatRelativeTime } from "./relative-time";
+import { retainEventTranslations } from "./retain-event-translations";
 import { SourceLogoStack } from "./source-favicon";
+import { TranslationIndicator, TranslationNotice } from "./translation-state";
+import { translationRefetchInterval } from "./translation-status";
 import { trendEventDetailQueryOptions } from "./trends-query";
-import type { EventDetailData, EventFeedItem } from "./types";
+import type { EventDetailData, EventFeedData, EventFeedItem } from "./types";
 import { ViewSwitch } from "./view-switch";
 import { useViewsScrollElement } from "./views-scroll";
 
@@ -137,12 +138,36 @@ export function EventFeedPage({ selectedTopic }: EventFeedPageProps) {
 	const layoutScroll = useViewsScrollElement();
 	const lanes = useEventLaneCount();
 	const eventsQuery = useInfiniteQuery({
-		queryKey: ["trend-events", selectedTopic ?? "all", EVENT_PAGE_SIZE],
+		queryKey: ["trend-events", selectedTopic ?? "all", EVENT_PAGE_SIZE, locale],
 		queryFn: ({ pageParam }) =>
 			loadTrendEvents(selectedTopic, pageParam, EVENT_PAGE_SIZE, locale),
 		getNextPageParam: (lastPage) => lastPage.nextOffset,
 		gcTime: 30 * 60_000,
 		initialPageParam: 0,
+		structuralSharing: (previous, next) => {
+			const old = previous as { pages: EventFeedData[] } | undefined;
+			const value = next as { pages: EventFeedData[]; pageParams: number[] };
+			return {
+				...value,
+				pages: value.pages.map((page) => ({
+					...page,
+					events: retainEventTranslations(
+						old?.pages.flatMap((part) => part.events) ?? [],
+						page.events,
+						locale
+					),
+				})),
+			};
+		},
+		retry: 2,
+		refetchInterval: (query) =>
+			(query.state.data?.pages.length ?? 0) > 3
+				? false
+				: translationRefetchInterval(
+						query,
+						query.state.data?.pages.flatMap((page) => page.events) ?? [],
+						locale
+					),
 		refetchOnWindowFocus: false,
 		staleTime: 10 * 60_000,
 	});
@@ -174,6 +199,7 @@ export function EventFeedPage({ selectedTopic }: EventFeedPageProps) {
 	}
 	if (
 		eventsQuery.error &&
+		events.length === 0 &&
 		!(eventsQuery.error instanceof TrendEventsEmbeddingNotConfiguredError)
 	) {
 		throw eventsQuery.error;
@@ -248,6 +274,7 @@ export function EventFeedPage({ selectedTopic }: EventFeedPageProps) {
 				</div>
 			</div>
 			<div className="p-3 sm:p-4">
+				<TranslationNotice items={events} />
 				<EventPagesStrip />
 				{eventContent}
 			</div>
@@ -443,6 +470,7 @@ function EventCard({
 					<span className="line-clamp-4 min-w-0 flex-1 font-semibold text-[15px] text-[var(--text-heading)] leading-[1.35] group-hover:text-[var(--accent-blue)]">
 						{event.title}
 					</span>
+					<TranslationIndicator item={event} />
 					<ArrowUpRight className="mt-1 size-3.5 shrink-0 text-[var(--text-muted)]" />
 				</span>
 				{event.summary ? (
@@ -546,6 +574,7 @@ function EventDetailDialog({
 				</DialogHeader>
 				<ScrollArea className="min-h-0 flex-1 overflow-hidden">
 					<div className="flex flex-col gap-3 p-1">
+						<TranslationNotice items={detail?.sourceItems ?? []} />
 						{event?.summary ? (
 							<p className="text-[13px] text-[var(--text-secondary)] leading-[1.5]">
 								{event.summary}
@@ -575,6 +604,7 @@ function EventDetailDialog({
 										<span className="min-w-0 flex-1">
 											<span className="line-clamp-2 font-medium text-[13px] text-[var(--text-primary)] leading-[1.45] group-hover:text-[var(--accent-blue)]">
 												{item.title}
+												<TranslationIndicator item={item} />
 											</span>
 											<span className="mt-1 flex flex-wrap gap-2 text-[11px] text-[var(--text-muted)]">
 												<span>{item.sourceId}</span>

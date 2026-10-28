@@ -43,6 +43,11 @@ import {
 } from "./source-manager-dialog";
 import { useSourcePreferences } from "./source-preferences";
 import { orderWithPinned } from "./source-preferences-model";
+import {
+	applyCachedTranslations,
+	storePageTranslations,
+} from "./translation-snapshot-cache";
+import { TranslationIndicator, TranslationNotice } from "./translation-state";
 import { trendsPageQueryOptions } from "./trends-query";
 import { FeedSkeleton } from "./trends-skeleton";
 import type { NewsItem, SourceCardData, TrendsPageData } from "./types";
@@ -164,7 +169,9 @@ export function FeedPage({ topicId }: FeedPageProps) {
 		}),
 		combine: (results) => ({
 			pages: results
-				.map((result) => result.data)
+				.map((result) =>
+					result.data ? applyCachedTranslations(result.data, locale) : undefined
+				)
 				.filter((page): page is TrendsPageData => Boolean(page)),
 			pending: results.some(
 				(result) =>
@@ -181,6 +188,11 @@ export function FeedPage({ topicId }: FeedPageProps) {
 		}),
 	});
 	const primary = pages.find((page) => page.id === topicId) ?? pages[0];
+	useEffect(() => {
+		for (const page of pages) {
+			storePageTranslations(page, locale);
+		}
+	}, [pages, locale]);
 	// The topic's own source preferences: hidden sources stay out of the
 	// feed, and the manage dialog edits the same list the source view uses.
 	const primarySourceIds = useMemo(
@@ -259,6 +271,13 @@ export function FeedPage({ topicId }: FeedPageProps) {
 
 	return (
 		<div className="min-w-0">
+			<TranslationNotice
+				items={pages.flatMap((page) =>
+					page.sections.flatMap((section) =>
+						section.sources.flatMap((source) => source.items)
+					)
+				)}
+			/>
 			<div className="flex h-10 items-center justify-between gap-3 border-[var(--border-default)] border-b bg-[var(--surface-sidebar)] px-3 sm:px-4">
 				<ViewSwitch localeParam={localeParam} topicId={topicId} view="feed" />
 				<div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)] tabular-nums">
@@ -502,6 +521,7 @@ function FeedCard({
 				<span className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
 					<SourceFavicon homeUrl={source.homeUrl} />
 					<span className="min-w-0 flex-1 truncate">{source.title}</span>
+					<TranslationIndicator item={item} />
 					{SHOW_CONTENT_KINDS && kindLabel ? (
 						<span className="shrink-0 rounded-sm border border-[var(--border-subtle)] px-1 text-[10px] leading-4">
 							{kindLabel}
@@ -604,6 +624,7 @@ function ListCard({
 							<span className="line-clamp-2 min-w-0 flex-1 leading-[1.45]">
 								{item.title}
 							</span>
+							<TranslationIndicator item={item} />
 							{heatOf(item) ? (
 								<span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-[var(--accent-orange)] tabular-nums">
 									<Flame aria-hidden className="size-3" />

@@ -437,7 +437,9 @@ function refreshSourceIdsInBackground(
 			Date.now(),
 			MAX_PAGE_BACKGROUND_REFRESHES
 		);
-		const outcomes = await Promise.all(dueSourceIds.map(refreshSource));
+		const outcomes = await Promise.all(
+			dueSourceIds.map((sourceId) => refreshSource(sourceId))
+		);
 		const refreshed = outcomes.some(
 			(outcome) => outcome.kind === "ok" || outcome.kind === "error"
 		);

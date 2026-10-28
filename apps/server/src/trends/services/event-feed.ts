@@ -1,6 +1,6 @@
+import type { TranslationStatus } from "@opentrends/api/translation-contract";
 import { db, schema } from "@opentrends/db";
 import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
-
 import { getEventEligibleSourceIds, getSourcePreset } from "../config/sources";
 import { getTopicPreset } from "../config/topics";
 import { EVENT_TIME_WINDOW_MS } from "./event-clustering";
@@ -29,6 +29,7 @@ import {
 	type TranslationMode,
 	translateNewsItems,
 } from "./translate-news-items";
+import { resolveEventTranslationItems } from "./translation-prewarm-jobs";
 
 const {
 	sourceItem,
@@ -75,6 +76,7 @@ export interface EventFeedItem {
 	title: string;
 	topicId: string;
 	topicIds?: string[];
+	translation?: TranslationStatus;
 }
 
 export interface EventFeedResponse {
@@ -114,6 +116,7 @@ export interface EventDetailResponse {
 	};
 	score: number;
 	sourceItems: Array<{
+		translation?: TranslationStatus;
 		contentFetchedAt?: string;
 		contentStatus: string;
 		description?: string;
@@ -136,6 +139,7 @@ export interface EventDetailResponse {
 	summary?: string;
 	title: string;
 	topicId: string;
+	translation?: TranslationStatus;
 }
 
 function sourceName(sourceId: string): string {
@@ -490,23 +494,25 @@ export async function getEventFeed(
 	);
 	if (options.lang) {
 		const translationItems = await translateNewsItems(
-			events.map((event, index) => {
-				const row = pageRows[index];
-				return {
+			await resolveEventTranslationItems(
+				events.map((event) => ({
 					description: event.summary,
 					fetchedAt: Date.now(),
-					id: row?.primaryItemId ?? event.eventId,
-					sourceId: row?.primarySourceId ?? `event:${event.topicId}`,
+					id: event.eventId,
+					sourceId: `event:${event.eventId}`,
 					title: event.title,
 					url: event.primarySource?.url ?? "",
-				};
-			}),
+				}))
+			),
 			options.lang,
 			options.translationMode
 		);
 		for (let index = 0; index < events.length; index += 1) {
 			const event = events[index];
 			const translated = translationItems[index];
+			if (event && translated) {
+				event.translation = translated.translation;
+			}
 			if (event && translated?.original) {
 				event.title = translated.title;
 				event.summary = translated.description;
@@ -641,10 +647,25 @@ export async function getEventDetail(
 				options.translationMode
 			)
 		: [];
-	const primaryIndex = items.findIndex((item) => item.isPrimary === 1);
-	const primaryTranslation =
-		primaryIndex >= 0 ? translatedItems[primaryIndex] : undefined;
+	const primaryTranslation = options.lang
+		? (
+				await translateNewsItems(
+					await resolveEventTranslationItems([
+						{
+							id: event.eventId,
+							sourceId: `event:${event.eventId}`,
+							title: event.title,
+							description: event.summary ?? undefined,
+							url: "",
+							fetchedAt: 0,
+						},
+					]),
+					options.lang
+				)
+			)[0]
+		: undefined;
 	return {
+		translation: primaryTranslation?.translation,
 		eventId: event.eventId,
 		topicId: topicId ?? event.topicId,
 		title: primaryTranslation?.original
@@ -707,6 +728,7 @@ export async function getEventDetail(
 			],
 		},
 		sourceItems: items.map((item, index) => ({
+			translation: translatedItems[index]?.translation,
 			sourceId: item.sourceId,
 			itemId: item.itemId,
 			title: translatedItems[index]?.original

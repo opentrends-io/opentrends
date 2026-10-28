@@ -39,6 +39,18 @@ const serverEnvSchema = z
 		LLM_BASE_URL: z.url().default("https://dashboard.thorbase.com/v1"),
 		LLM_MODEL: z.string().min(1).default("deepseek/deepseek-v4-pro"),
 		LLM_TRANSLATION_MODEL: z.string().min(1).optional(),
+		TRANSLATION_JOBS_ENABLED: z.enum(["true", "false"]).default("false"),
+		TRANSLATION_ONLY_SCHEDULED: z.enum(["true", "false"]).default("false"),
+		TRANSLATION_DAILY_BUDGET_CNY: z.coerce.number().min(0).max(50).default(0),
+		TRANSLATION_DAILY_CALL_LIMIT: z.coerce
+			.number()
+			.int()
+			.min(0)
+			.max(50_000)
+			.default(2000),
+		TRANSLATION_PRICE_MODEL: z.string().optional(),
+		TRANSLATION_INPUT_CNY_PER_MILLION: z.coerce.number().positive().optional(),
+		TRANSLATION_OUTPUT_CNY_PER_MILLION: z.coerce.number().positive().optional(),
 		LLM_ENABLE_THINKING: z.enum(["true", "false"]).optional(),
 		SILICONFLOW_API_KEY: z.string().min(1).optional(),
 		SILICONFLOW_EMBEDDING_MODEL: z

@@ -23,7 +23,6 @@ import {
 	Flame,
 	GripVertical,
 	Languages,
-	LoaderCircle,
 	MoreHorizontal,
 	Pin,
 	PinOff,
@@ -77,10 +76,8 @@ import {
 	applyCachedTranslations,
 	storePageTranslations,
 } from "./translation-snapshot-cache";
-import {
-	pageNeedsTranslationWarmup,
-	textNeedsTranslation,
-} from "./translation-status";
+import { TranslationIndicator, TranslationNotice } from "./translation-state";
+import { pageNeedsTranslationWarmup } from "./translation-status";
 import { SOURCE_RENDER_BATCH_SIZE } from "./trends-limits";
 import { trendSourceQueryOptions } from "./trends-query";
 import type {
@@ -508,6 +505,11 @@ export function TrendsPage({ displaySettingsStore, page }: TrendsPageProps) {
 							topicTitle={displayPage.title}
 						/>
 					) : null}
+					<TranslationNotice
+						items={displayPage.sections.flatMap((section) =>
+							section.sources.flatMap((source) => source.items)
+						)}
+					/>
 					{sourceContent}
 				</div>
 				{dragPreview ? (
@@ -1459,29 +1461,13 @@ function NewsCard({
 
 function TitleTranslationIndicator({
 	item,
-	locale,
-	pending,
-	t,
 }: {
 	item: NewsItem;
 	locale: Locale;
 	pending: boolean;
 	t: Translator;
 }) {
-	if (!pending || item.original || !textNeedsTranslation(item.title, locale)) {
-		return null;
-	}
-
-	const label = t("card.translatingTitle");
-	return (
-		<span
-			className="mt-[3px] inline-flex size-3.5 shrink-0 items-center justify-center text-[var(--text-muted)]"
-			title={label}
-		>
-			<LoaderCircle aria-hidden className="size-3 motion-safe:animate-spin" />
-			<span className="sr-only">{label}</span>
-		</span>
-	);
+	return <TranslationIndicator item={item} />;
 }
 
 function NewsItemMeta({

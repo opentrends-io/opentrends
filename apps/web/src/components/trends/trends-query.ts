@@ -13,7 +13,8 @@ import {
 	loadTrendSource,
 	loadTrends,
 } from "./load-trends";
-import { pageNeedsTranslationWarmup } from "./translation-status";
+import { retainEventFeed } from "./retain-event-translations";
+import { translationRefetchInterval } from "./translation-status";
 import { TRENDS_FULL_ITEMS_PER_SOURCE } from "./trends-limits";
 import type {
 	ArchivedDigestData,
@@ -48,12 +49,13 @@ export function trendsPageQueryOptions(
 		gcTime: TRENDS_PAGE_GC_MS,
 		retry: 2,
 		refetchInterval: (query) =>
-			query.state.dataUpdateCount < 30 &&
-			query.state.errorUpdateCount < 3 &&
-			query.state.data &&
-			pageNeedsTranslationWarmup(query.state.data, locale)
-				? 10_000
-				: false,
+			translationRefetchInterval(
+				query,
+				query.state.data?.sections.flatMap((section) =>
+					section.sources.flatMap((source) => source.items)
+				) ?? [],
+				locale
+			),
 		refetchOnWindowFocus: false,
 		staleTime: TRENDS_PAGE_STALE_MS,
 	});
@@ -75,6 +77,9 @@ export function trendSourceQueryOptions(
 		],
 		queryFn: () =>
 			loadTrendSource(topic, sourceId, locale, TRENDS_FULL_ITEMS_PER_SOURCE),
+		retry: 2,
+		refetchInterval: (query) =>
+			translationRefetchInterval(query, query.state.data?.items ?? [], locale),
 		gcTime: TRENDS_PAGE_GC_MS,
 		refetchOnWindowFocus: false,
 		staleTime: TRENDS_PAGE_STALE_MS,
@@ -85,6 +90,11 @@ export function trendEventsQueryOptions(topic?: string, locale: Locale = "en") {
 	return queryOptions<EventFeedData, Error>({
 		queryKey: ["trend-events", topic ?? "all", locale],
 		queryFn: () => loadTrendEvents(topic, 0, 30, locale),
+		structuralSharing: (previous, next) =>
+			retainEventFeed(previous, next as EventFeedData, locale),
+		retry: 2,
+		refetchInterval: (query) =>
+			translationRefetchInterval(query, query.state.data?.events ?? [], locale),
 		gcTime: TRENDS_PAGE_GC_MS,
 		refetchOnWindowFocus: false,
 		staleTime: TRENDS_PAGE_STALE_MS,
@@ -99,6 +109,13 @@ export function trendEventDetailQueryOptions(
 	return queryOptions<EventDetailData, Error>({
 		queryKey: ["trend-event-detail", eventId, topic ?? "all", locale],
 		queryFn: () => loadTrendEventDetail(eventId, topic, locale),
+		retry: 2,
+		refetchInterval: (query) =>
+			translationRefetchInterval(
+				query,
+				query.state.data?.sourceItems ?? [],
+				locale
+			),
 		gcTime: TRENDS_PAGE_GC_MS,
 		refetchOnWindowFocus: false,
 		staleTime: TRENDS_PAGE_STALE_MS,

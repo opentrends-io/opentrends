@@ -13,6 +13,7 @@ interface CachedTranslation {
 	originalTitle: string;
 	sourceId: string;
 	title: string;
+	translation?: NewsItem["translation"];
 }
 
 interface TranslationCacheEnvelope {
@@ -58,6 +59,7 @@ function cacheEntry(item: NewsItem): CachedTranslation | undefined {
 		return;
 	}
 	return {
+		translation: item.translation,
 		description: item.description,
 		itemId: item.id,
 		originalDescription: item.original.description,
@@ -115,24 +117,28 @@ export function applyCachedTranslations(
 		sources: section.sources.map((source) => ({
 			...source,
 			items: source.items.map((item) => {
-				if (item.original) {
-					return item;
-				}
 				const translation = cached.get(`${source.sourceId}:${item.id}`);
+				const original = item.original ?? item;
 				if (
 					!translation ||
-					translation.originalTitle !== item.title ||
-					translation.originalDescription !== item.description
+					(translation.translation &&
+						translation.translation.language !== locale) ||
+					translation.originalTitle !== original.title ||
+					translation.originalDescription !== original.description ||
+					(item.original &&
+						(item.translation?.updatedAt ?? 0) >=
+							(translation.translation?.updatedAt ?? 0))
 				) {
 					return item;
 				}
 				changed = true;
 				return {
 					...item,
+					translation: translation.translation,
 					description: translation.description,
 					original: {
-						description: item.description,
-						title: item.title,
+						description: original.description,
+						title: original.title,
 					},
 					title: translation.title,
 				};

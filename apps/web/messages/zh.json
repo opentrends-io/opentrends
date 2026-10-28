@@ -1,4 +1,13 @@
 {
+  "translation_queued": "翻译排队中",
+  "translation_running": "标题翻译中",
+  "translation_retry": "等待重试",
+  "translation_budget": "翻译额度已用完，保留原文",
+  "translation_blocked": "翻译服务暂停，保留原文",
+  "translation_failed": "翻译失败，已停止自动重试",
+  "translation_unknown": "翻译状态待确认",
+  "translation_notice": "部分条目保留原文；自动刷新最多 5 分钟。",
+  "translation_refresh": "刷新翻译状态",
   "summary_retrying": "摘要暂未就绪，正在重试…",
   "summary_refresh_failed": "更新失败，暂时保留已有摘要。",
   "nav_home": "首页",

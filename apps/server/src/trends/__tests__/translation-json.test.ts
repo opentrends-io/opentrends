@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { shouldSplitTranslationFailure } from "../services/translate-news-items";
 import {
 	parseTranslatedBatch,
 	requestTranslatedBatch,
@@ -142,6 +141,6 @@ describe("requesting a translated batch", () => {
 		);
 		await expect(failing).rejects.toBeInstanceOf(TranslationOutputError);
 		const error = await failing.catch((caught: unknown) => caught);
-		expect(shouldSplitTranslationFailure(error)).toBe(true);
+		expect(error).toBeInstanceOf(TranslationOutputError);
 	});
 });

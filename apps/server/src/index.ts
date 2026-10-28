@@ -19,6 +19,7 @@ import { createMcpRoutes } from "./routes/mcp";
 import { skillsRoutes } from "./routes/skills";
 import { sourcesRoutes } from "./routes/sources";
 import { topicsRoutes } from "./routes/topics";
+import { translationHealthRoutes } from "./routes/translation-health";
 import { trendsRoutes } from "./routes/trends";
 import {
 	runWithWorkerBindings,
@@ -30,7 +31,10 @@ import { runEventMergeJob } from "./trends/services/event-merge-jobs";
 import { runTrendsRefreshTick } from "./trends/services/refresh-scheduler";
 import { runSummaryPrewarmJob } from "./trends/services/summary-prewarm-jobs";
 import { isTranslationPagePath } from "./trends/services/translation-http-cache";
-import { runTranslationPrewarmJob } from "./trends/services/translation-prewarm-jobs";
+import {
+	reconcileTranslationJobs,
+	runTranslationPrewarmJob,
+} from "./trends/services/translation-prewarm-jobs";
 
 const app = new Hono<{ Bindings: WorkerBindings }>();
 const PRODUCTION_WEB_ORIGINS = new Set(["https://opentrends.io"]);
@@ -140,6 +144,7 @@ app.use("/api/trends/*", async (c, next) => {
 
 app.route("/api/image", imageRoutes);
 app.route("/api/events", eventsRoutes);
+app.route("/api/internal/translation-health", translationHealthRoutes);
 app.route("/api/skills", skillsRoutes);
 app.route("/api/trends", trendsRoutes);
 app.route("/api/sources", sourcesRoutes);
@@ -238,6 +243,14 @@ export default {
 		});
 	},
 	scheduled(controller, bindings, executionContext) {
+		// Bounded translation-only canary: do not enable unrelated summary,
+		// embedding or briefing work when validating the new durable pipeline.
+		if (bindings.TRANSLATION_ONLY_SCHEDULED === "true") {
+			executionContext.waitUntil(
+				runWithWorkerBindings(bindings, reconcileTranslationJobs)
+			);
+			return;
+		}
 		executionContext.waitUntil(
 			runWithWorkerBindings(bindings, () =>
 				runTrendsRefreshTick(controller.scheduledTime)

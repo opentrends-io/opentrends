@@ -11,6 +11,7 @@ import { refreshSource } from "./refresh-source";
 import { selectDueSourceIds } from "./source-refresh-priority";
 import { reconcileMissingSummaryPrewarms } from "./summary-prewarm-jobs";
 import type { TranslationLanguage } from "./translate-news-items";
+import { reconcileTranslationJobs } from "./translation-prewarm-jobs";
 
 const SCHEDULER_TICK_MS = 60_000;
 const MAX_REFRESHES_PER_TICK = 4;
@@ -50,7 +51,7 @@ async function refreshDueSources(
 		);
 		const outcomes = await Promise.all(
 			dueSourceIds.map(async (sourceId) => ({
-				outcome: await refreshSource(sourceId),
+				outcome: await refreshSource(sourceId, { translationJobs: true }),
 				sourceId,
 			}))
 		);
@@ -116,6 +117,11 @@ export function scheduleTrendsRefreshTick(
 }
 
 export async function runTrendsRefreshTick(now = Date.now()): Promise<void> {
+	await reconcileTranslationJobs().catch(() => {
+		console.warn(
+			"[translation-jobs] reconciliation failed; next scheduled tick will recover"
+		);
+	});
 	const changedSourceIds = await refreshDueSources(
 		getOrCreateSchedulerState(),
 		now

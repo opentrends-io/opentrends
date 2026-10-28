@@ -36,6 +36,13 @@ test("translation polling stops on completion or its finite read budget", () => 
 								title: "A new model",
 								url: "https://example.test/1",
 								fetchedAt: 1,
+								translation: {
+									state: "running",
+									language: "zh",
+									textHash: "fixture",
+									checkedAt: Date.now(),
+									leaseUntil: Date.now() + 90_000,
+								},
 							},
 						],
 					},

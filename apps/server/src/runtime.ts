@@ -37,6 +37,7 @@ export interface WorkerBindings {
 	SILICONFLOW_API_KEY?: string;
 	SILICONFLOW_EMBEDDING_MODEL: string;
 	SUMMARY_PREWARM_QUEUE: Queue<WorkerQueueMessage>;
+	TRANSLATION_ONLY_SCHEDULED?: "true" | "false";
 	TRENDS_REFRESH_SCHEDULER: "auto" | "disabled" | "enabled";
 	[key: string]: unknown;
 }

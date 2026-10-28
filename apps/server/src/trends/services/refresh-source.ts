@@ -27,7 +27,8 @@ export class EmptySourceResultError extends Error {
 }
 
 export async function refreshSource(
-	sourceId: SourceId
+	sourceId: SourceId,
+	options: { translationJobs?: boolean } = {}
 ): Promise<RefreshOutcome> {
 	const preset = getSourcePreset(sourceId);
 	if (!preset) {
@@ -74,12 +75,14 @@ export async function refreshSource(
 				);
 			}
 		);
-		await dispatchTranslationPrewarmJobs(sourceId, items).catch((error) => {
-			console.warn(
-				"[trends-translation] dispatch failed after source refresh",
-				error
-			);
-		});
+		if (options.translationJobs) {
+			await dispatchTranslationPrewarmJobs(sourceId, items).catch((error) => {
+				console.warn(
+					"[trends-translation] dispatch failed after source refresh",
+					error
+				);
+			});
+		}
 		return {
 			changed: itemsToProcess.length > 0,
 			kind: "ok",

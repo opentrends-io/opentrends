@@ -1,4 +1,13 @@
 {
+  "translation_queued": "Translation queued",
+  "translation_running": "Translating title",
+  "translation_retry": "Waiting to retry",
+  "translation_budget": "Translation budget reached; showing original",
+  "translation_blocked": "Translation paused; showing original",
+  "translation_failed": "Translation failed; automatic retries stopped",
+  "translation_unknown": "Translation status unavailable",
+  "translation_notice": "Some items show original text. Automatic refresh stops after 5 minutes.",
+  "translation_refresh": "Refresh translation status",
   "summary_retrying": "Summary not ready; retrying…",
   "summary_refresh_failed": "Couldn’t refresh. Showing the previous summary.",
   "nav_home": "Home",

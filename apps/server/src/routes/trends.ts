@@ -46,7 +46,6 @@ import {
 	type TranslationMode,
 } from "../trends/services/translate-news-items";
 import { TRANSLATION_PAGE_CACHE_CONTROL } from "../trends/services/translation-http-cache";
-import { requestTranslationPrewarmsForPage } from "../trends/services/translation-prewarm-jobs";
 import type { TopicId } from "../trends/types";
 
 interface WaitUntilContext {
@@ -153,19 +152,6 @@ function withTrendsCacheHeaders(
 	return response;
 }
 
-function scheduleTranslationPrewarms(
-	page: Awaited<ReturnType<typeof getTrendsPageWithCacheInfo>>["page"],
-	lang: ReturnType<typeof normalizeTranslationLanguage>,
-	waitUntil: ReturnType<typeof getWaitUntil>
-): void {
-	const prewarm = requestTranslationPrewarmsForPage(page, lang).catch(
-		(error) => {
-			console.warn("[trends-translation] page reconciliation failed", error);
-		}
-	);
-	waitUntil?.(prewarm);
-}
-
 export const trendsRoutes = new Hono()
 	.get("/search", async (c) => {
 		try {
@@ -192,7 +178,6 @@ export const trendsRoutes = new Hono()
 				itemsPerSource,
 				{ waitUntil }
 			);
-			scheduleTranslationPrewarms(page, lang, waitUntil);
 			const response = withTrendsCacheHeaders(
 				c.json(slimTrendsPage(page)),
 				translationMode,
@@ -222,7 +207,6 @@ export const trendsRoutes = new Hono()
 				translationMode,
 				itemsPerSource
 			);
-			scheduleTranslationPrewarms(page, lang, getWaitUntil(c));
 			return withTrendsCacheHeaders(
 				c.json(slimTrendsPage(page)),
 				"sync",
@@ -518,7 +502,6 @@ export const trendsRoutes = new Hono()
 				itemsPerSource,
 				{ waitUntil }
 			);
-			scheduleTranslationPrewarms(page, lang, waitUntil);
 			const response = withTrendsCacheHeaders(
 				c.json(slimTrendsPage(page)),
 				translationMode,
