@@ -1,4 +1,6 @@
 {
+  "summary_retrying": "Resumo ainda indisponível; tentando novamente…",
+  "summary_refresh_failed": "Não foi possível atualizar. O resumo anterior continua visível.",
   "feed_load_error": "Não foi possível carregar o feed. Tente novamente.",
   "feed_retry": "Tentar novamente",
   "nav_home": "Início",

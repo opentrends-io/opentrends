@@ -1,4 +1,6 @@
 {
+  "summary_retrying": "摘要暫未就緒，正在重試…",
+  "summary_refresh_failed": "更新失敗，暫時保留已有摘要。",
   "feed_load_error": "內容載入失敗，請重試。",
   "feed_retry": "重試",
   "nav_home": "首頁",
