@@ -133,7 +133,7 @@ export async function dispatchTranslationPrewarmJobs(
 // A lane runs a few model calls side by side: each claim reserves its own
 // attempt under the global concurrency and per-minute caps, so parallel
 // rounds spend no more than the policy allows, only sooner.
-const PARALLEL_BATCHES = 3;
+const PARALLEL_BATCHES = 4;
 const MAX_ROUNDS_PER_WAKE = 6;
 export const DRAIN_BUDGET_MS = 90_000;
 

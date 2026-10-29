@@ -165,7 +165,7 @@ test("expired owner cannot commit after takeover, new text or parent deletion", 
 			}
 			let now = NOW + 1;
 			if (change === "takeover") {
-				now = NOW + 100_000;
+				now = NOW + 130_000;
 				expect(
 					await claimTranslationBatch(binding, "zh", limits, now)
 				).not.toBeNull();
@@ -301,10 +301,10 @@ test("retries travel in a small group and fresh jobs stop at the text budget", (
 	const fresh = selectTranslationBatch(
 		Array.from({ length: 8 }, (_, i) => job(String(i), 0))
 	);
-	expect(fresh).toHaveLength(8);
+	expect(fresh).toHaveLength(6);
 	const large = selectTranslationBatch([
-		job("big", 0, 9000),
-		job("next", 0, 9000),
+		job("big", 0, 3000),
+		job("next", 0, 3000),
 		job("small", 0),
 	]);
 	expect(large.map((entry) => entry.id)).toEqual(["big"]);

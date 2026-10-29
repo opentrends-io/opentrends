@@ -346,13 +346,13 @@ test("one real delivery drains multiple batches without readers, and duplicate d
 	}
 });
 test("drain is bounded per delivery and day-call limit has its own truthful reason", async () => {
-	// 400 items at 8 per call is 50 calls; one delivery runs at most six
-	// rounds of three parallel calls, and the day allows 30 in all.
+	// 400 items at 6 per call is 67 calls; one delivery runs at most six
+	// rounds of four parallel calls, and the day allows 40 in all.
 	const f = setup(400);
 	let calls = 0;
 	try {
 		await registerFixture(f);
-		const limited = { ...f.bindings, TRANSLATION_DAILY_CALL_LIMIT: "30" };
+		const limited = { ...f.bindings, TRANSLATION_DAILY_CALL_LIMIT: "40" };
 		await runWithWorkerBindings(limited, async () => {
 			const generate = (prompt: string) => {
 				calls++;
@@ -361,13 +361,13 @@ test("drain is bounded per delivery and day-call limit has its own truthful reas
 			expect(
 				await runTranslationPrewarmJob({ sourceId: "", lang: "zh" }, generate)
 			).toBe(true);
-			expect(calls).toBe(18);
+			expect(calls).toBe(24);
 			expect(
 				await runTranslationPrewarmJob({ sourceId: "", lang: "zh" }, generate)
 			).toBe(false);
-			expect(calls).toBe(30);
+			expect(calls).toBe(40);
 			await runTranslationPrewarmJob({ sourceId: "", lang: "zh" }, generate);
-			expect(calls).toBe(30);
+			expect(calls).toBe(40);
 			const results = await translateNewsItems(f.items, "zh");
 			expect(
 				results.some((item) => item.translation?.reason === "call_limit")

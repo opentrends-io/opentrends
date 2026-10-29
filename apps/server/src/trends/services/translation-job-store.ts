@@ -7,7 +7,7 @@ import {
 	translationJobId,
 } from "./translation-identity";
 
-export const TRANSLATION_LEASE_MS = 90_000;
+export const TRANSLATION_LEASE_MS = 120_000;
 export interface TranslationJob {
 	attempts: number;
 	created_at: number;
@@ -57,13 +57,15 @@ const DUE =
 	"attempts<3 AND ((state IN ('queued','retry_wait') AND next_attempt_at<=?) OR (state='running' AND lease_until<=?))";
 
 // One model call translates up to this many items, as long as their text
-// fits the prompt budget; the worker's byte check is the last resort.
-export const TRANSLATION_BATCH_SIZE = 8;
+// fits the budget. The model writes about 20 tokens a second, so a call's
+// length is set by its output: six ordinary items, or fewer long ones,
+// finish well inside the call timeout.
+export const TRANSLATION_BATCH_SIZE = 6;
 // Retries carry a possibly bad item, so they travel in small groups: a
 // second failure costs few attempts, but a lone retry no longer monopolises
 // a whole call.
 const RETRY_BATCH_SIZE = 3;
-const BATCH_TEXT_BYTES = 11_000;
+const BATCH_TEXT_BYTES = 4000;
 
 function jobTextBytes(job: TranslationJob): number {
 	return new TextEncoder().encode(

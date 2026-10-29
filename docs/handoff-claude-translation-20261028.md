@@ -2,6 +2,18 @@
 
 交接日期：2026-10-28。本文是当前入口，历史过程文档不能覆盖本文标明的最新状态。**本次交接只补文档，不合并、不重新部署。**
 
+## 0. 2026-10-29 吞吐修复（Claude，第二台 Mac）
+
+Preview 数据库读回：2376 个任务全部 ready、没有积压，但从登记到完成的耗时分布很差（zh 986 条超过 1 小时、406 条 15–60 分钟），实测一次模型调用 6 条要 15–25 秒，而每条 lane 串行、只靠每分钟一次的队列唤醒，读者请求触发的来源刷新又不登记任务（要等 16 个/分钟的轮转扫到）。提交 `d7be597`：
+
+- `get-trends-page.ts`：请求触发的来源刷新也 `translationJobs: true`，新条目立刻登记并唤醒。
+- `translation-prewarm-jobs.ts`：每轮先串行 claim 最多 3 批（互不重叠），再并行调模型；每次投递最多 6 轮 / 90 秒；结束时若还有活，自己再唤醒一次；新增 `drainTranslationJobs`，`scheduled` 每分钟直接对两条 lane 各消费最多 50 秒，不再只依赖与摘要共用的队列；补漏轮转 16→32 个来源；最近 2 小时更新过的事件每 tick 都登记，不受游标位置影响。
+- `translation-job-store.ts`：批大小 6→8，按文本 11 KB 预算截断；重试按 3 条一组而不是 1 条一调（`selectTranslationBatch`，有单测）。
+- `translation-policy.ts`：全局并发 2→6、每分钟 12→36；日预算/日调用次数上限不变。
+- `translation-worker.ts`：拆成 `claimTranslationWork` + `runClaimedTranslationBatch`。
+
+Preview API 版本 `a0a0ff65-c54e-4021-b7b8-74de3aa2896c`（上一版 `b8efafd4-…` 可回滚），用 `apps/server/wrangler.preview.jsonc`（未入库，无秘密，`keep_vars`，不含 consumer/cron）`versions upload` → `versions deploy`。发布后一分钟内看到同一分钟 13 次调用、6 个并发（两条 lane 各 3），新登记条目 25–60 秒内 ready。生产仍未发布；生产预算 ¥50 时建议同样保留这组并发/频率上限。
+
 ## 1. 先接对代码，不要从旧目录发布
 
 - 仓库：<https://github.com/opentrends-io/opentrends>

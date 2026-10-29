@@ -153,7 +153,7 @@ export async function runClaimedTranslationBatch(
 	}
 	let result: TranslationGeneration;
 	try {
-		result = await generator(prompt, AbortSignal.timeout(45_000));
+		result = await generator(prompt, AbortSignal.timeout(60_000));
 	} catch (error) {
 		await failTranslationAttempt(
 			database,
