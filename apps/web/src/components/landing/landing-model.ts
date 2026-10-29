@@ -1,6 +1,6 @@
-// What the landing page shows from the live API: today's featured brief,
-// the stories most outlets are reporting, and the sources by topic. Every
-// field may be missing; the page reads fine without any of them.
+// What the landing page shows from the live API: the sources, today's
+// featured brief and one event several outlets reported. Every field may
+// be missing; the page then falls back to its fixed examples.
 
 export const LANDING_TOPIC_IDS = [
 	"featured",
@@ -17,8 +17,9 @@ export type ContentTopicId = Exclude<LandingTopicId, "featured">;
 
 const WWW_PREFIX_RE = /^www\./;
 
-export const SOURCE_WALL_TILES = 48;
-export const SOURCES_PER_TOPIC = 8;
+export const SOURCE_WALL_TILES = 32;
+// An event is worth showing live when this many different sites reported it.
+const LIVE_EVENT_MIN_SITES = 3;
 
 // What kind of place a source is, as the API reports it (`role`); older
 // API builds only had the refresh class, which gives a coarser answer.
@@ -56,15 +57,45 @@ export interface WallSource {
 	topics: ContentTopicId[];
 }
 
-export interface TopicSources {
-	count: number;
-	sources: WallSource[];
-	topic: ContentTopicId;
+export interface LandingDigestEntry {
+	citations?: readonly { n: number; topic?: string; url: string }[];
+	n: number;
+	reason?: string;
+	takeaway: string;
+}
+
+export interface LandingDigest {
+	degraded?: boolean;
+	entries: LandingDigestEntry[];
+	generatedAt?: number;
+}
+
+export interface LandingEventSource {
+	homeUrl?: string;
+	// Filled from the source list, which the event feed does not carry.
+	kind?: SourceKind | null;
+	name?: string;
+	sourceId: string;
+	title: string;
+}
+
+// One event as the API lists it, kept only with what the page shows.
+export interface LandingEvent {
+	eventId: string;
+	firstSeenAt: string;
+	lastSeenAt: string;
+	original?: { title: string };
+	primarySource?: { sourceId: string; title: string };
+	sources: LandingEventSource[];
+	summary?: string;
+	title: string;
+	topicId: string;
 }
 
 export interface LandingData {
+	digest: LandingDigest | null;
+	event: LandingEvent | null;
 	sourceCount: number | null;
-	topics: TopicSources[];
 	wall: WallSource[];
 }
 
@@ -170,34 +201,52 @@ function kindRank(kind: SourceKind | null): number {
 	return kind ? SOURCE_KIND_ORDER.indexOf(kind) : SOURCE_KIND_ORDER.length;
 }
 
-// Each topic's first few sources, in the order the API lists them, plus
-// how many it follows in all.
-export function sourcesByTopic(
-	sources: readonly LandingSource[] | undefined,
-	perTopic = SOURCES_PER_TOPIC
-): TopicSources[] {
-	const groups: TopicSources[] = [];
-	for (const topic of LANDING_TOPIC_IDS) {
-		if (!isContentTopic(topic)) {
-			continue;
-		}
-		const inTopic = (sources ?? []).filter((source) =>
-			source.topics?.includes(topic)
+// The first event that several different sites reported, with a title
+// and at least that many sources to show; none means the fixed example.
+export function pickLandingEvent(
+	events: readonly LandingEvent[] | undefined,
+	minSites = LIVE_EVENT_MIN_SITES
+): LandingEvent | null {
+	for (const event of events ?? []) {
+		const sites = new Set(
+			event.sources.map((source) => hostOf(source.homeUrl) ?? source.sourceId)
 		);
-		if (inTopic.length === 0) {
+		if (
+			event.title &&
+			event.sources.length >= minSites &&
+			sites.size >= minSites
+		) {
+			return event;
+		}
+	}
+	return null;
+}
+
+// The outlets of an event, one per site, so the same newsroom's sections
+// count once.
+export function eventOutlets(event: LandingEvent): LandingEventSource[] {
+	const seen = new Set<string>();
+	const outlets: LandingEventSource[] = [];
+	for (const source of event.sources) {
+		const key = hostOf(source.homeUrl) ?? source.sourceId;
+		if (seen.has(key)) {
 			continue;
 		}
-		const picked: WallSource[] = [];
-		for (const source of inTopic) {
-			const tile = asWallSource(source);
-			if (tile) {
-				picked.push(tile);
-			}
-			if (picked.length === perTopic) {
-				break;
-			}
-		}
-		groups.push({ count: inTopic.length, sources: picked, topic });
+		seen.add(key);
+		outlets.push(source);
 	}
-	return groups;
+	return outlets;
+}
+
+// Whole hours between the first and the last report, at least one.
+export function eventSpanHours(event: LandingEvent): number {
+	const span = Date.parse(event.lastSeenAt) - Date.parse(event.firstSeenAt);
+	return Number.isFinite(span) ? Math.max(1, Math.ceil(span / 3_600_000)) : 1;
+}
+
+// A brief is live when it has lines and the model wrote them.
+export function liveDigest(digest: LandingDigest | null): LandingDigest | null {
+	return digest && digest.entries.length > 0 && !digest.degraded
+		? digest
+		: null;
 }

@@ -51,9 +51,6 @@ function OpenSource({ strings }: { strings: LandingStrings }) {
 			<p className="mt-3 text-[15px] text-[var(--text-secondary)] leading-relaxed">
 				{strings.openBody}
 			</p>
-			<p className="mt-3 text-[15px] text-[var(--text-secondary)] leading-relaxed">
-				{strings.openSelfHost}
-			</p>
 			<div className="mt-6 flex flex-wrap items-center gap-3">
 				<a
 					className={SECONDARY_BUTTON_CLASS}

@@ -15,7 +15,9 @@ const API_URL = "https://api.opentrends.io";
 const SITE_URL = "https://opentrends.io";
 const SKILL_URL = `${SITE_URL}/skills/opentrends/SKILL.md`;
 const MCP_URL = `${API_URL}/mcp`;
-const INSTALL_PROMPT = `帮我安装 this skill: ${SKILL_URL}\n装完告诉我是否需要开启新会话。`;
+const INSTALL_PROMPT = `帮我安装这个 skill：${SKILL_URL}\n装完告诉我是否需要开启新会话。`;
+const INSTALL_PROMPT_HANT = `幫我安裝這個 skill：${SKILL_URL}\n裝完告訴我是否需要開啟新會話。`;
+const INSTALL_PROMPT_EN = `Install this skill: ${SKILL_URL}\nTell me if I need to start a new session afterwards.`;
 const MCP_JSON = `{
   "mcpServers": {
     "opentrends": { "url": "${MCP_URL}" }
@@ -27,15 +29,30 @@ const MCP_LOCAL = "bun run packages/mcp/src/index.ts";
 const MCP_PROMPT = `请把 OpenTrends 的 MCP server 加到我当前的工具里：地址 ${MCP_URL}，传输方式 Streamable HTTP，不需要 API key。配好后列出它提供的工具。`;
 const MCP_PROMPT_EN = `Add the OpenTrends MCP server to my tools: URL ${MCP_URL}, Streamable HTTP transport, no API key. When it is connected, list the tools it provides.`;
 const API_FIRST = `curl '${API_URL}/api/trends/ai/summary?format=json&lang=zh&window=today'`;
+const API_FIRST_EN = `curl '${API_URL}/api/trends/ai/summary?format=json&lang=en&window=today'`;
+// Real entries from the live digest on 2026-10-29, shortened to one line.
 const API_RESPONSE = `{
-  "topic": "ai", "window": "today", "lang": "zh",
+  "topic": "ai", "window": "today", "lang": "zh", "generatedAt": 1793240921481,
   "entries": [
     {
       "n": 1,
-      "takeaway": "OpenAI 推出 GPT-6 Sol 和 Luna，价格减半性能持平",
-      "reason": "大模型价格战持续升级",
+      "takeaway": "微软首次披露Azure实际收入达332亿美元",
+      "reason": "云市场格局透明度提升，与AWS差距首次量化",
       "citations": [
-        { "n": 1, "topic": "ai", "url": "https://openai.com/index/..." }
+        { "n": 24, "topic": "ai", "url": "https://techcrunch.com/2026/10/28/microsoft-just-shared-azures-actual-revenue-in-dollars-33-2-billion/" }
+      ]
+    }
+  ]
+}`;
+const API_RESPONSE_EN = `{
+  "topic": "ai", "window": "today", "lang": "en", "generatedAt": 1793240956248,
+  "entries": [
+    {
+      "n": 1,
+      "takeaway": "Google launches Gemini 4 Carbon frontier model",
+      "reason": "Tops AI benchmarks with gains in coding, agentic tasks, and cybersecurity",
+      "citations": [
+        { "n": 3, "topic": "ai", "url": "https://www.theverge.com/tech/1021339/google-gemini-4-carbon-cybersecurity-frontier" }
       ]
     }
   ]
@@ -74,15 +91,17 @@ const ENDPOINTS = [
 const LINKS = [
 	["llms.txt", `${SITE_URL}/llms.txt`],
 	["MCP", MCP_URL],
-	["OpenAPI", `${API_URL}/api-reference`],
+	["Manifest", `${API_URL}/api/skills/opentrends`],
 	["SKILL.md", SKILL_URL],
-	["GitHub", "https://github.com/IvyYang1999/opentrends"],
+	["GitHub", "https://github.com/opentrends-io/opentrends"],
 ] as const;
 
 interface Strings {
+	apiCurl: string;
 	apiEndpoints: Record<(typeof ENDPOINTS)[number][1], string>;
 	apiFirst: string;
 	apiIntro: string;
+	apiJson: string;
 	apiNotes: [string, string][];
 	apiNotesTitle: string;
 	apiStepEndpoints: [string, string];
@@ -98,6 +117,7 @@ interface Strings {
 	guideTitle: string;
 	heroBody: string;
 	heroTitle: string;
+	installPrompt: string;
 	manualTitle: string;
 	mcpIntro: string;
 	mcpLocal: string;
@@ -146,6 +166,9 @@ const EN: Strings = {
 	guideTitle: "Which one do I need?",
 	manualTitle: "Set it up by hand",
 	mcpPrompt: MCP_PROMPT_EN,
+	installPrompt: INSTALL_PROMPT_EN,
+	apiCurl: API_FIRST_EN,
+	apiJson: API_RESPONSE_EN,
 	mcpStepConnect: [
 		"Send this to your agent",
 		"It adds the server to its own settings. No install, no key.",
@@ -284,6 +307,9 @@ const ZH: Strings = {
 	guideTitle: "我该用哪个？",
 	manualTitle: "手动配置",
 	mcpPrompt: MCP_PROMPT,
+	installPrompt: INSTALL_PROMPT,
+	apiCurl: API_FIRST,
+	apiJson: API_RESPONSE,
 	mcpStepConnect: [
 		"把这句话发给你的 Agent",
 		"它会把 server 写进自己的配置。不用安装，不用 key。",
@@ -402,6 +428,7 @@ const ZH_HANT: Strings = {
 	],
 	guideTitle: "我該用哪個？",
 	manualTitle: "手動設定",
+	installPrompt: INSTALL_PROMPT_HANT,
 	mcpStepConnect: [
 		"把這句話發給你的 Agent",
 		"它會把 server 寫進自己的設定。不用安裝，不用 key。",
@@ -648,7 +675,11 @@ function SkillTab({ strings }: { strings: Strings }) {
 			<Intro>{strings.skillIntro}</Intro>
 			<ol className="space-y-5">
 				<Step body={install[1]} index={1} title={install[0]}>
-					<Snippet label="Prompt" strings={strings} value={INSTALL_PROMPT} />
+					<Snippet
+						label="Prompt"
+						strings={strings}
+						value={strings.installPrompt}
+					/>
 				</Step>
 				<Step body={session[1]} index={2} title={session[0]} />
 				<Step body={verify[1]} index={3} title={verify[0]}>
@@ -812,7 +843,7 @@ function ApiTab({ strings }: { strings: Strings }) {
 					index={1}
 					title={strings.apiStepFirst[0]}
 				>
-					<Snippet label="curl" strings={strings} value={API_FIRST} />
+					<Snippet label="curl" strings={strings} value={strings.apiCurl} />
 				</Step>
 				<Step
 					body={strings.apiStepEndpoints[1]}
@@ -843,7 +874,7 @@ function ApiTab({ strings }: { strings: Strings }) {
 					index={3}
 					title={strings.apiStepResponse[0]}
 				>
-					<Snippet label="JSON" strings={strings} value={API_RESPONSE} />
+					<Snippet label="JSON" strings={strings} value={strings.apiJson} />
 					<Success strings={strings}>{strings.apiSuccess}</Success>
 				</Step>
 			</ol>
