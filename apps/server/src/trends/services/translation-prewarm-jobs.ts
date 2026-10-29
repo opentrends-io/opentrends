@@ -22,7 +22,9 @@ import {
 	touchTranslationLane,
 } from "./translation-service";
 import {
-	runTranslationBatch,
+	type ClaimedTranslationBatch,
+	claimTranslationWork,
+	runClaimedTranslationBatch,
 	type TranslationGenerator,
 } from "./translation-worker";
 
@@ -128,28 +130,39 @@ export async function dispatchTranslationPrewarmJobs(
 	await Promise.all(TRANSLATION_PREWARM_LANGUAGES.map(wake));
 }
 
+// A lane runs a few model calls side by side: each claim reserves its own
+// attempt under the global concurrency and per-minute caps, so parallel
+// rounds spend no more than the policy allows, only sooner.
+const PARALLEL_BATCHES = 3;
+const MAX_ROUNDS_PER_WAKE = 6;
+export const DRAIN_BUDGET_MS = 90_000;
+
 // Old queue messages remain safe: unsupported locales drain, supported ones
 // register the latest input before using the same durable attempt budget.
+// Returns whether due work may remain, so the caller can wake again.
 export async function runTranslationPrewarmJob(
 	message: TranslationPrewarmMessage,
-	generator?: TranslationGenerator
-): Promise<void> {
+	generator?: TranslationGenerator,
+	budgetMs = DRAIN_BUDGET_MS
+): Promise<boolean> {
 	if (
 		!translationPolicy() ||
 		env.TRANSLATION_SCHEDULER_ENABLED !== "true" ||
 		(message.lang !== "zh" && message.lang !== "en")
 	) {
-		return;
+		return false;
 	}
+	const lang = message.lang;
 	const database = getWorkerBindings()?.DB;
 	if (!database) {
-		return;
+		return false;
 	}
-	const owner = await claimTranslationLane(database, message.lang);
+	const owner = await claimTranslationLane(database, lang);
 	if (!owner) {
-		return;
+		return false;
 	}
 	const started = Date.now();
+	let exhausted = false;
 	try {
 		if (message.sourceId) {
 			const snapshot = await readSnapshot(message.sourceId);
@@ -157,18 +170,66 @@ export async function runTranslationPrewarmJob(
 				await registerItems(snapshot.items);
 			}
 		}
-		for (let batch = 0; batch < 6 && Date.now() - started < 90_000; batch++) {
-			if (!(await touchTranslationLane(database, message.lang, owner))) {
+		for (
+			let round = 0;
+			round < MAX_ROUNDS_PER_WAKE && Date.now() - started < budgetMs;
+			round++
+		) {
+			if (!(await touchTranslationLane(database, lang, owner))) {
 				break;
 			}
-			if (!(await runTranslationBatch(message.lang, generator))) {
+			if (!(await runTranslationRound(lang, generator))) {
+				exhausted = true;
 				break;
 			}
-			await touchTranslationLane(database, message.lang, owner, true);
+			await touchTranslationLane(database, lang, owner, true);
 		}
 	} finally {
-		await releaseTranslationLane(database, message.lang, owner);
+		await releaseTranslationLane(database, lang, owner);
 	}
+	if (!exhausted) {
+		// More may be due: ask for the next delivery now instead of waiting
+		// for the scheduler's next tick. Idempotent per language.
+		await wake(lang);
+	}
+	return !exhausted;
+}
+
+// Claims one after another so they take disjoint jobs; the model calls
+// then run side by side. False when nothing could be claimed.
+async function runTranslationRound(
+	lang: "zh" | "en",
+	generator?: TranslationGenerator
+): Promise<boolean> {
+	const claimed: ClaimedTranslationBatch[] = [];
+	for (let slot = 0; slot < PARALLEL_BATCHES; slot++) {
+		const batch = await claimTranslationWork(lang);
+		if (!batch) {
+			break;
+		}
+		claimed.push(batch);
+	}
+	if (claimed.length === 0) {
+		return false;
+	}
+	await Promise.all(
+		claimed.map((batch) => runClaimedTranslationBatch(lang, batch, generator))
+	);
+	return true;
+}
+
+// The scheduler's own drain: both lanes side by side, bounded to the
+// tick, independent of the shared queue. A lane held by a queue consumer
+// is simply skipped.
+export async function drainTranslationJobs(
+	generator?: TranslationGenerator,
+	budgetMs = 50_000
+): Promise<void> {
+	await Promise.all(
+		TRANSLATION_PREWARM_LANGUAGES.map((lang) =>
+			runTranslationPrewarmJob({ sourceId: "", lang }, generator, budgetMs)
+		)
+	);
 }
 
 // Event text identical to a source item uses its translation, not a second job.
@@ -250,7 +311,11 @@ export async function reconcileTranslationJobs(
 		]),
 	];
 	const cursor = control?.reconcile_cursor ?? 0;
-	for (let offset = 0; offset < Math.min(16, sources.length); offset++) {
+	for (
+		let offset = 0;
+		offset < Math.min(RECONCILE_SOURCES_PER_TICK, sources.length);
+		offset++
+	) {
 		const sourceId = sources[(cursor + offset) % sources.length];
 		if (!sourceId) {
 			continue;
@@ -270,22 +335,40 @@ export async function reconcileTranslationJobs(
 	}
 	await database
 		.prepare("UPDATE translation_control SET reconcile_cursor=? WHERE id=1")
-		.bind(sources.length ? (cursor + 16) % sources.length : 0)
+		.bind(
+			sources.length
+				? (cursor + RECONCILE_SOURCES_PER_TICK) % sources.length
+				: 0
+		)
 		.run();
 	try {
-		const events = await database
-			.prepare(
-				"SELECT event_id,title,summary FROM trend_event e WHERE event_id>? AND primary_source_id IN (SELECT value FROM json_each(?)) AND EXISTS(SELECT 1 FROM trend_event_topic t WHERE t.event_id=e.event_id AND t.topic_id IN (SELECT value FROM json_each(?))) ORDER BY event_id LIMIT 20"
-			)
-			.bind(
-				control?.event_cursor ?? "",
-				JSON.stringify(getEventEligibleSourceIds()),
-				JSON.stringify(Object.keys(topicPresets))
-			)
-			.all<{ event_id: string; title: string; summary: string | null }>();
+		const eligible = JSON.stringify(getEventEligibleSourceIds());
+		const topics = JSON.stringify(Object.keys(topicPresets));
+		// Events written or reworded in the last while go first, every tick,
+		// so a fresh event is registered within a minute; the cursor sweep
+		// behind it still covers everything else over time.
+		const [recent, events] = await Promise.all([
+			database
+				.prepare(
+					`SELECT event_id,title,summary FROM trend_event e WHERE updated_at>=? AND ${EVENT_PUBLIC} ORDER BY updated_at DESC LIMIT ?`
+				)
+				.bind(
+					Math.floor(Date.now() / 1000) - RECENT_EVENT_WINDOW_S,
+					eligible,
+					topics,
+					RECENT_EVENTS_PER_TICK
+				)
+				.all<EventRow>(),
+			database
+				.prepare(
+					`SELECT event_id,title,summary FROM trend_event e WHERE event_id>? AND ${EVENT_PUBLIC} ORDER BY event_id LIMIT ?`
+				)
+				.bind(control?.event_cursor ?? "", eligible, topics, EVENTS_PER_TICK)
+				.all<EventRow>(),
+		]);
 		await registerItems(
 			await resolveEventTranslationItems(
-				events.results.map((event) => ({
+				[...recent.results, ...events.results].map((event) => ({
 					id: event.event_id,
 					sourceId: `event:${event.event_id}`,
 					title: event.title,
@@ -303,3 +386,15 @@ export async function reconcileTranslationJobs(
 		await Promise.all(TRANSLATION_PREWARM_LANGUAGES.map(wake));
 	}
 }
+
+interface EventRow {
+	event_id: string;
+	summary: string | null;
+	title: string;
+}
+const EVENT_PUBLIC =
+	"primary_source_id IN (SELECT value FROM json_each(?)) AND EXISTS(SELECT 1 FROM trend_event_topic t WHERE t.event_id=e.event_id AND t.topic_id IN (SELECT value FROM json_each(?)))";
+const RECONCILE_SOURCES_PER_TICK = 32;
+const EVENTS_PER_TICK = 40;
+const RECENT_EVENTS_PER_TICK = 60;
+const RECENT_EVENT_WINDOW_S = 2 * 3600;

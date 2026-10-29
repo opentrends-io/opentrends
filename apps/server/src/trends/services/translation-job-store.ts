@@ -56,6 +56,48 @@ const CURRENT = `((subject_type='source' AND EXISTS (
 const DUE =
 	"attempts<3 AND ((state IN ('queued','retry_wait') AND next_attempt_at<=?) OR (state='running' AND lease_until<=?))";
 
+// One model call translates up to this many items, as long as their text
+// fits the prompt budget; the worker's byte check is the last resort.
+export const TRANSLATION_BATCH_SIZE = 8;
+// Retries carry a possibly bad item, so they travel in small groups: a
+// second failure costs few attempts, but a lone retry no longer monopolises
+// a whole call.
+const RETRY_BATCH_SIZE = 3;
+const BATCH_TEXT_BYTES = 11_000;
+
+function jobTextBytes(job: TranslationJob): number {
+	return new TextEncoder().encode(
+		JSON.stringify({
+			title: job.original_title,
+			description: job.original_description,
+		})
+	).length;
+}
+
+// Which of the due candidates travel together: retries first in a small
+// group, otherwise fresh jobs in rank order, never past the text budget.
+export function selectTranslationBatch(
+	candidates: readonly TranslationJob[]
+): TranslationJob[] {
+	const retries = candidates.filter((job) => job.attempts > 0);
+	const pool = retries.length > 0 ? retries : candidates;
+	const limit = retries.length > 0 ? RETRY_BATCH_SIZE : TRANSLATION_BATCH_SIZE;
+	const selected: TranslationJob[] = [];
+	let bytes = 0;
+	for (const job of pool) {
+		const size = jobTextBytes(job);
+		if (selected.length > 0 && bytes + size > BATCH_TEXT_BYTES) {
+			break;
+		}
+		selected.push(job);
+		bytes += size;
+		if (selected.length >= limit) {
+			break;
+		}
+	}
+	return selected;
+}
+
 export async function registerTranslationJobs(
 	database: D1Database,
 	subjects: TranslationSubject[],
@@ -109,16 +151,15 @@ export async function claimTranslationBatch(
 		.prepare(
 			`SELECT * FROM translation_job WHERE lang=? AND ${DUE} AND ${CURRENT} ORDER BY
  CASE WHEN subject_type='source' AND EXISTS(SELECT 1 FROM source_item s JOIN source p ON p.source_id=s.source_id WHERE s.source_id=translation_job.source_id AND s.item_id=translation_job.item_id AND s.generation=p.generation) THEN 0 ELSE 1 END,
- coalesce((SELECT rank FROM source_item s WHERE s.source_id=translation_job.source_id AND s.item_id=translation_job.item_id),999),created_at,id LIMIT 6`
+ coalesce((SELECT rank FROM source_item s WHERE s.source_id=translation_job.source_id AND s.item_id=translation_job.item_id),999),created_at,id LIMIT ?`
 		)
-		.bind(lang, now, now)
+		.bind(lang, now, now, TRANSLATION_BATCH_SIZE)
 		.all<TranslationJob>();
 	if (!candidates.results.length) {
 		return null;
 	}
-	// Output/timeout recovery uses one item, but never resets its attempt count.
-	const retry = candidates.results.find((job) => job.attempts > 0);
-	const selected = retry ? [retry] : candidates.results;
+	// Recovery never resets an attempt count; it only travels in a smaller group.
+	const selected = selectTranslationBatch(candidates.results);
 	const ids = selected.map((job) => job.id);
 	const placeholders = ids.map(() => "?").join(",");
 	const id = crypto.randomUUID();

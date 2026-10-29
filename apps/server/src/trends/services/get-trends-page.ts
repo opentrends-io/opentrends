@@ -438,7 +438,9 @@ function refreshSourceIdsInBackground(
 			MAX_PAGE_BACKGROUND_REFRESHES
 		);
 		const outcomes = await Promise.all(
-			dueSourceIds.map((sourceId) => refreshSource(sourceId))
+			dueSourceIds.map((sourceId) =>
+				refreshSource(sourceId, { translationJobs: true })
+			)
 		);
 		const refreshed = outcomes.some(
 			(outcome) => outcome.kind === "ok" || outcome.kind === "error"

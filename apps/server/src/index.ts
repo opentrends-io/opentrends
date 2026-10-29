@@ -32,6 +32,7 @@ import { runTrendsRefreshTick } from "./trends/services/refresh-scheduler";
 import { runSummaryPrewarmJob } from "./trends/services/summary-prewarm-jobs";
 import { isTranslationPagePath } from "./trends/services/translation-http-cache";
 import {
+	drainTranslationJobs,
 	reconcileTranslationJobs,
 	runTranslationPrewarmJob,
 } from "./trends/services/translation-prewarm-jobs";
@@ -243,6 +244,11 @@ export default {
 		});
 	},
 	scheduled(controller, bindings, executionContext) {
+		// Every tick also drains translation work directly, so a busy shared
+		// queue cannot hold new items in their original language for long.
+		executionContext.waitUntil(
+			runWithWorkerBindings(bindings, drainTranslationJobs)
+		);
 		// Isolated translation schedule: keep Preview consumption continuous
 		// without enabling unrelated summary, embedding or briefing work.
 		if (bindings.TRANSLATION_ONLY_SCHEDULED === "true") {

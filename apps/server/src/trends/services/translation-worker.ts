@@ -8,6 +8,7 @@ import {
 	completeTranslationJob,
 	failTranslationAttempt,
 	settleTranslationAttempt,
+	type TranslationJob,
 } from "./translation-job-store";
 import {
 	parseTranslatedBatch,
@@ -90,19 +91,45 @@ function retryDelay(error: unknown): number {
 	return Number.isFinite(delay) ? Math.max(60_000, delay) : 60_000;
 }
 
+export interface ClaimedTranslationBatch {
+	database: D1Database;
+	id: string;
+	jobs: TranslationJob[];
+	policy: NonNullable<ReturnType<typeof translationPolicy>>;
+}
+
+// Claims are quick and serialised by the caller so that side-by-side claims
+// take disjoint jobs; the model calls that follow run concurrently.
+export async function claimTranslationWork(
+	lang: "zh" | "en"
+): Promise<ClaimedTranslationBatch | null> {
+	const database = getWorkerBindings()?.DB;
+	const policy = translationPolicy();
+	if (!(database && policy) || env.TRANSLATION_SCHEDULER_ENABLED !== "true") {
+		return null;
+	}
+	const batch = await claimTranslationBatch(database, lang, policy);
+	return batch ? { ...batch, database, policy } : null;
+}
+
 export async function runTranslationBatch(
 	lang: "zh" | "en",
 	generator: TranslationGenerator = generate
 ): Promise<boolean> {
-	const database = getWorkerBindings()?.DB;
-	const policy = translationPolicy();
-	if (!(database && policy) || env.TRANSLATION_SCHEDULER_ENABLED !== "true") {
+	const claimed = await claimTranslationWork(lang);
+	if (!claimed) {
 		return false;
 	}
-	const batch = await claimTranslationBatch(database, lang, policy);
-	if (!batch) {
-		return false;
-	}
+	await runClaimedTranslationBatch(lang, claimed, generator);
+	return true;
+}
+
+export async function runClaimedTranslationBatch(
+	lang: "zh" | "en",
+	batch: ClaimedTranslationBatch,
+	generator: TranslationGenerator = generate
+): Promise<void> {
+	const { database, policy } = batch;
 	// The model copies short batch-local ids, never 64-character durable hashes.
 	// Mapping back remains exact and every row must appear once.
 	const inputs = batch.jobs.map((job, index) => ({
@@ -122,7 +149,7 @@ export async function runTranslationBatch(
 	].join("\n");
 	if (new TextEncoder().encode(prompt).length > TRANSLATION_MAX_PROMPT_BYTES) {
 		await failTranslationAttempt(database, batch.id, "output");
-		return true;
+		return;
 	}
 	let result: TranslationGeneration;
 	try {
@@ -135,7 +162,7 @@ export async function runTranslationBatch(
 			Date.now(),
 			retryDelay(error)
 		);
-		return true;
+		return;
 	}
 	const usage = translationReportedCost(
 		result.inputTokens,
@@ -158,7 +185,7 @@ export async function runTranslationBatch(
 	);
 	if ("error" in parsed) {
 		await failTranslationAttempt(database, batch.id, "output");
-		return true;
+		return;
 	}
 	let invalid = false;
 	for (const [index, job] of batch.jobs.entries()) {
@@ -173,13 +200,12 @@ export async function runTranslationBatch(
 		// A model result stays in memory for one bounded storage retry. No new
 		// model request is made because persisting the same result failed.
 		if (!(await persistResult(database, job, batch.id, row, policy.model))) {
-			return true;
+			return;
 		}
 	}
 	if (invalid) {
 		await failTranslationAttempt(database, batch.id, "output");
 	}
-	return true;
 }
 
 async function persistResult(

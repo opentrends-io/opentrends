@@ -23,8 +23,11 @@ export function translationPolicy(): TranslationLimits | null {
 			INPUT_RESERVATION_TOKENS * env.TRANSLATION_INPUT_CNY_PER_MILLION +
 				TRANSLATION_MAX_OUTPUT_TOKENS * env.TRANSLATION_OUTPUT_CNY_PER_MILLION
 		),
-		concurrency: 2,
-		perMinute: 12,
+		// Two language lanes, each running a few model calls side by side:
+		// the model answers in 15-25 seconds, so parallel calls, not bigger
+		// batches, are what turn a burst of new items around in minutes.
+		concurrency: 6,
+		perMinute: 36,
 		dailyCalls: env.TRANSLATION_DAILY_CALL_LIMIT,
 		model: env.LLM_TRANSLATION_MODEL,
 	};

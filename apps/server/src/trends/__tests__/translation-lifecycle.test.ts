@@ -5,7 +5,9 @@ import {
 	completeTranslationJob,
 	failTranslationAttempt,
 	registerTranslationJobs,
+	selectTranslationBatch,
 	settleTranslationAttempt,
+	type TranslationJob,
 	translationDay,
 } from "../services/translation-job-store";
 import { SqliteD1 } from "./support/d1-sqlite";
@@ -266,4 +268,45 @@ test("global concurrency, minute and daily caps apply across distinct subjects a
 			database.close();
 		}
 	}
+});
+
+test("retries travel in a small group and fresh jobs stop at the text budget", () => {
+	const job = (id: string, attempts: number, bytes = 10): TranslationJob => ({
+		attempts,
+		created_at: 0,
+		error_code: null,
+		id,
+		item_id: id,
+		lang: "zh",
+		lease_until: 0,
+		next_attempt_at: 0,
+		original_description: "x".repeat(bytes),
+		original_title: "t",
+		result_description: null,
+		result_title: null,
+		source_id: "fixture",
+		state: "queued",
+		subject_type: "source",
+		text_hash: id,
+		updated_at: 0,
+	});
+	const retries = selectTranslationBatch([
+		job("a", 0),
+		job("b", 1),
+		job("c", 2),
+		job("d", 1),
+		job("e", 1),
+	]);
+	expect(retries.map((entry) => entry.id)).toEqual(["b", "c", "d"]);
+	const fresh = selectTranslationBatch(
+		Array.from({ length: 8 }, (_, i) => job(String(i), 0))
+	);
+	expect(fresh).toHaveLength(8);
+	const large = selectTranslationBatch([
+		job("big", 0, 9000),
+		job("next", 0, 9000),
+		job("small", 0),
+	]);
+	expect(large.map((entry) => entry.id)).toEqual(["big"]);
+	expect(selectTranslationBatch([job("huge", 0, 20_000)])).toHaveLength(1);
 });

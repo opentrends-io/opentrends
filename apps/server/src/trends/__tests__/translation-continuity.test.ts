@@ -135,6 +135,48 @@ test("reconciliation registers only public eligible events; stale ineligible job
 	}
 });
 
+test("an event reworded behind the cursor is registered on the next tick", async () => {
+	const f = setup(0);
+	try {
+		const source = getEventEligibleSourceIds()[0];
+		if (!source) {
+			throw new Error("no eligible source");
+		}
+		const now = Math.floor(Date.now() / 1000);
+		for (const [id, updatedAt] of [
+			["event-aaaa", now - 3 * 3600],
+			["event-bbbb", now - 60],
+		] as const) {
+			f.db.database
+				.query(
+					"INSERT INTO trend_event(event_id,topic_id,title,first_seen_at,last_seen_at,updated_at,primary_source_id,primary_item_id) VALUES(?,'ai','New discovery',1,1,?,?,'1')"
+				)
+				.run(id, updatedAt, source);
+			f.db.database
+				.query(
+					"INSERT INTO trend_event_topic(event_id,topic_id,created_at) VALUES(?,'ai',1)"
+				)
+				.run(id);
+		}
+		// The sweep cursor already sits past both ids.
+		f.db.database.exec(
+			"UPDATE translation_control SET event_cursor='event-zzzz'"
+		);
+		await runWithWorkerBindings(f.bindings, async () => {
+			await reconcileTranslationJobs({ sourceIds: [] });
+			expect(
+				f.db
+					.all<{ item_id: string }>(
+						"SELECT item_id FROM translation_job ORDER BY item_id"
+					)
+					.map((row) => row.item_id)
+			).toEqual(["event-bbbb"]);
+		});
+	} finally {
+		f.db.close();
+	}
+});
+
 test("a healthy service exposes a bounded registration wait without writing on read; paused workers make no calls", async () => {
 	const f = setup(1);
 	try {
@@ -304,22 +346,28 @@ test("one real delivery drains multiple batches without readers, and duplicate d
 	}
 });
 test("drain is bounded per delivery and day-call limit has its own truthful reason", async () => {
-	const f = setup(80);
+	// 400 items at 8 per call is 50 calls; one delivery runs at most six
+	// rounds of three parallel calls, and the day allows 30 in all.
+	const f = setup(400);
 	let calls = 0;
 	try {
 		await registerFixture(f);
-		const limited = { ...f.bindings, TRANSLATION_DAILY_CALL_LIMIT: "7" };
+		const limited = { ...f.bindings, TRANSLATION_DAILY_CALL_LIMIT: "30" };
 		await runWithWorkerBindings(limited, async () => {
 			const generate = (prompt: string) => {
 				calls++;
 				return Promise.resolve(validOutput(prompt));
 			};
+			expect(
+				await runTranslationPrewarmJob({ sourceId: "", lang: "zh" }, generate)
+			).toBe(true);
+			expect(calls).toBe(18);
+			expect(
+				await runTranslationPrewarmJob({ sourceId: "", lang: "zh" }, generate)
+			).toBe(false);
+			expect(calls).toBe(30);
 			await runTranslationPrewarmJob({ sourceId: "", lang: "zh" }, generate);
-			expect(calls).toBe(6);
-			await runTranslationPrewarmJob({ sourceId: "", lang: "zh" }, generate);
-			expect(calls).toBe(7);
-			await runTranslationPrewarmJob({ sourceId: "", lang: "zh" }, generate);
-			expect(calls).toBe(7);
+			expect(calls).toBe(30);
 			const results = await translateNewsItems(f.items, "zh");
 			expect(
 				results.some((item) => item.translation?.reason === "call_limit")
