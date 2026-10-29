@@ -14,6 +14,19 @@ Preview 数据库读回：2376 个任务全部 ready、没有积压，但从登�
 
 Preview API 版本 `a0a0ff65-c54e-4021-b7b8-74de3aa2896c`（上一版 `b8efafd4-…` 可回滚），用 `apps/server/wrangler.preview.jsonc`（未入库，无秘密，`keep_vars`，不含 consumer/cron）`versions upload` → `versions deploy`。发布后一分钟内看到同一分钟 13 次调用、6 个并发（两条 lane 各 3），新登记条目 25–60 秒内 ready。生产仍未发布；生产预算 ¥50 时建议同样保留这组并发/频率上限。
 
+### 生产发布（2026-10-29 11:00–11:25，用户口头批准「发到生产」）
+
+| 项目 | 值 |
+|---|---|
+| 代码 | `main = 90e4f53`（PR #31 快进合并） |
+| 生产 D1 | 迁移 `0005`、`0006` 以显式 `applied_at` 登记为 `00006`、`00007`；执行前 Time Travel 书签 `0000454f-00000102-00005113-3cd044a9c784b55e9cfcc243f994e9ea` |
+| 生产 API | 版本 `011ba879-19ad-4bcd-af2f-78b8ed64fe4a`（tag `translation-90e4f53`）100%；上一版 `c4a114bb-8986-4101-b499-e4e5a7de43b4` 可用 `wrangler versions deploy c4a114bb…@100%` 回滚（回滚不删新表） |
+| 生产变量 | 在原有变量上新增 `TRANSLATION_JOBS_ENABLED=true`、`TRANSLATION_SCHEDULER_ENABLED=true`、`TRANSLATION_ONLY_SCHEDULED=false`、`TRANSLATION_DAILY_BUDGET_CNY=50`、`TRANSLATION_DAILY_CALL_LIMIT=6000`、`TRANSLATION_PRICE_MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507`、输入 0.7 / 输出 2.8 CNY/M；秘密与 DB/KV/IMAGES/队列绑定沿用 |
+| 生产 cron | **发布前生产 Worker 没有任何 cron**（10 分钟内 `scheduler_seen_at` 一直为 0，来源刷新全靠读者请求触发）。11:21 用 `wrangler triggers deploy`（配置含自定义域 `api.opentrends.io` 与 `* * * * *`）加上每分钟调度，约 8 分钟后生效。**注意：`alchemy.run.ts` 默认 cron 是 `*/5 * * * *`，下次用 Alchemy 发布前把 infra 的 `TRENDS_REFRESH_CRON` 设为 `* * * * *`，否则会被改回 5 分钟。** |
+| 生产观测 | cron 生效后每分钟 10–16 次模型调用、两条 lane 并行；补漏扫描把存量未译条目登记了 154 条，几分钟内消完；新条目登记后约 1 分钟 ready |
+| 配置文件 | `apps/server/wrangler.production.jsonc`（未入库，无秘密）；网页端 `apps/web/wrangler.production.jsonc` + `vite.production-cf.config.ts`（未入库） |
+| 网页端 | 已构建（API 服务绑定 → `opentrends-api-production`），**等用户确认后再发**：网页一发会带上 main 的新落地页（`/` 不再 301） |
+
 ## 1. 先接对代码，不要从旧目录发布
 
 - 仓库：<https://github.com/opentrends-io/opentrends>
