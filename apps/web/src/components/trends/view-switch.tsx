@@ -17,7 +17,7 @@ interface ViewSwitchProps {
 	view: "feed" | "trends" | "events" | "calendar";
 }
 
-// Trends (source cards) or Events (clustered stories) for the open topic.
+// Sources (with grid, sections, or flow layout) or clustered events.
 export function ViewSwitch({ localeParam, topicId, view }: ViewSwitchProps) {
 	const t = useT();
 	return (
@@ -25,18 +25,7 @@ export function ViewSwitch({ localeParam, topicId, view }: ViewSwitchProps) {
 			<Link
 				className={cn(
 					segmentClassName,
-					view === "feed" && segmentActiveClassName
-				)}
-				params={{ locale: localeParam }}
-				search={topicId ? { topic: topicId } : {}}
-				to="/{-$locale}/feed"
-			>
-				{t("nav.feed")}
-			</Link>
-			<Link
-				className={cn(
-					segmentClassName,
-					view === "trends" && segmentActiveClassName
+					(view === "trends" || view === "feed") && segmentActiveClassName
 				)}
 				params={{ locale: localeParam, topic: topicId ?? "ai" }}
 				to="/{-$locale}/trends/$topic"

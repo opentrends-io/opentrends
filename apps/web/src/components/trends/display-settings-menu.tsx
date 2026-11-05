@@ -37,6 +37,7 @@ interface ToggleEntry {
 const LAYOUTS: readonly LayoutEntry[] = [
 	{ value: "sourceGrid", labelKey: "display.layoutSourceGrid" },
 	{ value: "sourceSections", labelKey: "display.layoutSourceSections" },
+	{ value: "flow", labelKey: "display.layoutFlow" },
 ];
 
 const TOGGLES: readonly ToggleEntry[] = [
@@ -146,23 +147,33 @@ export function DisplaySettingsMenuContent({
 						))}
 					</DropdownMenuRadioGroup>
 				</DropdownMenuGroup>
-				<DropdownMenuSeparator />
-				<DropdownMenuGroup>
-					<DropdownMenuLabel>{t("display.showOnEachItem")}</DropdownMenuLabel>
-					<DropdownMenuSeparator />
-					{TOGGLES.map((toggle) => (
-						<DropdownMenuCheckboxItem
-							checked={settings[toggle.key]}
-							closeOnClick={false}
-							key={toggle.key}
-							onCheckedChange={(checked) =>
-								setDisplaySetting(toggle.key, Boolean(checked), storeOptions)
-							}
-						>
-							{t(toggle.labelKey)}
-						</DropdownMenuCheckboxItem>
-					))}
-				</DropdownMenuGroup>
+				{settings.layout === "flow" ? null : (
+					<>
+						<DropdownMenuSeparator />
+						<DropdownMenuGroup>
+							<DropdownMenuLabel>
+								{t("display.showOnEachItem")}
+							</DropdownMenuLabel>
+							<DropdownMenuSeparator />
+							{TOGGLES.map((toggle) => (
+								<DropdownMenuCheckboxItem
+									checked={settings[toggle.key]}
+									closeOnClick={false}
+									key={toggle.key}
+									onCheckedChange={(checked) =>
+										setDisplaySetting(
+											toggle.key,
+											Boolean(checked),
+											storeOptions
+										)
+									}
+								>
+									{t(toggle.labelKey)}
+								</DropdownMenuCheckboxItem>
+							))}
+						</DropdownMenuGroup>
+					</>
+				)}
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

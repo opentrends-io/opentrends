@@ -1,13 +1,16 @@
 import type { TranslationStatus } from "@opentrends/api/translation-contract";
 import { db, schema } from "@opentrends/db";
-import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
+
 import { getEventEligibleSourceIds, getSourcePreset } from "../config/sources";
 import { getTopicPreset } from "../config/topics";
 import { EVENT_TIME_WINDOW_MS } from "./event-clustering";
+import { isLogoLikeImage } from "./event-cover";
 import {
 	assertEventEmbeddingConfigured,
 	getEventEmbeddingModel,
 } from "./event-embedding";
+import { isEvergreenText } from "./event-evergreen";
 import { EVENT_SIMILARITY_THRESHOLD } from "./event-merge-rules";
 import { isLowValuePromotionText } from "./event-promotions";
 import { EVENT_LOOKBACK_MS } from "./event-rebuild";
@@ -25,6 +28,7 @@ import {
 	TopicNotFoundError,
 } from "./get-trends-page";
 import {
+	needsTranslation,
 	type TranslationLanguage,
 	type TranslationMode,
 	translateNewsItems,
@@ -49,9 +53,19 @@ type EventSelectionReason =
 	| "official_source"
 	| "selected"
 	| "strong_source";
+export interface EventFeedPublisher {
+	firstAt: string;
+	homeUrl?: string;
+	id: string;
+	latestAt: string;
+	title: string;
+}
+
 export interface EventFeedItem {
 	eventId: string;
 	firstSeenAt: string;
+	/** Stories only: how much the story is being reported now. */
+	heat?: number;
 	imageUrl?: string;
 	lastSeenAt: string;
 	original?: {
@@ -64,6 +78,8 @@ export interface EventFeedItem {
 		title: string;
 		url: string;
 	};
+	/** Stories only: each publisher once, in the order they reported. */
+	publishers?: EventFeedPublisher[];
 	score: number;
 	selectionReason?: EventSelectionReason;
 	sourceCount: number;
@@ -82,7 +98,12 @@ export interface EventFeedItem {
 export interface EventFeedResponse {
 	events: EventFeedItem[];
 	nextOffset?: number;
+	/** Some titles are still being translated: do not cache this for long. */
+	translationsPending?: boolean;
 }
+
+/** stories: two or more publishers, by heat. briefs: one publisher, newest first. */
+export type EventFeedView = "stories" | "briefs";
 
 export interface EventDetailResponse {
 	eventId: string;
@@ -146,7 +167,7 @@ function sourceName(sourceId: string): string {
 	return getSourcePreset(sourceId)?.name ?? sourceId;
 }
 
-interface EventFeedRow {
+export interface EventFeedRow {
 	eventId: string;
 	firstSeenAt: Date;
 	imageUrl: string | null;
@@ -178,13 +199,16 @@ function isLowValueSingleSourceFeedRow(row: EventFeedRow): boolean {
 	if (LOW_VALUE_SINGLE_SOURCE_RE.test(text) && row.score < 150) {
 		return true;
 	}
+	if (isEvergreenText(row.title)) {
+		return true;
+	}
 	if (row.score >= 135 || sourceSignalTier(row.primarySourceId) !== "t2") {
 		return false;
 	}
 	return !CONSUMER_TECH_NEWS_RE.test(text);
 }
 
-function isLowValueEventFeedRow(row: EventFeedRow): boolean {
+export function isLowValueEventFeedRow(row: EventFeedRow): boolean {
 	return isLowValuePromotionFeedRow(row) || isLowValueSingleSourceFeedRow(row);
 }
 
@@ -208,12 +232,14 @@ function getSelectionReason(
 	return "selected";
 }
 
-function toFeedItem(
+export function toFeedItem(
 	row: EventFeedRow,
 	sources: EventFeedItem["sources"],
 	coverImageUrl?: string
 ): EventFeedItem {
-	const imageUrl = row.imageUrl ?? coverImageUrl;
+	const imageUrl = [row.imageUrl, coverImageUrl].find(
+		(url): url is string => Boolean(url) && !isLogoLikeImage(url ?? "")
+	);
 	const topicIds = row.topicIds ?? [row.topicId];
 	return {
 		eventId: row.eventId,
@@ -240,28 +266,31 @@ function toFeedItem(
 	};
 }
 
+export const eventFeedRowSelection = {
+	eventId: trendEvent.eventId,
+	topicId: trendEvent.topicId,
+	title: trendEvent.title,
+	summary: trendEvent.summary,
+	score: trendEvent.score,
+	sourceCount: trendEvent.sourceCount,
+	firstSeenAt: trendEvent.firstSeenAt,
+	lastSeenAt: trendEvent.lastSeenAt,
+	primarySourceId: trendEvent.primarySourceId,
+	primaryItemId: trendEvent.primaryItemId,
+	primaryDescription: sourceItem.description,
+	url: sourceItem.url,
+	imageUrl: sourceItem.imageUrl,
+};
+
 function readEventFeedRows(
 	topicId?: string,
 	limit = EVENT_FEED_DEFAULT_LIMIT,
-	offset = 0
+	offset = 0,
+	view?: EventFeedView
 ): Promise<EventFeedRow[]> {
 	const eventSourceIds = getEventEligibleSourceIds();
 	const query = db
-		.select({
-			eventId: trendEvent.eventId,
-			topicId: trendEvent.topicId,
-			title: trendEvent.title,
-			summary: trendEvent.summary,
-			score: trendEvent.score,
-			sourceCount: trendEvent.sourceCount,
-			firstSeenAt: trendEvent.firstSeenAt,
-			lastSeenAt: trendEvent.lastSeenAt,
-			primarySourceId: trendEvent.primarySourceId,
-			primaryItemId: trendEvent.primaryItemId,
-			primaryDescription: sourceItem.description,
-			url: sourceItem.url,
-			imageUrl: sourceItem.imageUrl,
-		})
+		.select(eventFeedRowSelection)
 		.from(trendEvent)
 		.leftJoin(
 			sourceItem,
@@ -271,10 +300,13 @@ function readEventFeedRows(
 			)
 		)
 		.$dynamic();
-	const eventSourcePredicate = inArray(
-		trendEvent.primarySourceId,
-		eventSourceIds
-	);
+	const eventSourcePredicate =
+		view === "briefs"
+			? and(
+					inArray(trendEvent.primarySourceId, eventSourceIds),
+					lte(trendEvent.sourceCount, 1)
+				)
+			: inArray(trendEvent.primarySourceId, eventSourceIds);
 	const filteredQuery = topicId
 		? query
 				.innerJoin(
@@ -302,7 +334,7 @@ function readEventFeedRows(
 		.offset(offset);
 }
 
-async function readEventTopicIds(
+export async function readEventTopicIds(
 	eventIds: string[]
 ): Promise<Map<string, string[]>> {
 	if (eventIds.length === 0) {
@@ -327,7 +359,7 @@ async function readEventTopicIds(
 	return topics;
 }
 
-function prepareEventFeedTopicSources(
+export function prepareEventFeedTopicSources(
 	topicId: string | undefined,
 	waitUntil: ((promise: Promise<unknown>) => void) | undefined
 ): void {
@@ -346,7 +378,7 @@ function prepareEventFeedTopicSources(
 	waitUntil?.(refresh);
 }
 
-async function readEventCoverImages(
+export async function readEventCoverImages(
 	eventIds: string[]
 ): Promise<Map<string, string>> {
 	if (eventIds.length === 0) {
@@ -377,14 +409,18 @@ async function readEventCoverImages(
 		);
 	const images = new Map<string, string>();
 	for (const row of rows) {
-		if (row.imageUrl && !images.has(row.eventId)) {
+		if (
+			row.imageUrl &&
+			!images.has(row.eventId) &&
+			!isLogoLikeImage(row.imageUrl)
+		) {
 			images.set(row.eventId, row.imageUrl);
 		}
 	}
 	return images;
 }
 
-async function readEventFeedSources(
+export async function readEventFeedSources(
 	eventIds: string[]
 ): Promise<Map<string, EventFeedItem["sources"]>> {
 	if (eventIds.length === 0) {
@@ -452,6 +488,7 @@ export async function getEventFeed(
 		limit?: number;
 		offset?: number;
 		translationMode?: TranslationMode;
+		view?: EventFeedView;
 		waitUntil?: (promise: Promise<unknown>) => void;
 	} = {}
 ): Promise<EventFeedResponse> {
@@ -463,7 +500,12 @@ export async function getEventFeed(
 	);
 	const offset = Math.max(options.offset ?? 0, 0);
 	const readLimit = limit + 25;
-	const rows = await readEventFeedRows(topicId, readLimit, offset);
+	const rows = await readEventFeedRows(
+		topicId,
+		readLimit,
+		offset,
+		options.view
+	);
 	const visibleRows = rows
 		.map((row, index) => ({ index, row }))
 		.filter(({ row }) => !isLowValueEventFeedRow(row));
@@ -492,40 +534,64 @@ export async function getEventFeed(
 			coverImages.get(row.eventId)
 		)
 	);
-	if (options.lang) {
-		const translationItems = await translateNewsItems(
-			await resolveEventTranslationItems(
-				events.map((event) => ({
-					description: event.summary,
-					fetchedAt: Date.now(),
-					id: event.eventId,
-					sourceId: `event:${event.eventId}`,
-					title: event.title,
-					url: event.primarySource?.url ?? "",
-				}))
-			),
-			options.lang,
-			options.translationMode
-		);
-		for (let index = 0; index < events.length; index += 1) {
-			const event = events[index];
-			const translated = translationItems[index];
-			if (event && translated) {
-				event.translation = translated.translation;
-			}
-			if (event && translated?.original) {
-				event.title = translated.title;
-				event.summary = translated.description;
-				event.original = {
-					title: translated.original.title,
-					summary: translated.original.description,
-				};
-			}
-		}
-	}
-	return {
+	const localized = await localizeEventFeedItems(
 		events,
+		options.lang,
+		options.translationMode
+	);
+	return {
+		events: localized.events,
 		nextOffset,
+		translationsPending: localized.pending || undefined,
+	};
+}
+
+// Reuse the durable event translation identity and read-only cache path for
+// every view. Page loads must not bypass the scheduler or its daily budget.
+export async function localizeEventFeedItems(
+	events: readonly EventFeedItem[],
+	lang: TranslationLanguage | undefined,
+	translationMode: TranslationMode | undefined
+): Promise<{ events: EventFeedItem[]; pending: boolean }> {
+	if (!lang) {
+		return { events: [...events], pending: false };
+	}
+	const translated = await translateNewsItems(
+		await resolveEventTranslationItems(
+			events.map((event) => ({
+				description: event.summary,
+				fetchedAt: Date.now(),
+				id: event.eventId,
+				sourceId: `event:${event.eventId}`,
+				title: event.title,
+				url: event.primarySource?.url ?? "",
+			}))
+		),
+		lang,
+		translationMode
+	);
+	return {
+		pending: translated.some((item) => needsTranslation(item, lang)),
+		events: events.map((event, index) => {
+			const item = translated[index];
+			if (!item) {
+				return event;
+			}
+			return {
+				...event,
+				translation: item.translation,
+				...(item.original
+					? {
+							title: item.title,
+							summary: item.description,
+							original: {
+								title: item.original.title,
+								summary: item.original.description,
+							},
+						}
+					: {}),
+			};
+		}),
 	};
 }
 
@@ -535,6 +601,7 @@ export async function getEventDetail(
 	options: {
 		lang?: TranslationLanguage;
 		translationMode?: TranslationMode;
+		waitUntil?: (promise: Promise<unknown>) => void;
 	} = {}
 ): Promise<EventDetailResponse | null> {
 	assertEventEmbeddingConfigured();

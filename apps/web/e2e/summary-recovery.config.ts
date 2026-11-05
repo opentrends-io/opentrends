@@ -2,7 +2,12 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
 	testDir: ".",
-	testMatch: ["summary-recovery.e2e.ts", "translation-refresh.e2e.ts"],
+	testMatch: [
+		"summary-recovery.e2e.ts",
+		"translation-refresh.e2e.ts",
+		"flow-layout.e2e.ts",
+		"event-preview.e2e.ts",
+	],
 	timeout: 35_000,
 	retries: 0,
 	workers: 1,

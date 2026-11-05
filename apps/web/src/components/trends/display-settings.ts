@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-export type DisplayLayout = "sourceGrid" | "sourceSections";
+export type DisplayLayout = "sourceGrid" | "sourceSections" | "flow";
 
 export interface DisplaySettings {
 	layout: DisplayLayout;
@@ -43,6 +43,7 @@ export const SOURCE_SECTIONS_DISPLAY_SETTINGS: DisplaySettings = {
 const DISPLAY_SETTINGS_BY_LAYOUT: Record<DisplayLayout, DisplaySettings> = {
 	sourceGrid: DISPLAY_SETTINGS_DEFAULTS,
 	sourceSections: SOURCE_SECTIONS_DISPLAY_SETTINGS,
+	flow: { ...DISPLAY_SETTINGS_DEFAULTS, layout: "flow" },
 };
 
 const STORAGE_KEY = "opentrends:trends:display-settings";
@@ -53,7 +54,9 @@ const snapshotCache = new Map<
 >();
 
 function isDisplayLayout(value: unknown): value is DisplayLayout {
-	return value === "sourceGrid" || value === "sourceSections";
+	return (
+		value === "sourceGrid" || value === "sourceSections" || value === "flow"
+	);
 }
 
 function getStoreDefaults(
@@ -66,7 +69,7 @@ function getStoreKey(options?: DisplaySettingsStoreOptions): string {
 	return options?.storageKey ?? STORAGE_KEY;
 }
 
-function normalizeSettings(
+export function normalizeDisplaySettings(
 	value: Partial<DisplaySettings>,
 	defaults = DISPLAY_SETTINGS_DEFAULTS
 ): DisplaySettings {
@@ -91,7 +94,7 @@ function readFromStorage(
 			return defaults;
 		}
 		const parsed = JSON.parse(raw) as Partial<DisplaySettings>;
-		return normalizeSettings(parsed, defaults);
+		return normalizeDisplaySettings(parsed, defaults);
 	} catch {
 		return defaults;
 	}

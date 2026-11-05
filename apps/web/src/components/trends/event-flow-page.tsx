@@ -81,7 +81,6 @@ interface EventStats {
 	highScoreEvents: number;
 	multiSourceEvents: number;
 	multiTopicEvents: number;
-	primaryTierSummary: string;
 	recentEventTitle: string;
 	translatedEvents: number;
 	uniqueSourceCount: number;
@@ -375,15 +374,7 @@ function buildEventStats(snapshot: EventWorkflowSnapshot): EventStats {
 						10
 				) / 10
 			: 0;
-	const tiers = events.reduce<Record<string, number>>((accumulator, event) => {
-		const tier = event.signals?.primarySourceTier ?? "unknown";
-		accumulator[tier] = (accumulator[tier] ?? 0) + 1;
-		return accumulator;
-	}, {});
-	const primaryTierSummary =
-		Object.entries(tiers)
-			.map(([tier, count]) => `${tier}:${count}`)
-			.join(" / ") || "none";
+
 	return {
 		averageScore,
 		averageSources,
@@ -392,7 +383,6 @@ function buildEventStats(snapshot: EventWorkflowSnapshot): EventStats {
 		multiTopicEvents: events.filter(
 			(event) => (event.topicIds?.length ?? 1) > 1
 		).length,
-		primaryTierSummary,
 		recentEventTitle: events[0]?.title ?? "none",
 		translatedEvents: events.filter((event) => event.original).length,
 		uniqueSourceCount: sourceIds.size,
@@ -1315,10 +1305,6 @@ function EventStatsPanel({
 				<ControlLine
 					label={isChinese ? "translated" : "translated"}
 					value={String(stats.translatedEvents)}
-				/>
-				<ControlLine
-					label={isChinese ? "primary tier" : "primary tier"}
-					value={stats.primaryTierSummary}
 				/>
 			</div>
 		</section>

@@ -91,6 +91,7 @@
   "display_layout": "Layout",
   "display_layout_source_grid": "Grade de fontes",
   "display_layout_source_sections": "Seções por fonte",
+  "display_layout_flow": "Fluxo",
   "display_sources": "Fontes",
   "display_drag_source": "Arraste para reordenar {title}. Use as setas no teclado.",
   "display_source_moved": "{title} foi movido para a posição {position} de {count}.",
@@ -241,5 +242,17 @@
   "calendar_seo_description": "O que liderou cada fonte, dia a dia, por tema e mês.",
   "calendar_previous_month": "Mês anterior",
   "calendar_next_month": "Próximo mês",
-  "nav_history": "Histórico de leitura"
+  "nav_history": "Histórico de leitura",
+  "events_stories": "Coberto por vários veículos",
+  "events_stories_hint": "Histórias cobertas por dois ou mais veículos; as mais cobertas agora primeiro.",
+  "events_stories_empty": "Ainda não há histórias com um segundo veículo.",
+  "events_briefs": "Notas de uma só fonte",
+  "events_briefs_hint": "Por enquanto só um veículo; mais recentes primeiro.",
+  "events_show_briefs": "Ver todas as notas",
+  "events_publisher_count": "{count} veículos",
+  "events_latest_follow_up": "Último: {publisher}, {time}",
+  "events_first_reported": "Primeiro {time}",
+  "events_reports": "Reportagens",
+  "events_first_report": "Primeiro",
+  "events_story_count": "{count} histórias"
 }

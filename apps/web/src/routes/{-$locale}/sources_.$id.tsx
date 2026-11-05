@@ -137,6 +137,8 @@ export const Route = createFileRoute("/{-$locale}/sources_/$id")({
 			locale,
 			path: `/sources/${params.id}`,
 			title: strings.title(name),
+			// No loader data means the source was not found.
+			noindex: loaderData === undefined,
 		});
 	},
 });
