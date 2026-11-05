@@ -1,5 +1,12 @@
 # Ultracite Code Standards
 
+## OpenTrends production releases
+
+- Approved production model bindings live in `packages/infra/src/production-model-policy.ts`. Do not copy model settings from old local `.env`, Preview, or the currently deployed version without checking this policy.
+- After uploading a production API version, use `bun run deploy:production:api <candidate-version>` to check it, then `bun run deploy:production:api <candidate-version> --deploy --expected-current <active-version>` to promote it. This verifies the candidate bindings and active version before promotion, then reads them back. An intentional model change must update the reviewed policy first. Do not bypass a failing check with raw `wrangler versions deploy`.
+- A production release receipt must distinguish API code/version, Web code/version, and model configuration. Merged code and Preview acceptance do not prove production delivery. List each approved feature still waiting for promotion; do not silently bundle it with an unapproved landing page.
+- Model switches must preserve runtime bindings, secrets, cron/queue settings and existing cached summaries. Verify a successful new-model usage row after deployment, not only a cached HTTP 200.
+
 This project uses **Ultracite**, a zero-config preset that enforces strict code quality standards through automated formatting and linting.
 
 ## Quick Reference

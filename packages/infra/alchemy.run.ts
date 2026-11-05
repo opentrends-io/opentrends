@@ -8,6 +8,7 @@ import {
 	Worker,
 } from "alchemy/cloudflare";
 import { config } from "dotenv";
+import { resolveModelBindings } from "./src/production-model-policy";
 
 config({ path: "./.env.local" });
 config({ path: "../../apps/web/.env.local" });
@@ -18,6 +19,12 @@ const app = await alchemy("opentrends");
 const apiCustomDomain = process.env.API_CUSTOM_DOMAIN?.trim();
 const cloudflareZoneId = process.env.CLOUDFLARE_ZONE_ID?.trim();
 const webCustomDomain = process.env.WEB_CUSTOM_DOMAIN?.trim();
+const modelBindings = resolveModelBindings(
+	apiCustomDomain === "api.opentrends.io" || webCustomDomain === "opentrends.io"
+		? "production"
+		: app.stage,
+	process.env
+);
 // The public origin every canonical, hreflang and sitemap entry is built
 // from. A deployer's shell may carry a local preview origin; that must not
 // reach a deployed build, so it is dropped in favour of the custom domain.
@@ -141,12 +148,7 @@ export const api = await Worker("api", {
 		...(process.env.LLM_API_KEY
 			? { LLM_API_KEY: alchemy.secret.env.LLM_API_KEY }
 			: {}),
-		LLM_BASE_URL:
-			process.env.LLM_BASE_URL ?? "https://dashboard.thorbase.com/v1",
-		LLM_MODEL: process.env.LLM_MODEL ?? "deepseek/deepseek-v4-pro",
-		...(process.env.LLM_TRANSLATION_MODEL
-			? { LLM_TRANSLATION_MODEL: process.env.LLM_TRANSLATION_MODEL }
-			: {}),
+		...modelBindings,
 		...(process.env.LLM_ENABLE_THINKING
 			? { LLM_ENABLE_THINKING: process.env.LLM_ENABLE_THINKING }
 			: {}),
