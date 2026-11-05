@@ -91,6 +91,7 @@
   "display_layout": "Disposition",
   "display_layout_source_grid": "Grille de sources",
   "display_layout_source_sections": "Sections par source",
+  "display_layout_flow": "Flux",
   "display_sources": "Sources",
   "display_drag_source": "Faites glisser pour réorganiser {title}. Utilisez les flèches au clavier.",
   "display_source_moved": "{title} déplacé en position {position} sur {count}.",
@@ -241,5 +242,17 @@
   "calendar_seo_description": "Ce qui a fait la une de chaque source, jour par jour, pour un sujet et un mois.",
   "calendar_previous_month": "Mois précédent",
   "calendar_next_month": "Mois suivant",
-  "nav_history": "Historique de lecture"
+  "nav_history": "Historique de lecture",
+  "events_stories": "Couvert par plusieurs médias",
+  "events_stories_hint": "Sujets couverts par au moins deux médias ; les plus couverts en ce moment d’abord.",
+  "events_stories_empty": "Aucun sujet n’a encore de second média.",
+  "events_briefs": "Brèves d’une seule source",
+  "events_briefs_hint": "Un seul média pour l’instant ; les plus récentes d’abord.",
+  "events_show_briefs": "Voir toutes les brèves",
+  "events_publisher_count": "{count} médias",
+  "events_latest_follow_up": "Dernier : {publisher}, {time}",
+  "events_first_reported": "Première {time}",
+  "events_reports": "Articles",
+  "events_first_report": "Premier",
+  "events_story_count": "{count} sujets"
 }

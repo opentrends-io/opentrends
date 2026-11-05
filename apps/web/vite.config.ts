@@ -10,6 +10,7 @@ import { config as loadDotenv } from "dotenv";
 import { defineConfig } from "vite";
 
 import { paraglideCompilerOptions } from "./paraglide.config";
+import { buildLandingCatalog } from "./scripts/landing-catalog";
 
 const alchemyConfigPath = fileURLToPath(
 	new URL("./.alchemy/local/wrangler.jsonc", import.meta.url)
@@ -31,6 +32,7 @@ export default defineConfig(({ mode }) => {
 	loadLocalWebEnv(mode);
 
 	return {
+		define: { __LANDING_CATALOG__: JSON.stringify(buildLandingCatalog()) },
 		server: {
 			port: 3001,
 		},

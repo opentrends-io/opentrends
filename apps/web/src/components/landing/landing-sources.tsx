@@ -72,12 +72,11 @@ function Wall({
 }) {
 	const t = useT();
 	const [filter, setFilter] = useState<WallFilter>("all");
-	const [expanded, setExpanded] = useState(false);
 	const matching =
 		filter === "all"
 			? wall
 			: wall.filter((source) => source.topics.includes(filter));
-	const tiles = expanded ? matching : matching.slice(0, SOURCE_WALL_TILES);
+	const tiles = matching.slice(0, filter === "all" ? SOURCE_WALL_TILES : 8);
 	const chips: { id: WallFilter; label: string }[] = [
 		{ id: "all", label: strings.sourcesAll },
 		...CONTENT_TOPICS.filter((topic) =>
@@ -86,14 +85,13 @@ function Wall({
 	];
 	return (
 		<div className="mt-10">
-			<div
+			<fieldset
 				aria-label={strings.sourcesKicker}
 				className="flex flex-wrap gap-1.5"
-				role="tablist"
 			>
 				{chips.map((chip) => (
 					<button
-						aria-selected={chip.id === filter}
+						aria-pressed={chip.id === filter}
 						className={cn(
 							"inline-flex h-7 items-center border px-2.5 text-[12px] transition-colors",
 							chip.id === filter
@@ -103,15 +101,13 @@ function Wall({
 						key={chip.id}
 						onClick={() => {
 							setFilter(chip.id);
-							setExpanded(false);
 						}}
-						role="tab"
 						type="button"
 					>
 						{chip.label}
 					</button>
 				))}
-			</div>
+			</fieldset>
 			<ul className="mt-4 flex flex-wrap gap-2">
 				{tiles.map((source, index) => (
 					<WallTile
@@ -122,15 +118,6 @@ function Wall({
 					/>
 				))}
 			</ul>
-			{matching.length > SOURCE_WALL_TILES ? (
-				<button
-					className={`${TEXT_LINK_CLASS} mt-4`}
-					onClick={() => setExpanded((value) => !value)}
-					type="button"
-				>
-					{expanded ? strings.sourcesShowLess : strings.sourcesShowAll}
-				</button>
-			) : null}
 		</div>
 	);
 }

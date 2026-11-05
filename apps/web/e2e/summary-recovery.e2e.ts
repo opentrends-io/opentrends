@@ -55,9 +55,16 @@ test.describe("summary recovery", () => {
 		await exhaustRetries(page, () => calls);
 		await expect(body).toContainText("已有摘要 1");
 		await expect(page.getByRole("status")).toContainText("保留已有摘要");
-		await expect(body.locator('[data-streamdown="link"]')).toHaveCount(5);
+		// SEO keeps every entry in HTML; only five are visible before expansion.
+		await expect(body.locator('[data-streamdown="link"]')).toHaveCount(8);
+		await expect(body.locator('[data-streamdown="link"]:visible')).toHaveCount(
+			5
+		);
 		await page.getByRole("button", { name: "展开其余 3 条" }).click();
 		await expect(body).toContainText("已有摘要 8");
+		await expect(body.locator('[data-streamdown="link"]:visible')).toHaveCount(
+			8
+		);
 		await page.screenshot({
 			path: testInfo.outputPath("retained-desktop.png"),
 		});

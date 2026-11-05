@@ -1,7 +1,12 @@
 import { Hono } from "hono";
 
 import { EventEmbeddingNotConfiguredError } from "../trends/services/event-embedding";
-import { getEventDetail, getEventFeed } from "../trends/services/event-feed";
+import {
+	type EventFeedView,
+	getEventDetail,
+	getEventFeed,
+} from "../trends/services/event-feed";
+import { getEventStories } from "../trends/services/event-stories";
 import {
 	TopicNotFoundError,
 	TrendsSnapshotsUnavailableError,
@@ -18,6 +23,10 @@ interface WaitUntilContext {
 }
 
 const PUBLIC_EVENTS_CACHE_CONTROL = "no-store";
+
+function parseView(value: string | undefined): EventFeedView | undefined {
+	return value === "stories" || value === "briefs" ? value : undefined;
+}
 
 function parsePositiveInteger(value: string | undefined): number | undefined {
 	const parsed = Number.parseInt(value ?? "", 10);
@@ -55,18 +64,20 @@ export const eventsRoutes = new Hono()
 		const offset = parseOffset(c.req.query("offset"));
 		const lang = normalizeTranslationLanguage(c.req.query("lang"));
 		const translationMode = parseTranslationMode(c.req.query("translations"));
+		const view = parseView(c.req.query("view"));
 		try {
-			return withEventsCacheHeaders(
-				c.json(
-					await getEventFeed(topic, {
-						lang,
-						limit,
-						offset,
-						translationMode,
-						waitUntil: getWaitUntil(c),
-					})
-				)
-			);
+			const options = {
+				lang,
+				limit,
+				offset,
+				translationMode,
+				waitUntil: getWaitUntil(c),
+			};
+			const feed =
+				view === "stories"
+					? await getEventStories(topic, options)
+					: await getEventFeed(topic, { ...options, view });
+			return withEventsCacheHeaders(c.json(feed));
 		} catch (error) {
 			if (error instanceof TopicNotFoundError) {
 				return c.json({ error: "topic_not_found", topic }, 404);
@@ -91,6 +102,7 @@ export const eventsRoutes = new Hono()
 			const event = await getEventDetail(eventId, topic, {
 				lang,
 				translationMode,
+				waitUntil: getWaitUntil(c),
 			});
 			if (!event) {
 				return c.json({ error: "event_not_found", eventId, topic }, 404);

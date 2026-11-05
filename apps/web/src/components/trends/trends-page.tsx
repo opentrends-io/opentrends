@@ -53,6 +53,7 @@ import {
 	useDisplaySettings,
 } from "./display-settings";
 import { DisplaySettingsMenuContent } from "./display-settings-menu";
+import { FeedPage } from "./feed-page";
 import {
 	FOLLOWED_TOPIC_ID,
 	FollowedSourcesContext,
@@ -434,6 +435,14 @@ export function TrendsPage({ displaySettingsStore, page }: TrendsPageProps) {
 			<div className="flex min-h-32 items-center justify-center border-[var(--border-default)] border-b bg-[var(--surface-card)] px-4 text-center text-[13px] text-[var(--text-secondary)]">
 				{t("card.unavailable")}
 			</div>
+		);
+	} else if (settings.layout === "flow") {
+		sourceContent = (
+			<FeedPage
+				embedded
+				hiddenSourceIds={sourcePreferences.preference.hiddenSourceIds}
+				topicId={displayPage.id}
+			/>
 		);
 	} else if (settings.layout === "sourceSections") {
 		sourceContent = (
