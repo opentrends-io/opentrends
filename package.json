@@ -33,6 +33,7 @@
     "db:generate": "bun run --filter @opentrends/db db:generate",
     "cloudflare:login": "bun run --filter @opentrends/infra login",
     "deploy": "bun run --filter @opentrends/infra deploy",
+    "deploy:production:api": "bun run scripts/deploy-production-api.ts",
     "destroy": "bun run --filter @opentrends/infra destroy",
     "check": "ultracite check",
     "fix": "ultracite fix",
