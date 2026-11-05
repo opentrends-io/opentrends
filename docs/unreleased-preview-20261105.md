@@ -41,3 +41,46 @@
 - `preview/integration` 的旧全局事件重建已由主线后续实现承接，不重复整枝合并。
 
 验收结果与发布回执在完成后补充。
+
+## 本批结果（2026-11-05）
+
+**ACCEPTED：统一 Preview 已部署，生产发布待用户验收。** 应用源码提交 `c2c3fa32a82f516cdc10ca26b5eaee330b9b110a`，后续只补发布回执。
+
+| 项目 | Preview 结果 | 生产状态 |
+| --- | --- | --- |
+| 五屏落地页、静态来源目录 | 中英文 200；默认 32 个来源，领域筛选 8 个；手机无横向溢出；FAQ 和回访提示正常 | 待验收 |
+| 流式排版 | 网格→流式→刷新→分区实测，UI 与 localStorage 一致；独立推荐入口移除 | 待验收 |
+| 日历入口 | 普通导航隐藏；旧路由保留 | 原本已上线 |
+| 关注空状态与旧 feed 链接 | 两个真实路径均显示关注引导 | 保留已有修复 |
+| SEO 第五轮 | featured 原始 HTML 包含全部 10 条；默认显示 5 条；无效 topic 404 + noindex；归档面包屑接入 | 待验收 |
+| 事件与合并算法 | stories/briefs/旧查询/详情 200；单源译文正常；多源展示、折叠与手机时间线通过组件浏览器测试；聚类反例通过 | 待验收 |
+| 翻译与摘要恢复 | 保留任务状态、译文留存、no-store、有限轮询和失败保留摘要 | 前端整合待验收 |
+| 模型 | Preview 摘要与翻译 Qwen3-30B；其他 API 绑定与 runtime 不变 | 生产 Qwen 已生效，本批不动 |
+
+验证：404 项单测、3989 个断言；lint、Web/Server TypeScript、API bundle 与 Web build 通过。10 项组件浏览器回归通过；其中摘要测试随 SEO 合同改为“DOM 全量、可见 5 条、展开全量”。真实 Preview 桌面/375px 检查无页面运行错误；Google/GitHub provider 均为 true。两份 sitemap 返回 200/XML，Preview 保持 noindex。
+
+旧事件分支的列表内存/边缘缓存、访问时补翻译、图片实现没有覆盖当前系统。事件视图共用现有稳定翻译 identity 与只读缓存，保留任务状态和有限轮询。旧工作流页引用已不存在的 `signals.primarySourceTier` 导致类型失败，移除了无数据来源的统计格，没有编造 API 字段。
+
+### 部署回执
+
+- Preview API：`2c30b96b-95d9-4842-b59b-4a1a1d7d68b9`，100%。代码 SHA-256 `9ebd04600bd98d933c66beb2943412e9a626ef0dafb23a92588b78df3e17b052`。
+- Preview Web：`83f28ed1-c633-4018-8488-bc51af1d8780`，100%；服务绑定 `opentrends-api-preview`，构建域名均为 Preview。
+- 2026-11-05 12:53（Asia/Shanghai）切换。绑定层仅摘要模型改为 Qwen；其他 API 绑定、运行时、每分钟计划不变；计划仍只跑翻译，¥1/日不变。
+- 回滚点：API `3a0305c5-d58b-4a53-a3b6-2bb4473d35fc`，Web `a0a72830-1bfd-4b05-853c-a182546264e7`。旧 API 带 Kimi，回滚代码应保留 Qwen，不盲切历史模型。
+- 生产 API/Web 仍为本文件基线版本，没有生产切流量。
+
+### known_limits / follow-up
+
+- Preview 完整抓取定时任务关闭，初始事件数据停在 10 月 29 日；近四天多源列表为空是样本限制。真实 API 接线、旧事件详情和单源译文已验；真实新多源报道的完整展示需有近期候选后复核。未伪造日期、放宽窗口、开启全量定时任务或重建生产数据。
+- 来源目录是公开配置的构建快照，配置变动需重建 Web。首页截图仍是 Claude 落地页自带示例，不代表本次 Preview 实时 UI。
+- 首次关注测试使用了错误定位文案，按实际文案完成两条路径复核；首次事件 fixture 只有 8 条，不能证明折叠，已改成 12 条并证明展开前后不同。未因此改产品行为。
+- 不以缓存摘要响应证明新模型本轮实际调用；生产 Qwen 的真实调用已在前一批验证。本批没有额外制造模型调用来做演示。
+
+### 验收链接
+
+- 首页：<https://opentrends-web-preview.opentrends.workers.dev/zh>
+- 显示偏好 / 排版：<https://opentrends-web-preview.opentrends.workers.dev/zh/trends/featured>
+- 事件：<https://opentrends-web-preview.opentrends.workers.dev/zh/events>
+- 关注：<https://opentrends-web-preview.opentrends.workers.dev/zh/trends/mine>
+
+生产发布按 `production-release-checklist.md` 执行，保持用户门禁。本分支已包含 PR #14、#26 和本地未推送流式分支的适用实现，不再整枝合并旧代码覆盖它。
