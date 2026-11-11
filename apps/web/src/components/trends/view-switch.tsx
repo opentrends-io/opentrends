@@ -27,6 +27,8 @@ export function ViewSwitch({ localeParam, topicId, view }: ViewSwitchProps) {
 					segmentClassName,
 					(view === "trends" || view === "feed") && segmentActiveClassName
 				)}
+				data-analytics-event="view_change"
+				data-analytics-value="sources"
 				params={{ locale: localeParam, topic: topicId ?? "ai" }}
 				to="/{-$locale}/trends/$topic"
 			>
@@ -38,6 +40,8 @@ export function ViewSwitch({ localeParam, topicId, view }: ViewSwitchProps) {
 						segmentClassName,
 						view === "events" && segmentActiveClassName
 					)}
+					data-analytics-event="view_change"
+					data-analytics-value="events"
 					params={{ locale: localeParam }}
 					search={topicId ? { topic: topicId } : {}}
 					to="/{-$locale}/events"

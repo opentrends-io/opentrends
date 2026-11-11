@@ -263,7 +263,10 @@ export function LandingBrief({
 	strings: LandingStrings;
 }) {
 	return (
-		<section className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] py-16 sm:py-24">
+		<section
+			className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] py-16 sm:py-24"
+			data-analytics-area="brief"
+		>
 			<div className={CONTAINER_CLASS}>
 				<div className="flex flex-wrap items-end justify-between gap-6">
 					<SectionHeader

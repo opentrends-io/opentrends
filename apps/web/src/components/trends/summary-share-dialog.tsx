@@ -7,6 +7,7 @@ import {
 } from "@opentrends/ui/components/dialog";
 import { Check, Copy, Download } from "lucide-react";
 import { useCallback, useState } from "react";
+import { track } from "@/lib/analytics";
 
 import {
 	type Locale,
@@ -140,9 +141,11 @@ export function SummaryShareDialog({
 			await navigator.clipboard.write([
 				new ClipboardItem({ "image/png": state.blob }),
 			]);
+			track("share_result", "image_copied");
 			setCopied(true);
 			window.setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
 		} catch {
+			track("share_result", "failed");
 			/* Clipboard access was denied; the download button still works. */
 		}
 	};
@@ -192,6 +195,8 @@ export function SummaryShareDialog({
 					{state.status === "ready" ? (
 						<a
 							className="inline-flex h-7 items-center gap-1 bg-[var(--accent-blue)] px-2.5 text-[12px] text-white transition-colors hover:bg-[var(--accent-blue-hover)] [&_svg]:size-3.5"
+							data-analytics-event="share_result"
+							data-analytics-value="image_download"
 							download={fileName}
 							href={state.url}
 						>

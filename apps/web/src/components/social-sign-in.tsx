@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-
 import { GitHubMark, GoogleMark } from "@/components/brand-marks";
+import { loginFinished, loginStarted } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { localePathParam, useLocale, useT } from "@/lib/i18n";
 
@@ -54,6 +54,7 @@ export function SocialSignIn() {
 
 	async function signIn(provider: SocialProvider) {
 		setPendingProvider(provider);
+		loginStarted(provider);
 		try {
 			const callbackURL = buildSocialCallbackUrl(
 				window.location.origin,
@@ -61,10 +62,12 @@ export function SocialSignIn() {
 			);
 			const result = await authClient.signIn.social({ provider, callbackURL });
 			if (result.error) {
+				loginFinished(false);
 				toast.error(result.error.message ?? t("sign.socialError"));
 				setPendingProvider(undefined);
 			}
 		} catch {
+			loginFinished(false);
 			toast.error(t("sign.socialError"));
 			setPendingProvider(undefined);
 		}

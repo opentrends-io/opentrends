@@ -134,7 +134,10 @@ export function LandingSources({
 	wall: WallSource[];
 }) {
 	return (
-		<section className="border-[var(--border-default)] border-t py-16 sm:py-24">
+		<section
+			className="border-[var(--border-default)] border-t py-16 sm:py-24"
+			data-analytics-area="sources"
+		>
 			<div className={CONTAINER_CLASS}>
 				<SectionHeader
 					body={strings.sourcesBody}

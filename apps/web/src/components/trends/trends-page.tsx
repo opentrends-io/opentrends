@@ -39,6 +39,7 @@ import {
 	useState,
 } from "react";
 import { toolButtonClassName } from "@/components/chrome-styles";
+import { track } from "@/lib/analytics";
 import {
 	type Locale,
 	localePathParam,
@@ -618,7 +619,10 @@ function ViewBar({
 				/>
 				<button
 					className={toolButtonClassName}
-					onClick={onOpenSources}
+					onClick={() => {
+						track("source_action", "manage");
+						onOpenSources();
+					}}
 					type="button"
 				>
 					<Rss aria-hidden className="size-3.5" />
@@ -790,7 +794,10 @@ function SourceCard({
 							/>
 							<button
 								className="absolute inset-x-0 bottom-2 mx-auto hidden w-fit items-center gap-1 rounded border border-[var(--border-default)] bg-[var(--surface-card)] px-2 py-1 text-[11px] text-[var(--text-secondary)] shadow-sm transition-colors hover:bg-[var(--state-hover-subtle)] hover:text-[var(--text-primary)] sm:flex"
-								onClick={() => setExpanded(true)}
+								onClick={() => {
+									track("source_action", "expand");
+									setExpanded(true);
+								}}
 								type="button"
 							>
 								{t("card.viewAll", {
@@ -803,6 +810,7 @@ function SourceCard({
 						<button
 							className="sticky bottom-0 flex w-full items-center justify-center gap-1 border-[var(--border-default)] border-t bg-[var(--surface-card)] py-1.5 text-[11px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
 							onClick={(event) => {
+								track("source_action", "collapse");
 								setExpanded(false);
 								event.currentTarget.parentElement?.scrollTo({ top: 0 });
 							}}
@@ -896,7 +904,10 @@ function SourceSection({
 				<div className="border-[var(--border-default)] border-t px-3 py-2">
 					<button
 						className="inline-flex items-center gap-1 rounded border border-[var(--border-default)] bg-[var(--surface-card)] px-2 py-1 text-[11px] text-[var(--text-secondary)] transition-colors hover:bg-[var(--state-hover-subtle)] hover:text-[var(--text-primary)]"
-						onClick={() => setExpanded((value) => !value)}
+						onClick={() => {
+							track("source_action", expanded ? "collapse" : "expand");
+							setExpanded((value) => !value);
+						}}
 						type="button"
 					>
 						{expanded
@@ -1333,6 +1344,8 @@ function NewsRow({
 	return (
 		<a
 			className={`group relative flex items-start gap-2.5 px-3 transition-colors hover:bg-[var(--state-hover-subtle)] sm:gap-3 ${ranking ? "py-1.5" : "py-2.5 sm:py-2"} ${VISITED_TITLE_CLASS}`}
+			data-analytics-event="article_open"
+			data-analytics-value="source"
 			href={item.url}
 			rel="noopener noreferrer"
 			target="_blank"
@@ -1412,6 +1425,8 @@ function NewsCard({
 	return (
 		<a
 			className={`group flex h-full min-h-[148px] flex-col bg-[var(--surface-card)] transition-colors hover:bg-[var(--state-hover-subtle)] sm:min-h-[168px] ${VISITED_TITLE_CLASS}`}
+			data-analytics-event="article_open"
+			data-analytics-value="source"
 			href={item.url}
 			rel="noopener noreferrer"
 			target="_blank"

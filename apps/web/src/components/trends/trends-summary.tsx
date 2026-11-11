@@ -10,6 +10,8 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { track } from "@/lib/analytics";
+import { summaryOutcome } from "@/lib/analytics-model";
 
 // The streaming Markdown renderer is a large chunk and only a digest being
 // generated live needs it; finished digests are laid out by hand.
@@ -665,7 +667,10 @@ function SummaryBody({
 				{foldable ? (
 					<button
 						className="mt-1 text-[12px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
-						onClick={() => onExpandedChange(!expanded)}
+						onClick={() => {
+							track(expanded ? "summary_collapse" : "summary_expand");
+							onExpandedChange(!expanded);
+						}}
 						type="button"
 					>
 						{expanded
@@ -817,6 +822,20 @@ export function TrendsSummary({
 	);
 	const [summaryWindow, setSummaryWindow] = useState<SummaryWindow>("today");
 	const [retryNonce, setRetryNonce] = useState(0);
+	// One outcome per period and state for this visit, including SSR/cache hits.
+	const reported = useRef(new Set<string>());
+	const outcome = summaryOutcome(status, Boolean(text.trim()), Boolean(error));
+	useEffect(() => {
+		if (!outcome) {
+			return;
+		}
+		const key = `${topicId}:${summaryWindow}:${outcome}`;
+		if (reported.current.has(key)) {
+			return;
+		}
+		reported.current.add(key);
+		track("summary_result", outcome);
+	}, [outcome, summaryWindow, topicId]);
 	const metadata = useMemo(() => buildMetadataMap(page), [page]);
 	const stats = useMemo(() => computeSummaryStats(page), [page]);
 	// The followed page carries the reader's list; the digest needs it too.
@@ -1075,7 +1094,12 @@ export function TrendsSummary({
 									aria-pressed={option === summaryWindow}
 									className={segmentClassName}
 									key={option}
-									onClick={() => setSummaryWindow(option)}
+									onClick={() => {
+										if (option !== summaryWindow) {
+											track("summary_window", option);
+										}
+										setSummaryWindow(option);
+									}}
 									type="button"
 								>
 									{t(SUMMARY_WINDOW_LABELS[option])}
@@ -1084,7 +1108,10 @@ export function TrendsSummary({
 							{digestEntries.length > 0 ? (
 								<button
 									className={`${segmentClassName} ml-1 gap-1`}
-									onClick={() => setShareOpen(true)}
+									onClick={() => {
+										track("summary_share_open");
+										setShareOpen(true);
+									}}
 									type="button"
 								>
 									<Share2 aria-hidden className="size-3" />
@@ -1097,7 +1124,10 @@ export function TrendsSummary({
 									collapsed ? t("summary.expand") : t("summary.collapse")
 								}
 								className="ml-1 inline-flex size-7 items-center justify-center rounded text-[var(--text-secondary)] transition-colors hover:bg-[var(--state-hover-subtle)] hover:text-[var(--text-primary)]"
-								onClick={() => onCollapsedChange(!collapsed)}
+								onClick={() => {
+									track(collapsed ? "summary_expand" : "summary_collapse");
+									onCollapsedChange(!collapsed);
+								}}
 								title={collapsed ? t("summary.expand") : t("summary.collapse")}
 								type="button"
 							>
@@ -1123,7 +1153,10 @@ export function TrendsSummary({
 						<SummaryRecoveryNotice
 							error={error}
 							hasSummary={status === "done"}
-							onRetry={() => setRetryNonce((value) => value + 1)}
+							onRetry={() => {
+								track("summary_retry");
+								setRetryNonce((value) => value + 1);
+							}}
 							retrying={retrying}
 						/>
 					)}

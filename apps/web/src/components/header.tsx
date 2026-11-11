@@ -17,9 +17,8 @@ import {
 	useSearch,
 } from "@tanstack/react-router";
 import { History, LogOut, Star, UserRound } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-
 import {
 	segmentActiveClassName,
 	segmentClassName,
@@ -31,6 +30,7 @@ import {
 	type GitHubRepositoryStats,
 	getGithubRepositoryStats,
 } from "@/functions/get-github-repository-stats";
+import { loginFinished, track } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { localePathParam, useLocale, useT } from "@/lib/i18n";
 
@@ -69,6 +69,12 @@ function AccountMenu() {
 	const localeParam = localePathParam(useLocale());
 	const session = authClient.useSession();
 	const [signInOpen, setSignInOpen] = useState(false);
+	const signedIn = Boolean(session.data?.user);
+	useEffect(() => {
+		if (signedIn) {
+			loginFinished(true);
+		}
+	}, [signedIn]);
 
 	if (session.isPending) {
 		return (
@@ -88,7 +94,10 @@ function AccountMenu() {
 						buttonVariants({ size: "sm", variant: "outline" }),
 						"h-7 border-[var(--border-default)] bg-transparent px-2.5 text-[var(--text-primary)] hover:bg-[var(--state-hover-subtle)]"
 					)}
-					onClick={() => setSignInOpen(true)}
+					onClick={() => {
+						track("login_open");
+						setSignInOpen(true);
+					}}
 					type="button"
 				>
 					{t("userMenu.signIn")}
@@ -143,6 +152,8 @@ function AccountMenu() {
 						const result = await authClient.signOut();
 						if (result.error) {
 							toast.error(result.error.message);
+						} else {
+							track("logout");
 						}
 					}}
 				>
@@ -248,7 +259,10 @@ export default function Header({ initialGithubStats }: HeaderProps) {
 	const githubUrl = githubStats.data?.url ?? GITHUB_REPOSITORY_URL;
 
 	return (
-		<header className="sticky top-0 z-[80] min-w-0 overflow-hidden border-[var(--border-default)] border-b bg-[var(--surface-sidebar)] shadow-[0_1px_0_rgba(0,0,0,0.02)]">
+		<header
+			className="sticky top-0 z-[80] min-w-0 overflow-hidden border-[var(--border-default)] border-b bg-[var(--surface-sidebar)] shadow-[0_1px_0_rgba(0,0,0,0.02)]"
+			data-analytics-area="header"
+		>
 			<div className="flex min-h-10 min-w-0 flex-col gap-2 px-3 py-2 sm:px-4 md:h-10 md:flex-row md:items-center md:justify-between md:gap-3 md:py-0">
 				<div className="order-1 flex items-center justify-between gap-3 md:order-2 md:ml-auto md:shrink-0">
 					<Link

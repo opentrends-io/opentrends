@@ -110,7 +110,10 @@ export function LandingClosing({
 }) {
 	return (
 		<>
-			<section className="border-[var(--border-default)] border-t py-16 sm:py-24">
+			<section
+				className="border-[var(--border-default)] border-t py-16 sm:py-24"
+				data-analytics-area="closing"
+			>
 				<div
 					className={`${CONTAINER_CLASS} grid gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-16`}
 				>
@@ -118,7 +121,10 @@ export function LandingClosing({
 					<Faq strings={strings} />
 				</div>
 			</section>
-			<section className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] py-16 sm:py-20">
+			<section
+				className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] py-16 sm:py-20"
+				data-analytics-area="closing"
+			>
 				<div
 					className={`${CONTAINER_CLASS} flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between`}
 				>
