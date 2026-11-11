@@ -53,9 +53,21 @@ export interface TrendsPageData {
 	updatedAt: number;
 }
 
+export interface EventFeedPublisher {
+	firstAt: string;
+	homeUrl?: string;
+	id: string;
+	latestAt: string;
+	title: string;
+}
+
+/** stories: two or more publishers, by heat. briefs: one publisher, newest first. */
+export type EventFeedView = "stories" | "briefs";
+
 export interface EventFeedItem {
 	eventId: string;
 	firstSeenAt: string;
+	heat?: number;
 	imageUrl?: string;
 	lastSeenAt: string;
 	original?: {
@@ -68,6 +80,7 @@ export interface EventFeedItem {
 		title: string;
 		url: string;
 	};
+	publishers?: EventFeedPublisher[];
 	score: number;
 	selectionReason?:
 		| "high_score"

@@ -86,10 +86,15 @@ export function trendSourceQueryOptions(
 	});
 }
 
-export function trendEventsQueryOptions(topic?: string, locale: Locale = "en") {
+// The stories several publishers are reporting; the events page opens on
+// them, so route loaders prefetch this before navigating.
+export function eventStoriesQueryOptions(
+	topic?: string,
+	locale: Locale = "en"
+) {
 	return queryOptions<EventFeedData, Error>({
-		queryKey: ["trend-events", topic ?? "all", locale],
-		queryFn: () => loadTrendEvents(topic, 0, 30, locale),
+		queryKey: ["trend-events", "stories", topic ?? "all", locale],
+		queryFn: () => loadTrendEvents(topic, 0, 30, locale, "stories"),
 		structuralSharing: (previous, next) =>
 			retainEventFeed(previous, next as EventFeedData, locale),
 		retry: 2,

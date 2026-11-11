@@ -12,7 +12,9 @@ import {
 	type TranslationKey,
 	translate,
 } from "@/lib/i18n";
-import { buildSeo } from "@/lib/seo";
+import { buildSeo, localizedPath, SITE_URL } from "@/lib/seo";
+import { breadcrumbList } from "@/lib/structured-data";
+import { isSeoTopicId } from "@/lib/topic-seo";
 
 // Every archived day of a topic's digest, by month: the index that ties
 // the day pages together.
@@ -83,7 +85,10 @@ function byMonth(days: readonly string[]): [string, string[]][] {
 export const Route = createFileRoute("/{-$locale}/trends/$topic/archive")({
 	component: ArchiveIndexRoute,
 	loader: async ({ context, params }) => {
-		if (params.locale && !isLocale(params.locale)) {
+		if (
+			(params.locale && !isLocale(params.locale)) ||
+			!isSeoTopicId(params.topic)
+		) {
 			throw notFound();
 		}
 		const locale = resolveLocale(params.locale);
@@ -103,12 +108,28 @@ export const Route = createFileRoute("/{-$locale}/trends/$topic/archive")({
 		const locale = resolveLocale(params.locale);
 		const strings = getStrings(locale);
 		const label = topicLabel(params.topic, locale);
-		return buildSeo({
+		const head = buildSeo({
 			description: strings.description(label),
 			locale,
+			noindex: !isSeoTopicId(params.topic),
 			path: `/trends/${params.topic}/archive`,
 			title: strings.title(label),
 		});
+		const url = (path: string) =>
+			`${SITE_URL}${localizedPath(path, locale) ?? path}`;
+		return {
+			...head,
+			scripts: [
+				breadcrumbList([
+					{ name: "OpenTrends", url: url("/") },
+					{ name: label, url: url(`/trends/${params.topic}`) },
+					{
+						name: strings.title(label),
+						url: url(`/trends/${params.topic}/archive`),
+					},
+				]),
+			],
+		};
 	},
 });
 

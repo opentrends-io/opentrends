@@ -9,7 +9,7 @@ import {
 	toolButtonClassName,
 } from "@/components/chrome-styles";
 import { SHOW_CONTENT_KINDS } from "@/lib/feature-flags";
-import { localePathParam, useLocale, useT } from "@/lib/i18n";
+import { type Locale, localePathParam, useLocale, useT } from "@/lib/i18n";
 import { CONTENT_KINDS, type ContentKind, contentKind } from "./content-kind";
 import {
 	coverRatio,
@@ -135,16 +135,20 @@ function proxiedImageUrl(imageUrl: string): string {
 }
 
 interface FeedPageProps {
+	embedded?: boolean;
+	hiddenSourceIds?: readonly string[];
 	topicId: string;
 }
 
 // Masonry of every item the topic's sources currently carry, ranked by
 // freshness, heat and the reader's follows. Built from the same page data
 // the source view uses, so it costs nothing extra to serve.
-export function FeedPage({ topicId }: FeedPageProps) {
+export function FeedPage({
+	topicId,
+	embedded = false,
+	hiddenSourceIds,
+}: FeedPageProps) {
 	const locale = useLocale();
-	const localeParam = localePathParam(locale);
-	const t = useT();
 	const { followedIds } = useFollowedSources();
 	const topicIds =
 		topicId === FEATURED_TOPIC_ID ? [...ALL_TOPIC_IDS] : [topicId];
@@ -193,6 +197,66 @@ export function FeedPage({ topicId }: FeedPageProps) {
 			storePageTranslations(page, locale);
 		}
 	}, [pages, locale]);
+	return embedded ? (
+		<FeedPageContent
+			embedded
+			failed={failed}
+			followedIds={followedIds}
+			hiddenSourceIds={hiddenSourceIds ?? []}
+			locale={locale}
+			pages={pages}
+			pending={pending}
+			retry={retry}
+			topicId={topicId}
+		/>
+	) : (
+		<StandaloneFeedPageContent
+			failed={failed}
+			followedIds={followedIds}
+			locale={locale}
+			pages={pages}
+			pending={pending}
+			primary={primary}
+			retry={retry}
+			topicId={topicId}
+		/>
+	);
+}
+
+interface FeedPageContentProps {
+	embedded?: boolean;
+	failed: boolean;
+	followedIds: readonly string[];
+	hiddenSourceIds: readonly string[];
+	locale: Locale;
+	pages: TrendsPageData[];
+	pending: boolean;
+	retry: () => Promise<unknown>;
+	sourcePreferences?: ReturnType<typeof useSourcePreferences>;
+	topicId: string;
+}
+
+function StandaloneFeedPageContent({
+	failed,
+	followedIds,
+	locale,
+	pages,
+	pending,
+	primary,
+	retry,
+	topicId,
+}: Pick<
+	FeedPageContentProps,
+	| "failed"
+	| "followedIds"
+	| "locale"
+	| "pages"
+	| "pending"
+	| "retry"
+	| "topicId"
+> & {
+	primary?: TrendsPageData;
+}) {
 	// The topic's own source preferences: hidden sources stay out of the
 	// feed, and the manage dialog edits the same list the source view uses.
 	const primarySourceIds = useMemo(
@@ -205,7 +269,40 @@ export function FeedPage({ topicId }: FeedPageProps) {
 		[primary]
 	);
 	const sourcePreferences = useSourcePreferences(topicId, primarySourceIds);
-	const hiddenSourceIds = sourcePreferences.preference.hiddenSourceIds;
+	return (
+		<FeedPageContent
+			failed={failed}
+			followedIds={followedIds}
+			hiddenSourceIds={sourcePreferences.preference.hiddenSourceIds}
+			locale={locale}
+			pages={pages}
+			pending={pending}
+			retry={retry}
+			sourcePreferences={sourcePreferences}
+			topicId={topicId}
+		/>
+	);
+}
+
+function FeedPageContent({
+	embedded = false,
+	failed,
+	followedIds,
+	hiddenSourceIds,
+	locale,
+	pages,
+	pending,
+	retry,
+	sourcePreferences,
+	topicId,
+}: FeedPageContentProps) {
+	const localeParam = localePathParam(locale);
+	const t = useT();
+	const primary = pages.find((page) => page.id === topicId) ?? pages[0];
+	const primarySourceIds =
+		primary?.sections.flatMap((section) =>
+			section.sources.map((source) => source.sourceId)
+		) ?? [];
 	const reader = useReaderContext(locale);
 	const [sourceManagerOpen, setSourceManagerOpen] = useState(false);
 	const blocks = useMemo(() => {
@@ -271,22 +368,24 @@ export function FeedPage({ topicId }: FeedPageProps) {
 
 	return (
 		<div className="min-w-0">
-			<div className="flex h-10 items-center justify-between gap-3 border-[var(--border-default)] border-b bg-[var(--surface-sidebar)] px-3 sm:px-4">
-				<ViewSwitch localeParam={localeParam} topicId={topicId} view="feed" />
-				<div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)] tabular-nums">
-					<span>{t("feed.count", { count: shown.length })}</span>
-					{primary ? (
-						<button
-							className={toolButtonClassName}
-							onClick={() => setSourceManagerOpen(true)}
-							type="button"
-						>
-							<Rss aria-hidden className="size-3.5" />
-							<span>{t("sourceManager.button")}</span>
-						</button>
-					) : null}
+			{embedded ? null : (
+				<div className="flex h-10 items-center justify-between gap-3 border-[var(--border-default)] border-b bg-[var(--surface-sidebar)] px-3 sm:px-4">
+					<ViewSwitch localeParam={localeParam} topicId={topicId} view="feed" />
+					<div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)] tabular-nums">
+						<span>{t("feed.count", { count: shown.length })}</span>
+						{primary ? (
+							<button
+								className={toolButtonClassName}
+								onClick={() => setSourceManagerOpen(true)}
+								type="button"
+							>
+								<Rss aria-hidden className="size-3.5" />
+								<span>{t("sourceManager.button")}</span>
+							</button>
+						) : null}
+					</div>
 				</div>
-			</div>
+			)}
 			{SHOW_CONTENT_KINDS ? (
 				<div className="flex flex-wrap gap-1 border-[var(--border-default)] border-b bg-[var(--surface-sidebar)] px-3 py-1.5 sm:px-4">
 					<KindChip active={kind === null} onClick={() => setKind(null)}>
@@ -303,7 +402,7 @@ export function FeedPage({ topicId }: FeedPageProps) {
 					))}
 				</div>
 			) : null}
-			{sourceManagerOpen && primary ? (
+			{sourceManagerOpen && primary && sourcePreferences ? (
 				<SourceManagerDialog
 					hiddenSourceIds={hiddenSourceIds}
 					onOpenChange={setSourceManagerOpen}
@@ -336,7 +435,7 @@ export function FeedPage({ topicId }: FeedPageProps) {
 							{t("feed.retry")}
 						</button>
 					)}
-					{status === "hidden" && (
+					{status === "hidden" && sourcePreferences && (
 						<button
 							className={toolButtonClassName}
 							onClick={sourcePreferences.showAllSources}

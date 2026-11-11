@@ -1,6 +1,7 @@
 import { env } from "@opentrends/env/web";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
+import { landingCatalog } from "@/components/landing/landing-catalog";
 import { landingStrings } from "@/components/landing/landing-copy";
 import {
 	type LandingData,
@@ -10,7 +11,6 @@ import {
 	liveDigest,
 	pickLandingEvent,
 	sourceKind,
-	wallSources,
 } from "@/components/landing/landing-model";
 import { LandingPage } from "@/components/landing/landing-page";
 import { readApiJsonForSsr } from "@/components/trends/load-trends-ssr";
@@ -24,10 +24,6 @@ const EVENT_FEED_LIMIT = 30;
 // The event feed and the brief are built on demand and can take a few
 // seconds; the page waits that long before falling back to its examples.
 const SSR_READ_TIMEOUT_MS = 6000;
-
-interface SourcesResponse {
-	sources?: LandingSource[];
-}
 
 interface EventsResponse {
 	events?: LandingEvent[];
@@ -92,16 +88,15 @@ function describeEvent(
 }
 
 async function loadLandingData(locale: Locale): Promise<LandingData> {
-	const [sources, digest, events] = await Promise.all([
-		readApiJson<SourcesResponse>("/api/sources"),
+	const [digest, events] = await Promise.all([
 		readApiJson<LandingDigest>(
 			`/api/trends/featured/summary?format=json&lang=${locale}`
 		),
 		readApiJson<EventsResponse>(
-			`/api/events?topic=featured&lang=${locale}&limit=${EVENT_FEED_LIMIT}&translations=background`
+			`/api/events?view=stories&topic=featured&lang=${locale}&limit=${EVENT_FEED_LIMIT}&translations=background`
 		),
 	]);
-	const sourceList = sources?.sources;
+	const sourceList = landingCatalog.sources;
 	return {
 		digest: liveDigest(
 			digest
@@ -113,8 +108,8 @@ async function loadLandingData(locale: Locale): Promise<LandingData> {
 				: null
 		),
 		event: describeEvent(pickLandingEvent(events?.events), sourceList),
-		sourceCount: sourceList?.length ? sourceList.length : null,
-		wall: wallSources(sourceList),
+		sourceCount: sourceList.length,
+		wall: landingCatalog.wall,
 	};
 }
 
