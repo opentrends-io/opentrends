@@ -62,8 +62,8 @@ export function EventBriefList({
 								>
 									{formatRelativeTime(dateMs(event.firstSeenAt), t)}
 								</span>
-								<span className="min-w-0 flex-1 truncate">
-									{event.title}
+								<span className="flex min-w-0 flex-1 items-center gap-1">
+									<span className="min-w-0 truncate">{event.title}</span>
 									<TranslationIndicator item={event} />
 								</span>
 								{event.primarySource ? (
