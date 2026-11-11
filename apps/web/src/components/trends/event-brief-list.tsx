@@ -51,6 +51,8 @@ export function EventBriefList({
 						<li key={event.eventId}>
 							<a
 								className="flex min-w-0 items-center gap-3 px-3 py-2 text-[13px] text-[var(--text-primary)] transition-colors visited:text-[#9b9893] hover:bg-[var(--state-hover-subtle)] hover:text-[var(--accent-blue)] dark:visited:text-[#6f685f]"
+								data-analytics-event="article_open"
+								data-analytics-value="event"
 								href={event.primarySource?.url}
 								rel="noopener noreferrer"
 								target="_blank"

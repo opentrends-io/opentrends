@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { track } from "@/lib/analytics";
 
 export type DisplayLayout = "sourceGrid" | "sourceSections" | "flow";
 
@@ -176,8 +177,12 @@ export function setDisplaySetting<K extends keyof DisplaySettings>(
 		return;
 	}
 	const storageKey = getStoreKey(options);
-	const next: DisplaySettings = { ...readFromStorage(options), [key]: value };
+	const current = readFromStorage(options);
+	const next: DisplaySettings = { ...current, [key]: value };
 	window.localStorage.setItem(storageKey, JSON.stringify(next));
+	if (current[key] !== value && key !== "layout") {
+		track("display_change", key);
+	}
 	// Notify other components in this tab — `storage` events only fire
 	// across tabs, so we dispatch our own event for same-tab updates.
 	window.dispatchEvent(new Event(CHANGE_EVENT));
@@ -199,5 +204,8 @@ export function setDisplayLayout(
 			summaryCollapsed: current.summaryCollapsed,
 		})
 	);
+	if (current.layout !== layout) {
+		track("layout_change", layout);
+	}
 	window.dispatchEvent(new Event(CHANGE_EVENT));
 }

@@ -96,6 +96,8 @@ export function EventDetailDialog({
 										<li key={`${item.sourceId}:${item.itemId}`}>
 											<a
 												className="group flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-[var(--state-hover-subtle)]"
+												data-analytics-event="article_open"
+												data-analytics-value="event"
 												href={item.url}
 												rel="noopener noreferrer"
 												target="_blank"
