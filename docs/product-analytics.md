@@ -68,3 +68,18 @@
 - 搜索 completed 指停止输入后的结果数，不是搜索提交；重复相同结果分组会受 750ms 去重影响。
 - 分析当前不做每个来源/文章的排行榜，不收私人来源列表。滚动深度、性能指标、服务端成本统计和自定义看板为后续批次。
 - 测试期间模拟整个 localStorage 不可用时，既有排版组件的读取会报错；它不由新增统计触发。统计自身 fail closed 已单独验证，整站存储不可用兼容另列后续。
+
+## Preview 发布回执 · 2026-11-11
+
+**技术验收 ACCEPTED；等待用户验收，未合并或发布生产。**
+
+- Web 源码 `889cd89`，Preview Worker `fb5fd3fd-dbfb-4134-b7cf-80ab8111978b`，100% 流量；回滚版本 `83f28ed1-c633-4018-8488-bc51af1d8780`。
+- Preview API 仍为 `2c30b96b-95d9-4842-b59b-4a1a1d7d68b9`；生产 Web/API 仍为 `fec6b44f-8bcc-452e-8391-5c36555706bd` / `71dfbdfd-f48a-4524-a4ac-78aac9064f5c`。Web 服务绑定、站点/API 地址、兼容性配置切流前后相同；没有改队列、定时任务或模型。
+- 正常 Preview 首页真实浏览器加载成功，无诊断事件、无旧 GA loader、无 GA/Ahrefs 请求。
+- 调试页面实际完成首页 CTA 导航、摘要展开、网格→流式→刷新→网格（界面与 localStorage 一致）、关注来源、无结果搜索、打开登录。记录到对应事件；搜索中的合成隐私标记未进入事件。
+- 手机实际打开多源事件时间线、Escape 关闭、展开快讯；`event_open`、`event_briefs` 已记录。截图亲自回看，375px 无横向溢出，排版菜单贴边与 hover 正常。
+- 三个真实浏览器用例均通过、无页面运行错误、统计服务请求均为 0；每例分别保存响应时间、首次绘制、DOM、未完成资源路径及结果。约 7.7–15.3 秒是整个交互用例耗时，不冒充页面响应耗时。
+- 另外在完全拦截外网的浏览器夹具验证了生产分支：gtag Arguments 格式正确、`send_page_view:false`、单次 pageview、安全上下文和 action 参数。没有向生产 GA 发送测试数据，也没有以此声称 GA 后台入库。
+- 全部 407 单测、22 浏览器回归、lint、Web/Server 类型检查及 Preview 构建通过。格式门禁发现的测试 HTML 排版问题已修正；未变的代码回归证据复用，提交钩子的重复检查也通过。
+
+验收链接：[Preview 精选](https://opentrends-web-preview.opentrends.workers.dev/zh/trends/featured?analytics_debug=1)。开发者工具控制台读取 `window.otAnalyticsDebug.events` 即可查看本标签页事件；不要在正式站期待这个调试对象。
