@@ -3,6 +3,10 @@ import { expect, test } from "@playwright/test";
 const STORY_TITLE = /三家报道的同一事件/;
 const SHOW_BRIEFS = /展开|查看.*简讯|Show/;
 const REPORT_TITLE = /报道正文 0/;
+const LONG_BRIEF =
+	"An untranslated report with a long headline and translation status. "
+		.repeat(5)
+		.trim();
 
 test("stories, briefs and reporting timeline remain usable on mobile", async ({
 	page,
@@ -43,7 +47,7 @@ test("stories, briefs and reporting timeline remain usable on mobile", async ({
 					? Array.from({ length: 12 }, (_, i) => ({
 							...story,
 							eventId: `brief${i}`,
-							title: `单源简讯 ${i}`,
+							title: i === 11 ? LONG_BRIEF : `单源简讯 ${i}`,
 							sourceCount: 1,
 							publishers: undefined,
 						}))
@@ -68,10 +72,21 @@ test("stories, briefs and reporting timeline remain usable on mobile", async ({
 	await page.goto("/e2e/fixtures/event-preview.html");
 	await expect(page.getByRole("button", { name: STORY_TITLE })).toBeVisible();
 	await expect(page.getByText("单源简讯 0", { exact: true })).toBeVisible();
-	await expect(page.getByText("单源简讯 11", { exact: true })).toHaveCount(0);
-	await page.getByRole("button", { name: SHOW_BRIEFS }).click();
-	await expect(page.getByText("单源简讯 11", { exact: true })).toBeVisible();
+	await expect(page.getByText(LONG_BRIEF)).toHaveCount(0);
 	await page.setViewportSize({ width: 375, height: 812 });
+	await page.getByRole("button", { name: SHOW_BRIEFS }).click();
+	await expect(page.getByText(LONG_BRIEF)).toBeVisible();
+	await expect
+		.poll(() =>
+			page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
+		)
+		.toBeLessThanOrEqual(0);
+	const translationIndicator = page
+		.locator("li")
+		.filter({ hasText: LONG_BRIEF })
+		.locator("[data-translation-state]");
+	await translationIndicator.scrollIntoViewIfNeeded();
+	await expect(translationIndicator).toBeInViewport();
 	await page.getByRole("button", { name: STORY_TITLE }).click();
 	await expect(page.getByRole("dialog")).toBeVisible();
 	await expect(page.getByRole("link", { name: REPORT_TITLE })).toBeVisible();
