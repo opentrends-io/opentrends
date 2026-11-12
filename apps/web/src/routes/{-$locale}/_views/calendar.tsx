@@ -6,6 +6,14 @@ import { useMemo, useState } from "react";
 
 import { segmentClassName } from "@/components/chrome-styles";
 import {
+	monthLabel as formatMonthLabel,
+	useCurrentMonth,
+	useHydrated,
+	useTzOffsetMinutes,
+	utcMonth,
+	weekdayLabels,
+} from "@/components/trends/calendar-dates";
+import {
 	CONTENT_KINDS,
 	type ContentKind,
 	classifyTitle,
@@ -71,11 +79,6 @@ function validateSearch(search: Record<string, unknown>): CalendarSearch {
 	};
 }
 
-function thisMonth(): string {
-	const now = new Date();
-	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
 function shiftMonth(month: string, by: number): string {
 	const [year, mon] = month.split("-").map(Number) as [number, number];
 	const date = new Date(Date.UTC(year, mon - 1 + by, 1));
@@ -124,13 +127,16 @@ export const Route = createFileRoute("/{-$locale}/_views/calendar")({
 	component: CalendarRoute,
 	validateSearch,
 	loaderDeps: ({ search }) => ({ topic: search.topic ?? "ai" }),
+	// The month the page was rendered in, by the renderer's clock: the
+	// browser hydrates with this exact value before switching to its own.
 	loader: async ({ context, deps, params }) => {
-		if (import.meta.env.SSR || deps.topic === "mine") {
-			return;
+		const serverMonth = utcMonth(Date.now());
+		if (!import.meta.env.SSR && deps.topic !== "mine") {
+			await context.queryClient.ensureQueryData(
+				trendsPageQueryOptions(deps.topic, resolveLocale(params.locale))
+			);
 		}
-		await context.queryClient.ensureQueryData(
-			trendsPageQueryOptions(deps.topic, resolveLocale(params.locale))
-		);
+		return { serverMonth };
 	},
 	head: ({ params }) => {
 		const locale = resolveLocale(params.locale);
@@ -212,11 +218,15 @@ function CalendarRoute() {
 	const t = useT();
 	const { followedIds } = useFollowedSources();
 	const topic = search.topic ?? "ai";
-	const month = search.month ?? thisMonth();
-	const tzOffset = -new Date().getTimezoneOffset();
+	const { serverMonth } = Route.useLoaderData();
+	const currentMonth = useCurrentMonth(serverMonth);
+	const hydrated = useHydrated();
+	const month = search.month ?? currentMonth;
+	const tzOffset = useTzOffsetMinutes();
 	const isFollowed = topic === FOLLOWED_TOPIC_ID;
 	const sourceIds = isFollowed ? followedIds : undefined;
-	const enabled = !isFollowed || followedIds.length > 0;
+	const wanted = !isFollowed || followedIds.length > 0;
+	const enabled = hydrated && wanted;
 	const query = useQuery({
 		...calendarQueryOptions(topic, month, locale, tzOffset, sourceIds),
 		enabled,
@@ -239,18 +249,9 @@ function CalendarRoute() {
 		return filtered;
 	}, [query.data, kind]);
 	const cells = useMemo(() => monthCells(month), [month]);
-	const weekdays = useMemo(() => {
-		const formatter = new Intl.DateTimeFormat(locale, { weekday: "short" });
-		return Array.from({ length: 7 }, (_, index) =>
-			formatter.format(new Date(Date.UTC(2024, 0, 1 + index)))
-		);
-	}, [locale]);
+	const weekdays = useMemo(() => weekdayLabels(locale), [locale]);
 	const monthLabel = useMemo(
-		() =>
-			new Intl.DateTimeFormat(locale, {
-				month: "long",
-				year: "numeric",
-			}).format(new Date(`${month}-01T00:00:00Z`)),
+		() => formatMonthLabel(month, locale),
 		[locale, month]
 	);
 	const open = openDay ? days[openDay] : undefined;
@@ -280,7 +281,7 @@ function CalendarRoute() {
 					<button
 						aria-label={t("calendar.nextMonth")}
 						className="inline-flex size-7 items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--state-hover-subtle)] hover:text-[var(--text-primary)] disabled:opacity-30"
-						disabled={month >= thisMonth()}
+						disabled={month >= currentMonth}
 						onClick={() => go({ month: shiftMonth(month, 1) })}
 						type="button"
 					>
@@ -366,7 +367,7 @@ function CalendarRoute() {
 						);
 					})}
 				</div>
-				{query.isPending && enabled ? (
+				{query.isPending && wanted ? (
 					<p className="mt-3 text-[12px] text-[var(--text-muted)]">
 						{t("summary.reading")}
 					</p>
