@@ -14,7 +14,8 @@ import {
 	topicPresets,
 } from "../config/topics";
 import type { NewsItem, SourceId, TopicPreset, TrendsPageData } from "../types";
-import { archiveDigest } from "./digest-archive";
+import { archiveDigest, readArchivedDigest, utcDay } from "./digest-archive";
+import { enforceDigestCitations } from "./digest-json";
 import {
 	getFollowedSourcesPage,
 	getTrendsPage,
@@ -1064,9 +1065,17 @@ async function refreshSummaryCache(
 		}
 		failure = error;
 	}
-	// The model gave nothing usable. Rather than leave whatever digest is
-	// cached to age on, keep the newest items in front of readers as a
-	// rule-based list, marked degraded so the next reconcile tries again.
+	// The model gave nothing usable. A good digest written earlier the same
+	// day stays in front of readers and is retried soon; an older one is not
+	// left to age on: the newest items are shown as a rule-based list,
+	// marked degraded so the next reconcile tries again.
+	if (await keepTodaysDigest(cacheTopicId, lang, cachedEntry)) {
+		console.warn(
+			`[trends-summary] model digest failed for ${cacheTopicId}:${lang}:${window} (${scope}); keeping today's last good digest`,
+			failure
+		);
+		return;
+	}
 	const text = buildCrossTopicFallbackSummary(cited, lang);
 	console.warn(
 		`[trends-summary] model digest failed for ${cacheTopicId}:${lang}:${window} (${scope}); ${text ? "caching rule-based fallback" : "no candidates for a fallback"}`,
@@ -1088,6 +1097,29 @@ async function refreshSummaryCache(
 		`Summary generation did not produce a cache entry for ${cacheTopicId}:${lang}.`,
 		{ cause: failure }
 	);
+}
+
+// Re-serves a good digest from today with a short lifetime, so the next
+// reconcile retries soon instead of serving a rule-based list. Its prompt
+// is the old one, so that retry regenerates rather than reuses it.
+async function keepTodaysDigest(
+	topicId: string,
+	lang: TranslationLanguage,
+	entry: CachedSummaryEntry | null
+): Promise<boolean> {
+	const now = Date.now();
+	if (!entry || entry.degraded || utcDay(entry.generatedAt) !== utcDay(now)) {
+		return false;
+	}
+	const kept: CachedSummaryEntry = {
+		...entry,
+		expiresAt: now + DEGRADED_SUMMARY_TTL_MS,
+	};
+	if (!(await writeHotSummaryCache(topicId, lang, kept))) {
+		throw new SummaryCacheWriteError();
+	}
+	hydrateMemorySummary(topicId, lang, kept);
+	return true;
 }
 
 function startSummaryRefresh(
@@ -1154,7 +1186,11 @@ async function writeCachedSummary(params: {
 	hydrateMemorySummary(params.topicId, params.lang, entry);
 	// Real topics' "today" digests are kept per day for the calendar; a
 	// followed list's digest (cache id "mine:…") is one reader's and is not.
-	if (params.window === "today" && !params.topicId.includes(":")) {
+	if (
+		params.window === "today" &&
+		!params.topicId.includes(":") &&
+		!(params.degraded && (await hasArchiveToday(params.topicId, params.lang)))
+	) {
 		await archiveDigest({
 			citations: params.citations,
 			lang: params.lang,
@@ -1163,6 +1199,18 @@ async function writeCachedSummary(params: {
 		}).catch((error) => {
 			console.warn("[trends-summary] failed to archive digest", error);
 		});
+	}
+}
+
+// A rule-based list is archived only for a day that has nothing better.
+async function hasArchiveToday(
+	topicId: string,
+	lang: TranslationLanguage
+): Promise<boolean> {
+	try {
+		return Boolean(await readArchivedDigest(topicId, lang, utcDay(Date.now())));
+	} catch {
+		return false;
 	}
 }
 
@@ -1240,11 +1288,24 @@ async function cacheGeneratedSummary(
 		);
 		return;
 	}
+	// Never cache or archive a line readers cannot trace to a source.
+	const checked = enforceDigestCitations(text, params.citations);
+	if (!checked) {
+		console.warn(
+			`[trends-summary] discarded ${params.cacheTopicId}:${params.lang} summary with too many uncited lines`
+		);
+		return;
+	}
+	if (checked.dropped > 0) {
+		console.warn(
+			`[trends-summary] dropped ${checked.dropped} uncited line(s) from ${params.cacheTopicId}:${params.lang}`
+		);
+	}
 	await writeCachedSummary({
 		citations: params.citations,
 		lang: params.lang,
 		prompt: params.prompt,
-		text,
+		text: checked.text,
 		topicId: params.cacheTopicId,
 		window: params.window,
 	});
