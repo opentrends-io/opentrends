@@ -1632,7 +1632,7 @@ export const sourcePresets = {
 	),
 	weibo: newsnowCnSource("微博 · 实时热搜", "https://weibo.com"),
 	"xueqiu-hotstock": newsnowCnSource("雪球 · 热门股票", "https://xueqiu.com"),
-	zaobao: newsnowCnSource("联合早报", "https://www.zaobao.com", "rss"),
+	zaobao: newsnowCnSource("联合早报", "https://www.zaobao.com.sg", "rss"),
 } as const satisfies Record<string, SourcePreset>;
 
 export type SourcePresetId = keyof typeof sourcePresets;

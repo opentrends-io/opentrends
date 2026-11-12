@@ -21,6 +21,7 @@ const JIN10_VAR_RE = /^var\s+newest\s*=\s*/;
 const KUAISHOU_STATE_RE = /window\.__APOLLO_STATE__\s*=\s*(\{.+?\});/;
 const RELATIVE_DATE_RE = /(\d+)\s*(秒|分钟|分|小时|时|天|日)前/;
 const TRAILING_SEMICOLONS_RE = /;*$/;
+const ZAOBAO_STORY_RE = /^\/(?:news\/[a-z-]+\/story\d{8}-\d+|realtime\/)/;
 
 interface RawNewsItem {
 	description?: string;
@@ -757,38 +758,48 @@ async function fetchDouyin(ctx: FetchContext): Promise<RawNewsItem[]> {
 	}));
 }
 
-function parseFastbullItems(html: string, baseUrl: string): RawNewsItem[] {
+const FASTBULL_URL = "https://www.fastbull.com";
+
+// Express flashes: the headline is a plain span; the flash's own page is
+// named on its share box, or follows from its id.
+async function fetchFastbullExpress(ctx: FetchContext): Promise<RawNewsItem[]> {
+	const html = await requestText(`${FASTBULL_URL}/cn/express-news`, ctx);
 	const $ = load(html);
 	const items: RawNewsItem[] = [];
-	for (const element of $(".news-list, .trending_type").toArray()) {
-		const $element = $(element);
-		const link = $element.find(".title_name, .title").first();
-		const href = link.attr("href") ?? $element.attr("href");
-		const titleText = normalizeText(link.text());
-		const bracketTitle = BRACKETED_TITLE_RE.exec(titleText)?.[1];
-		const date =
-			$element.attr("data-date") ??
-			$element.find("[data-date]").attr("data-date");
+	for (const element of $(".news-list[data-id]").toArray()) {
+		const flash = $(element);
+		const id = flash.attr("data-id");
+		const href =
+			flash.find("[data-href]").first().attr("data-href") ??
+			(id ? `/cn/fastshort/${id}` : undefined);
+		const titleText = normalizeText(flash.find(".title_name").first().text());
 		items.push({
-			id: href,
-			publishedAt: date,
-			title: bracketTitle ?? titleText,
-			url: resolveUrl(baseUrl, href),
+			id,
+			publishedAt: flash.attr("data-date"),
+			title: BRACKETED_TITLE_RE.exec(titleText)?.[1] || titleText,
+			url: resolveUrl(FASTBULL_URL, href),
 		});
 	}
 	return items;
 }
 
-async function fetchFastbullExpress(ctx: FetchContext): Promise<RawNewsItem[]> {
-	const baseUrl = "https://www.fastbull.com";
-	const html = await requestText(`${baseUrl}/cn/express-news`, ctx);
-	return parseFastbullItems(html, baseUrl);
-}
-
+// Headlines are linked articles. The page's sidebar repeats the express
+// flashes, which belong to the other source, so only articles are read.
 async function fetchFastbullNews(ctx: FetchContext): Promise<RawNewsItem[]> {
-	const baseUrl = "https://www.fastbull.com";
-	const html = await requestText(`${baseUrl}/cn/news`, ctx);
-	return parseFastbullItems(html, baseUrl);
+	const html = await requestText(`${FASTBULL_URL}/cn/news`, ctx);
+	const $ = load(html);
+	const items: RawNewsItem[] = [];
+	for (const element of $(".trending_type").toArray()) {
+		const article = $(element);
+		const href = article.attr("href");
+		items.push({
+			id: href,
+			publishedAt: article.find("[data-date]").first().attr("data-date"),
+			title: normalizeText(article.find(".title").first().text()),
+			url: resolveUrl(FASTBULL_URL, href),
+		});
+	}
+	return items;
 }
 
 async function fetchFreebuf(ctx: FetchContext): Promise<RawNewsItem[]> {
@@ -1056,7 +1067,6 @@ async function fetchQqVideo(ctx: FetchContext): Promise<RawNewsItem[]> {
 			flip_info: {
 				flip_params: {
 					folding_screen_show_num: "",
-					hit_tab_info: null,
 					is_mvl: "1",
 					mvl_sub_mod_id: "20251106065177",
 					page_id: "scms_shake",
@@ -1068,7 +1078,17 @@ async function fetchQqVideo(ctx: FetchContext): Promise<RawNewsItem[]> {
 					pad_small_hor_pic_display_num: "",
 					post_show_num: "",
 					shake_size: "",
+					small_hor_pic_display_num: "",
 					source_key: "100113",
+					// Without this the service answers ret=0 and no data.
+					mvl_strategy_info: JSON.stringify({
+						default_strategy_id: "06755800b45b49238582a6fa1ad0f5c5",
+						default_version: "3836",
+						hit_page_uuid: "b5080d97dc694a5fb50eb9e7c99326ac",
+						hit_tab_info: null,
+						gray_status_info: null,
+						bypass_to_un_exp_id: "",
+					}),
 					un_policy_id: "06755800b45b49238582a6fa1ad0f5c5",
 					un_strategy_id: "06755800b45b49238582a6fa1ad0f5c5",
 				},
@@ -1301,22 +1321,27 @@ async function fetchXueqiu(ctx: FetchContext): Promise<RawNewsItem[]> {
 		}));
 }
 
+const ZAOBAO_URL = "https://www.zaobao.com.sg";
+
+// The China page (formerly /realtime/china, which now redirects here). Each
+// story is linked from its picture and from its headline; the headline wins.
 async function fetchZaobao(ctx: FetchContext): Promise<RawNewsItem[]> {
-	const html = await requestText("https://www.zaobao.com/realtime/china", ctx);
+	const html = await requestText(`${ZAOBAO_URL}/news/china`, ctx);
 	const $ = load(html);
 	const items: RawNewsItem[] = [];
+	const seen = new Set<string>();
 	for (const element of $("a[href]").toArray()) {
 		const link = $(element);
 		const title = normalizeText(link.text());
 		const href = link.attr("href");
-		if (title.length < 6 || !href?.includes("/realtime/")) {
+		if (!(href && ZAOBAO_STORY_RE.test(href)) || title.length < 6) {
 			continue;
 		}
-		items.push({
-			id: href,
-			title,
-			url: resolveUrl("https://www.zaobao.com", href),
-		});
+		if (seen.has(href)) {
+			continue;
+		}
+		seen.add(href);
+		items.push({ id: href, title, url: resolveUrl(ZAOBAO_URL, href) });
 	}
 	return items;
 }
