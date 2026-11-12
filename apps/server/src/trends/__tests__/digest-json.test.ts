@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseDigestEntries } from "../services/digest-json";
+import {
+	enforceDigestCitations,
+	parseDigestEntries,
+} from "../services/digest-json";
 
 describe("parseDigestEntries", () => {
 	test("turns the Markdown list into entries with resolved citations", () => {
@@ -80,5 +83,65 @@ describe("filterCitedItems", () => {
 		expect(
 			filterCitedItems(cited, ["GPT6"]).map((entry) => entry.item.title)
 		).toEqual(["GPT-6 launches", "GPT 6 pricing"]);
+	});
+});
+
+describe("enforceDigestCitations", () => {
+	const citations = [1, 2, 3, 4, 5].map((n) => ({ n, url: `https://${n}` }));
+
+	test("keeps a digest whose every line cites a listed item", () => {
+		const text = "1. **A** — a [1]\n2. **B** — b [2][3]\n3. **C** — c [4]";
+		expect(enforceDigestCitations(text, citations)).toEqual({
+			dropped: 0,
+			text,
+		});
+	});
+
+	test("drops a line that ends in an aside instead of a citation, and renumbers", () => {
+		// The 2026-11-12 featured digest: line 9 ended "[尚未提供完整数据]".
+		const text = [
+			"1. **A** — a [1]",
+			"2. **跨洲自驾** — 穿越亚洲 [尚未提供完整数据]",
+			"3. **C** — c [3]",
+			"4. **D** — d [4]",
+		].join("\n");
+		expect(enforceDigestCitations(text, citations)).toEqual({
+			dropped: 1,
+			text: "1. **A** — a [1]\n2. **C** — c [3]\n3. **D** — d [4]",
+		});
+	});
+
+	test("removes numbers that were not in the list, and drops a line left with none", () => {
+		const text =
+			"1. **A** — a [1][99]\n2. **B** — b [42]\n3. **C** — c [3]\n4. **D** — d [5]";
+		expect(enforceDigestCitations(text, citations)).toEqual({
+			dropped: 1,
+			text: "1. **A** — a [1]\n2. **C** — c [3]\n3. **D** — d [5]",
+		});
+	});
+
+	test("rejects a digest with too many untraceable lines", () => {
+		const text = [
+			"1. **A** — a [1]",
+			"2. **B** — b",
+			"3. **C** — c [note]",
+			"4. **D** — d [77]",
+			"5. **E** — e [2]",
+			"6. **F** — f [3]",
+		].join("\n");
+		expect(enforceDigestCitations(text, citations)).toBeNull();
+	});
+
+	test("rejects a reply with no list at all when there was something to cite", () => {
+		expect(
+			enforceDigestCitations("Sorry, I cannot summarise these.", citations)
+		).toBeNull();
+	});
+
+	test("passes text through when there were no items to cite", () => {
+		expect(enforceDigestCitations("Nothing new today.", [])).toEqual({
+			dropped: 0,
+			text: "Nothing new today.",
+		});
 	});
 });

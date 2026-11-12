@@ -3,6 +3,8 @@ import { inArray, sql } from "drizzle-orm";
 
 import {
 	readSnapshotSummaries,
+	readSourceRefreshStates,
+	type SourceRefreshState,
 	type SourceSnapshotSummary,
 } from "../cache/source-cache";
 import { getRssHubBaseUrls } from "../config/rsshub-instances";
@@ -110,9 +112,39 @@ function buildTopicIndex(): Map<string, TopicId[]> {
 	return index;
 }
 
+// A source with no readable snapshot is either untried ("missing") or has
+// failed every attempt so far ("error"); the refresh state tells them apart
+// and carries its error. (The refresh lock writes a row before the first
+// attempt, so a row alone does not mean the source was tried.)
+function sourceHealth(
+	snapshot: SourceSnapshotSummary | null,
+	attempt: SourceRefreshState | undefined
+): {
+	errorCount: number;
+	lastError?: string;
+	status: SourceStatus | "missing";
+} {
+	if (snapshot) {
+		return {
+			errorCount: snapshot.errorCount,
+			lastError: snapshot.lastError,
+			status: snapshot.status,
+		};
+	}
+	if (attempt && attempt.errorCount > 0) {
+		return {
+			errorCount: attempt.errorCount,
+			lastError: attempt.lastError,
+			status: "error",
+		};
+	}
+	return { errorCount: 0, status: "missing" };
+}
+
 function buildSourcesStatusFromSnapshots(
 	snapshots: ReadonlyMap<string, SourceSnapshotSummary>,
-	eventItemCounts: ReadonlyMap<string, number> = new Map()
+	eventItemCounts: ReadonlyMap<string, number> = new Map(),
+	attempts: ReadonlyMap<string, SourceRefreshState> = new Map()
 ): SourcesStatusResponse {
 	const topicIndex = buildTopicIndex();
 	const entries: SourceStatusEntry[] = [];
@@ -136,9 +168,10 @@ function buildSourcesStatusFromSnapshots(
 		}
 		const [sourceId, preset] = entry;
 		const snapshot = snapshots.get(sourceId) ?? null;
-		const status: SourceStatus | "missing" = snapshot
-			? snapshot.status
-			: "missing";
+		const { errorCount, lastError, status } = sourceHealth(
+			snapshot,
+			attempts.get(sourceId)
+		);
 		const eventItemCount = eventItemCounts.get(sourceId) ?? 0;
 
 		totals.sources += 1;
@@ -162,8 +195,8 @@ function buildSourcesStatusFromSnapshots(
 			fetchedAt: snapshot?.fetchedAt,
 			expiresAt: snapshot?.expiresAt,
 			staleUntil: snapshot?.staleUntil,
-			errorCount: snapshot?.errorCount ?? 0,
-			lastError: snapshot?.lastError,
+			errorCount,
+			lastError,
 		});
 	}
 
@@ -219,11 +252,12 @@ async function buildSourcesStatus(): Promise<SourcesStatusResponse> {
 		(typeof sourcePresets)[keyof typeof sourcePresets],
 	][];
 	const sourceIds = presetEntries.map(([id]) => id);
-	const [snapshots, eventItemCounts] = await Promise.all([
+	const [snapshots, attempts, eventItemCounts] = await Promise.all([
 		readSnapshotSummaries(sourceIds),
+		readSourceRefreshStates(sourceIds),
 		readEventItemCounts(sourceIds),
 	]);
-	return buildSourcesStatusFromSnapshots(snapshots, eventItemCounts);
+	return buildSourcesStatusFromSnapshots(snapshots, eventItemCounts, attempts);
 }
 
 export function getSourcesConfigStatus(): SourcesStatusResponse {

@@ -38,7 +38,11 @@ export interface SourceRefreshDelta {
 }
 
 export interface SourceRefreshState {
+	// Consecutive failures and the last one, including for a source that
+	// has never been read successfully (no snapshot to carry them).
+	errorCount: number;
 	expiresAt?: number;
+	lastError?: string;
 	sourceId: SourceId;
 	status: SourceStatus;
 }
@@ -327,7 +331,9 @@ export async function readSourceRefreshStates(
 		rows.map((row) => [
 			row.sourceId as SourceId,
 			{
+				errorCount: row.errorCount,
 				expiresAt: row.expiresAt?.getTime(),
+				lastError: row.lastError ?? undefined,
 				sourceId: row.sourceId as SourceId,
 				status: row.status as SourceStatus,
 			},
@@ -512,6 +518,22 @@ export async function writeSnapshotSuccess(params: {
 	return delta;
 }
 
+// How long a failing source waits before its next attempt. A short outage
+// clears within minutes; a source that has failed for hours is checked
+// rarely, so it stops taking refresh slots from the sources that work.
+const SHORT_OUTAGE_FAILURES = 10;
+const LONG_OUTAGE_FAILURES = 48;
+
+export function sourceErrorBackoffMs(errorCount: number): number {
+	if (errorCount <= SHORT_OUTAGE_FAILURES) {
+		return Math.min(30_000 * errorCount, 5 * 60_000);
+	}
+	if (errorCount <= LONG_OUTAGE_FAILURES) {
+		return 30 * 60_000;
+	}
+	return 3 * 3_600_000;
+}
+
 export async function writeSnapshotError(params: {
 	sourceId: SourceId;
 	errorMessage: string;
@@ -521,12 +543,18 @@ export async function writeSnapshotError(params: {
 }): Promise<void> {
 	const { sourceId, errorMessage, fetchedAt, staleTtlMs, previous } = params;
 	const fetchedAtDate = new Date(fetchedAt);
-	const errorCount = (previous?.errorCount ?? 0) + 1;
+	// Counted from the stored row: a source that has never been read has no
+	// snapshot, and counting from that reset it to one failure every time.
+	const stored = await db
+		.select({ errorCount: source.errorCount })
+		.from(source)
+		.where(eq(source.sourceId, sourceId))
+		.limit(1);
+	const errorCount =
+		Math.max(stored[0]?.errorCount ?? 0, previous?.errorCount ?? 0) + 1;
 	const status: SourceStatus =
 		previous && previous.items.length > 0 ? "stale" : "error";
-	// Don't pin a hard error for the full soft TTL — back off briefly and let the next request retry.
-	const errorBackoffMs = Math.min(30_000 * errorCount, 5 * 60_000);
-	const expiresAt = new Date(fetchedAt + errorBackoffMs);
+	const expiresAt = new Date(fetchedAt + sourceErrorBackoffMs(errorCount));
 	const staleUntil = new Date(fetchedAt + staleTtlMs);
 
 	await db
