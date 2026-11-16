@@ -17,6 +17,15 @@ import { trendsPageQueryOptions } from "../../src/components/trends/trends-query
 import type { TrendsPageData } from "../../src/components/trends/types";
 import "../../src/index.css";
 
+const scenario = new URLSearchParams(location.search).get("state");
+const expiredService = scenario === "expired-service";
+function initialState() {
+	if (scenario === "unknown") {
+		return "unknown" as const;
+	}
+	return scenario === "queued" || expiredService ? "queued" : "running";
+}
+
 const initialData: TrendsPageData = {
 	id: "featured",
 	title: "精选",
@@ -38,15 +47,12 @@ const initialData: TrendsPageData = {
 							url: "https://example.test/1",
 							fetchedAt: 1,
 							translation: {
-								state:
-									new URLSearchParams(location.search).get("state") === "queued"
-										? "queued"
-										: "running",
+								state: initialState(),
 								language: "zh",
 								textHash: "fixture",
 								checkedAt: Date.now(),
 								leaseUntil: Date.now() + 90_000,
-								serviceValidUntil: Date.now() + 180_000,
+								serviceValidUntil: Date.now() + (expiredService ? -1 : 180_000),
 								nextPollAt: Date.now() + 10_000,
 							},
 						},
