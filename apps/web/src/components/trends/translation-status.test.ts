@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import {
+	effectiveTranslationState,
+	type TranslationStatus,
+} from "@opentrends/api/translation-contract";
 
 import {
 	pageNeedsTranslationWarmup,
@@ -42,6 +46,68 @@ function page(title: string, originalTitle?: string): TrendsPageData {
 }
 
 describe("translation warmup status", () => {
+	test.each([
+		"unknown",
+		"running",
+		"queued",
+		"retry_wait",
+	] as const)("rechecks an inconclusive %s snapshot without claiming the worker is running", (state) => {
+		const now = 1_000_000;
+		const translation: TranslationStatus = {
+			state,
+			language: "zh",
+			textHash: "fixture",
+			checkedAt: now - 100_000,
+			leaseUntil: now - 1,
+			serviceValidUntil: now - 1,
+		};
+		const query = { state: { errorUpdateCount: 0, dataUpdateCount: 1 } };
+		const items = [{ translation }];
+		expect(effectiveTranslationState(translation, now)).not.toBe("running");
+		expect(translationRefetchInterval(query, items, "zh", now)).toBe(10_000);
+		// A successful read must stop the same recovery session immediately.
+		expect(
+			translationRefetchInterval(
+				query,
+				[{ translation: { ...translation, state: "ready" } }],
+				"zh",
+				now + 10_000
+			)
+		).toBe(false);
+	});
+
+	test("unknown recovery obeys time, error and read limits, and terminal states stay stopped", () => {
+		const now = 1_000_000;
+		const translation: TranslationStatus = {
+			state: "unknown",
+			language: "zh",
+			textHash: "fixture",
+			checkedAt: now,
+		};
+		const items = [{ translation }];
+		const query = { state: { errorUpdateCount: 0, dataUpdateCount: 1 } };
+		expect(translationRefetchInterval(query, items, "zh", now)).toBe(10_000);
+		expect(translationRefetchInterval(query, items, "en", now)).toBe(false);
+		for (const state of ["ready", "not_needed", "failed", "blocked"] as const) {
+			expect(
+				translationRefetchInterval(
+					query,
+					[{ translation: { ...translation, state } }],
+					"zh",
+					now
+				)
+			).toBe(false);
+		}
+		expect(translationRefetchInterval(query, items, "zh", now + 300_000)).toBe(
+			false
+		);
+		query.state.errorUpdateCount = 3;
+		expect(translationRefetchInterval(query, items, "zh", now)).toBe(false);
+		query.state.errorUpdateCount = 0;
+		query.state.dataUpdateCount = 30;
+		expect(translationRefetchInterval(query, items, "zh", now)).toBe(false);
+	});
+
 	test("manual refresh starts a bounded session relative to existing query counters", () => {
 		const now = 1_000_000;
 		const query = { state: { errorUpdateCount: 4, dataUpdateCount: 40 } };

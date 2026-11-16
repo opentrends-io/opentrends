@@ -9,6 +9,25 @@ import type { NewsItem, TrendsPageData } from "./types";
 const CJK_RE = /[\u3400-\u9fff]/;
 const CYRILLIC_RE = /\p{Script=Cyrillic}/u;
 
+function translationReadAt(
+	status: TranslationStatus | undefined,
+	now = Date.now()
+): number | undefined {
+	// A failed/expired observation does not prove that the translated text is
+	// unavailable. Recheck the read-only endpoint within the query's finite
+	// budget, without changing the status or claiming that a worker is active.
+	if (
+		status?.state === "unknown" ||
+		(status &&
+			["queued", "running", "retry_wait"].includes(status.state) &&
+			status.serviceValidUntil !== undefined &&
+			status.serviceValidUntil <= now)
+	) {
+		return now + 10_000;
+	}
+	return translationPollAt(status, now);
+}
+
 export function textNeedsTranslation(
 	value: string | undefined,
 	locale: Locale
@@ -28,7 +47,7 @@ function itemNeedsTranslation(item: NewsItem, locale: Locale): boolean {
 	}
 	return (
 		item.translation?.language === locale &&
-		translationPollAt(item.translation) !== undefined
+		translationReadAt(item.translation) !== undefined
 	);
 }
 
@@ -64,7 +83,7 @@ export function translationRefetchInterval(
 	}
 	const times = items
 		.filter((item) => !item.original && item.translation?.language === locale)
-		.map((item) => translationPollAt(item.translation, now))
+		.map((item) => translationReadAt(item.translation, now))
 		.filter((value): value is number => value !== undefined);
 	if (!times.length) {
 		return false;
