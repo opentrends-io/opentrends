@@ -25,7 +25,7 @@ function PrivacyPage() {
 					Privacy Policy / 隐私政策
 				</h1>
 				<p className="mt-3 text-[var(--text-secondary)] text-sm">
-					Last updated / 最近更新：2026-09-29
+					Last updated / 最近更新：2026-11-11
 				</p>
 			</header>
 
@@ -64,9 +64,13 @@ function PrivacyPage() {
 				</p>
 				<p>
 					We use Google Analytics 4 and Ahrefs Analytics for site statistics.
-					Our GA4 loader does not run when it detects a DNT/GPC signal or a
-					previously recorded denial. This statement does not claim the same
-					behavior for Ahrefs or infrastructure logs.
+					Product events measure actions such as reading summaries, opening
+					events, following sources, changing layouts, search result counts and
+					sign-in outcomes. These events do not include search text, email
+					addresses, account IDs, article titles or URLs, or your list of
+					followed sources. Our GA4 loader does not run when it detects a
+					DNT/GPC signal or a previously recorded denial. This statement does
+					not claim the same behavior for Ahrefs or infrastructure logs.
 				</p>
 				<h3 className="font-semibold">Retention and your choices</h3>
 				<p>
@@ -116,10 +120,12 @@ function PrivacyPage() {
 					Google 登录数据，也不会将其用于广告。
 				</p>
 				<p>
-					网站使用 Google Analytics 4 和 Ahrefs Analytics 统计访问。站点自己的
-					GA4 加载器检测到 DNT/GPC
-					信号或已记录的拒绝选择时不会运行；这一说明不代表 Ahrefs
-					或基础设施日志具有完全相同的行为。
+					网站使用 Google Analytics 4 和 Ahrefs Analytics
+					统计访问。产品行为统计包括摘要阅读、
+					事件打开、关注操作、排版切换、搜索结果数量分组及登录结果；不包含搜索原文、
+					邮箱、账户标识、文章标题或网址、个人关注清单。站点自己的 GA4
+					加载器检测到 DNT/GPC 信号或已记录的拒绝选择时不会运行；这一说明不代表
+					Ahrefs 或基础设施日志具有完全相同的行为。
 				</p>
 				<h3 className="font-semibold">保留与选择</h3>
 				<p>

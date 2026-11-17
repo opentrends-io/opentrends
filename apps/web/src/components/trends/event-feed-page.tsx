@@ -3,6 +3,7 @@ import { notFound } from "@tanstack/react-router";
 import { LoaderCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { track } from "@/lib/analytics";
 
 import { localePathParam, type Translator, useLocale, useT } from "@/lib/i18n";
 
@@ -149,7 +150,10 @@ export function EventFeedPage({ selectedTopic }: EventFeedPageProps) {
 						event={event}
 						key={event.eventId}
 						locale={locale}
-						onOpen={() => setSelectedEventId(event.eventId)}
+						onOpen={() => {
+							track("event_open");
+							setSelectedEventId(event.eventId);
+						}}
 						rank={index + 1}
 						t={t}
 						topicLabels={(event.topicIds ?? [event.topicId]).map((id) =>
@@ -202,8 +206,12 @@ export function EventFeedPage({ selectedTopic }: EventFeedPageProps) {
 					hasNextPage={briefsQuery.hasNextPage}
 					isFetchingNextPage={briefsQuery.isFetchingNextPage}
 					isPending={briefsQuery.isPending}
-					onExpand={() => setBriefsExpanded(true)}
+					onExpand={() => {
+						track("event_briefs", "expanded");
+						setBriefsExpanded(true);
+					}}
 					onLoadMore={() => {
+						track("event_load_more");
 						briefsQuery.fetchNextPage().catch(() => undefined);
 					}}
 					t={t}

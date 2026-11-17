@@ -168,7 +168,7 @@ export function LandingHero({
 	strings: LandingStrings;
 }) {
 	return (
-		<section className="bg-[var(--surface-app)]">
+		<section className="bg-[var(--surface-app)]" data-analytics-area="hero">
 			<div className={`${CONTAINER_CLASS} pt-16 pb-10 sm:pt-20`}>
 				<p className="text-[12px] text-[var(--text-muted)]">
 					{strings.eyebrow}

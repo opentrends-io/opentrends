@@ -18,6 +18,8 @@ import { HTML_LANG, isLocale, useLocale } from "@/lib/i18n";
 import { buildSeo } from "@/lib/seo";
 import type { orpc } from "@/utils/orpc";
 
+import { Analytics } from "../components/analytics";
+
 import Footer from "../components/footer";
 import Header from "../components/header";
 
@@ -27,8 +29,6 @@ export interface RouterAppContext {
 	queryClient: QueryClient;
 }
 
-const AHREFS_ANALYTICS_KEY = "aqTYEDbRyZ9C1uHShFzNnw";
-const AHREFS_ANALYTICS_SRC = "https://analytics.ahrefs.com/analytics.js";
 const RouterDevtools = import.meta.env.DEV
 	? lazy(() =>
 			import("@tanstack/react-router-devtools").then((module) => ({
@@ -99,18 +99,6 @@ function RootDocument() {
 					}}
 					type="application/ld+json"
 				/>
-				<script
-					data-ga-id="G-XJR14VWEGN"
-					data-hosts="opentrends.io,www.opentrends.io"
-					data-site="opentrends"
-					defer
-					src="/dc-analytics.js"
-				/>
-				<script
-					async
-					data-key={AHREFS_ANALYTICS_KEY}
-					src={AHREFS_ANALYTICS_SRC}
-				/>
 			</head>
 			<body
 				className="bg-[var(--surface-app)] text-foreground"
@@ -129,6 +117,7 @@ function RootDocument() {
 						</main>
 						<Footer />
 					</div>
+					<Analytics />
 					<Toaster richColors />
 				</ThemeProvider>
 				{RouterDevtools && QueryDevtools ? (

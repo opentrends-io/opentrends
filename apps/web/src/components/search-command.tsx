@@ -7,12 +7,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowUpRight, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-
 import { loadSourcesStatus } from "@/components/trends/load-sources";
 import { revealSourceCard } from "@/components/trends/reveal-source-card";
 import { SourceFavicon } from "@/components/trends/source-favicon";
 import type { SourceStatusEntry } from "@/components/trends/sources-types";
 import type { TrendsPageData } from "@/components/trends/types";
+import { track } from "@/lib/analytics";
+import { searchResultBucket } from "@/lib/analytics-model";
 import {
 	localePathParam,
 	type TranslationKey,
@@ -176,6 +177,22 @@ export function SearchCommand({ onOpenChange, open }: SearchCommandProps) {
 		return [...sourceHits, ...collectHeadlines(pages, needle)];
 	}, [needle, queryClient, sources.data]);
 
+	useEffect(() => {
+		if (open) {
+			track("search_open");
+		}
+	}, [open]);
+	useEffect(() => {
+		if (!(open && needle) || sources.isPending) {
+			return;
+		}
+		const timer = window.setTimeout(
+			() => track("search_completed", searchResultBucket(hits.length)),
+			800
+		);
+		return () => window.clearTimeout(timer);
+	}, [open, needle, hits.length, sources.isPending]);
+
 	// Reset the cursor whenever the result list changes.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: hits is the trigger
 	useEffect(() => {
@@ -183,6 +200,7 @@ export function SearchCommand({ onOpenChange, open }: SearchCommandProps) {
 	}, [hits]);
 
 	function activate(hit: Hit) {
+		track("search_result", hit.kind);
 		onOpenChange(false);
 		if (hit.kind === "headline") {
 			window.open(hit.url, "_blank", "noopener,noreferrer");

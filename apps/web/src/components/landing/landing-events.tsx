@@ -150,7 +150,10 @@ export function LandingEvents({
 	const view = event ? liveView(event, headlines) : exampleView(locale);
 	const outlets = view.outlets.slice(0, MAX_OUTLETS);
 	return (
-		<section className="border-[var(--border-default)] border-t py-16 sm:py-24">
+		<section
+			className="border-[var(--border-default)] border-t py-16 sm:py-24"
+			data-analytics-area="events"
+		>
 			<div className={CONTAINER_CLASS}>
 				<SectionHeader
 					body={strings.eventsBody}

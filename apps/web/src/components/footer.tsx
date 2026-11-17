@@ -145,7 +145,10 @@ export default function Footer() {
 	] as const;
 
 	return (
-		<footer className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] text-[12px]">
+		<footer
+			className="border-[var(--border-default)] border-t bg-[var(--surface-sidebar)] text-[12px]"
+			data-analytics-area="footer"
+		>
 			<div className="grid gap-8 px-6 py-7 sm:px-10 md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
 				<div className="min-w-0">
 					<Link
