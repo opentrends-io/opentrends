@@ -1,25 +1,22 @@
 /* biome-ignore lint/style/useFilenamingConvention: TanStack file-route naming requires $topic segment. */
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
 import { FollowedEmptyState } from "@/components/trends/followed-empty-state";
 import {
 	FOLLOWED_TOPIC_ID,
 	useFollowedSources,
 } from "@/components/trends/followed-sources";
-import { TrendsTopicNotFoundError } from "@/components/trends/load-trends";
 import {
 	loadTrendsForSsr,
 	readApiJsonForSsr,
 } from "@/components/trends/load-trends-ssr";
 import { readLocalPreference } from "@/components/trends/source-preferences";
-import { TrendsPage } from "@/components/trends/trends-page";
+import { TopicSourceList } from "@/components/trends/topic-source-list";
 import {
 	digestDaysQueryOptions,
 	ssrDigestQueryOptions,
 	trendsPageQueryOptions,
 } from "@/components/trends/trends-query";
-import { SourceGridSkeleton } from "@/components/trends/trends-skeleton";
-import type { DigestJsonData, TrendsPageData } from "@/components/trends/types";
+import type { DigestJsonData } from "@/components/trends/types";
 import {
 	isLocale,
 	type Locale,
@@ -138,14 +135,13 @@ export const Route = createFileRoute("/{-$locale}/_views/trends/$topic")({
 
 		const locale = resolveLocale(params.locale);
 		// The followed page depends on the reader's own list, which only the
-		// browser knows; on the client it is read from storage here so the
-		// page arrives with the navigation instead of after a placeholder.
+		// browser knows. Start warming its query as soon as navigation begins.
 		if (params.topic === FOLLOWED_TOPIC_ID) {
 			if (!import.meta.env.SSR) {
 				const followedIds =
 					readLocalPreference(FOLLOWED_TOPIC_ID)?.orderedSourceIds ?? [];
 				if (followedIds.length > 0) {
-					await context.queryClient.ensureQueryData(
+					context.queryClient.prefetchQuery(
 						trendsPageQueryOptions(FOLLOWED_TOPIC_ID, locale, followedIds)
 					);
 				}
@@ -191,7 +187,8 @@ export const Route = createFileRoute("/{-$locale}/_views/trends/$topic")({
 			return { digest: ssrDigest };
 		}
 
-		await context.queryClient.ensureQueryData(
+		// Let the list handle data errors inside the page, including on navigation.
+		context.queryClient.prefetchQuery(
 			trendsPageQueryOptions(params.topic, locale)
 		);
 		return { digest: null };
@@ -231,52 +228,19 @@ function TrendsTopicComponent() {
 	if (params.topic === FOLLOWED_TOPIC_ID) {
 		return <FollowedTopicComponent locale={locale} />;
 	}
-	return <TopicComponent locale={locale} topic={params.topic} />;
+	return <TopicSourceList locale={locale} topic={params.topic} />;
 }
 
 function FollowedTopicComponent({ locale }: { locale: Locale }) {
 	const { followedIds } = useFollowedSources();
-	const enabled = followedIds.length > 0;
-	const trends = useQuery<TrendsPageData, Error>({
-		...trendsPageQueryOptions(FOLLOWED_TOPIC_ID, locale, followedIds),
-		enabled,
-	});
-	if (!enabled) {
+	if (followedIds.length === 0) {
 		return <FollowedEmptyState />;
 	}
-	if (trends.isPending) {
-		return <SourceGridSkeleton />;
-	}
-	if (trends.error) {
-		throw trends.error;
-	}
-	const page = trends.data;
 	return (
-		<TrendsPage
-			key={`${page.id}:${locale}:${followedIds.join(",")}`}
-			page={page}
+		<TopicSourceList
+			locale={locale}
+			sourceIds={followedIds}
+			topic={FOLLOWED_TOPIC_ID}
 		/>
-	);
-}
-
-function TopicComponent({ locale, topic }: { locale: Locale; topic: string }) {
-	const trends = useQuery<TrendsPageData, Error>({
-		...trendsPageQueryOptions(topic, locale),
-	});
-
-	if (trends.isPending) {
-		return <SourceGridSkeleton />;
-	}
-
-	if (trends.error) {
-		if (trends.error instanceof TrendsTopicNotFoundError) {
-			throw notFound();
-		}
-		throw trends.error;
-	}
-
-	const page = trends.data;
-	return (
-		<TrendsPage key={`${page.id}:${locale}:${page.updatedAt}`} page={page} />
 	);
 }

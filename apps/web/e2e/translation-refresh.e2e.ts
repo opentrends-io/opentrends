@@ -1,5 +1,59 @@
 import { expect, test } from "@playwright/test";
 
+test("retry restores the topic list in place after its initial reads fail", async ({
+	page,
+}) => {
+	let calls = 0;
+	let healthy = false;
+	await page.route("**/api/auth/**", (route) => route.fulfill({ json: null }));
+	await page.route("**/api/trends/featured?**", (route) => {
+		calls++;
+		return healthy
+			? route.fulfill({
+					json: {
+						id: "featured",
+						title: "精选",
+						updatedAt: 1,
+						sections: [
+							{
+								id: "test",
+								title: "News",
+								sources: [
+									{
+										sourceId: "hackernews",
+										title: "Hacker News",
+										status: "ok",
+										items: [
+											{
+												id: "1",
+												sourceId: "hackernews",
+												title: "恢复后的新闻",
+												url: "https://example.test/1",
+												fetchedAt: 1,
+											},
+										],
+									},
+								],
+							},
+						],
+					},
+				})
+			: route.fulfill({ status: 503, json: {} });
+	});
+	await page.goto("/e2e/fixtures/translation-refresh.html?state=empty");
+	const retry = page.getByRole("button", { name: "重试", exact: true });
+	const article = page.getByRole("link", { name: "恢复后的新闻" });
+	await expect(retry).toBeVisible({ timeout: 9000 });
+	await expect(article).toHaveCount(0);
+	expect(calls).toBe(3);
+	healthy = true;
+	await retry.focus();
+	await retry.press("Enter");
+	await expect(article).toBeVisible();
+	await expect(retry).toHaveCount(0);
+	expect(calls).toBe(4);
+});
+
 for (const [reason, label] of [
 	["paused", "后台翻译已暂停，保留原文"],
 	["call_limit", "今日翻译调用次数已达上限，保留原文"],
@@ -259,6 +313,7 @@ test("network failure keeps the original, expires the spinner and bounds polling
 	await page.clock.fastForward(300_000);
 	await page.waitForTimeout(200);
 	expect(calls).toBe(stopped);
+	expect(calls).toBeGreaterThanOrEqual(3);
 	expect(calls).toBeLessThanOrEqual(9);
 	await expect(page.getByRole("button", { name: "刷新翻译状态" })).toHaveCount(
 		0
