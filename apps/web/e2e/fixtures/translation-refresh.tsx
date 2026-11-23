@@ -1,8 +1,4 @@
-import {
-	QueryClient,
-	QueryClientProvider,
-	useQuery,
-} from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
 	createMemoryHistory,
 	createRootRoute,
@@ -12,7 +8,7 @@ import {
 	RouterProvider,
 } from "@tanstack/react-router";
 import { createRoot } from "react-dom/client";
-import { TrendsPage } from "../../src/components/trends/trends-page";
+import { TopicSourceList } from "../../src/components/trends/topic-source-list";
 import { trendsPageQueryOptions } from "../../src/components/trends/trends-query";
 import type { TrendsPageData } from "../../src/components/trends/types";
 import "../../src/index.css";
@@ -63,12 +59,16 @@ const initialData: TrendsPageData = {
 	],
 };
 
+const queryClient = new QueryClient();
+if (scenario !== "empty") {
+	queryClient.setQueryData(
+		trendsPageQueryOptions("featured", "zh").queryKey,
+		initialData
+	);
+}
+
 function Fixture() {
-	const query = useQuery({
-		...trendsPageQueryOptions("featured", "zh"),
-		initialData,
-	});
-	return <TrendsPage page={query.data} />;
+	return <TopicSourceList locale="zh" topic="featured" />;
 }
 const rootRoute = createRootRoute({ component: Outlet });
 const localeRoute = createRoute({
@@ -85,7 +85,7 @@ if (!root) {
 	throw new Error("Missing fixture root");
 }
 createRoot(root).render(
-	<QueryClientProvider client={new QueryClient()}>
+	<QueryClientProvider client={queryClient}>
 		<RouterProvider router={router} />
 	</QueryClientProvider>
 );
