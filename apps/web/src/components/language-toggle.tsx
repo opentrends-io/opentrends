@@ -7,6 +7,7 @@ import {
 } from "@opentrends/ui/components/dropdown-menu";
 import { useRouterState } from "@tanstack/react-router";
 import { Check, Languages } from "lucide-react";
+import { track } from "@/lib/analytics";
 
 import {
 	DEFAULT_LOCALE,
@@ -73,6 +74,7 @@ export default function LanguageToggle() {
 								if (active) {
 									return;
 								}
+								track("language_change", locale);
 								setUserLocale(locale, { reload: false });
 								window.location.assign(
 									localizeCurrentPath(pathname, search, hash, locale)

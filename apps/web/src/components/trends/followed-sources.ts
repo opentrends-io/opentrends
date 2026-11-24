@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext } from "react";
+import { track } from "@/lib/analytics";
 
 import { useSourcePreferences } from "./source-preferences";
 
@@ -17,6 +18,10 @@ export function useFollowedSources() {
 	);
 	const toggleFollowed = useCallback(
 		(sourceId: string) => {
+			track(
+				"source_follow",
+				followedIds.includes(sourceId) ? "unfollow" : "follow"
+			);
 			setOrder(
 				followedIds.includes(sourceId)
 					? followedIds.filter((id) => id !== sourceId)

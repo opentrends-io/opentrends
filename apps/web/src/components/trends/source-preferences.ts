@@ -6,6 +6,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { togglePinnedSource } from "@/components/trends/source-preferences-model";
+import { track } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/utils/orpc";
 
@@ -175,25 +176,43 @@ export function useSourcePreferences(
 
 	return {
 		preference,
-		setOrder: (orderedSourceIds: string[]) =>
-			updatePreference((current) => ({ ...current, orderedSourceIds })),
-		setSourceVisible: (sourceId: string, visible: boolean) =>
+		setOrder: (orderedSourceIds: string[]) => {
+			const previous = preference.orderedSourceIds;
+			if (
+				previous.length === orderedSourceIds.length &&
+				previous.some((id, i) => id !== orderedSourceIds[i]) &&
+				previous.every((id) => orderedSourceIds.includes(id))
+			) {
+				track("source_action", "reorder");
+			}
+			updatePreference((current) => ({ ...current, orderedSourceIds }));
+		},
+		setSourceVisible: (sourceId: string, visible: boolean) => {
+			track("source_action", visible ? "show" : "hide");
 			updatePreference((current) => ({
 				...current,
 				hiddenSourceIds: visible
 					? current.hiddenSourceIds.filter((id) => id !== sourceId)
 					: [...new Set([...current.hiddenSourceIds, sourceId])],
-			})),
-		togglePinned: (sourceId: string) =>
+			}));
+		},
+		togglePinned: (sourceId: string) => {
+			track(
+				"source_action",
+				preference.pinnedSourceIds.includes(sourceId) ? "unpin" : "pin"
+			);
 			updatePreference((current) => ({
 				...current,
 				pinnedSourceIds: togglePinnedSource(current.pinnedSourceIds, sourceId),
-			})),
-		showAllSources: () =>
+			}));
+		},
+		showAllSources: () => {
+			track("source_action", "show_all");
 			updatePreference((current) => ({
 				...current,
 				hiddenSourceIds: [],
-			})),
+			}));
+		},
 		isSignedIn: Boolean(userId),
 		isSyncing: mutation.isPending,
 	};

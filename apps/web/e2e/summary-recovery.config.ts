@@ -7,6 +7,7 @@ export default defineConfig({
 		"translation-refresh.e2e.ts",
 		"flow-layout.e2e.ts",
 		"event-preview.e2e.ts",
+		"analytics.e2e.ts",
 	],
 	timeout: 35_000,
 	retries: 0,

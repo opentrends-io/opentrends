@@ -553,6 +553,8 @@ function FeedCard({
 	return (
 		<a
 			className="group block overflow-hidden border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] transition-[box-shadow,border-color,transform] duration-200 visited:text-[#9b9893] hover:-translate-y-0.5 hover:border-[var(--accent-blue)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)] dark:visited:text-[#6f685f]"
+			data-analytics-event="article_open"
+			data-analytics-value="flow"
 			href={item.url}
 			onClick={() => recordFeedClick(item, source, entry.attributes)}
 			rel="noopener noreferrer"
@@ -698,6 +700,8 @@ function ListCard({
 					<li key={item.id}>
 						<a
 							className="flex items-start gap-2 px-3 py-2 text-[12px] text-[var(--text-primary)] transition-colors visited:text-[#9b9893] hover:bg-[var(--state-hover-subtle)] dark:visited:text-[#6f685f]"
+							data-analytics-event="article_open"
+							data-analytics-value="flow"
 							href={item.url}
 							onClick={() =>
 								recordFeedClick(

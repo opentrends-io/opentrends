@@ -7,6 +7,7 @@ import {
 } from "@opentrends/ui/components/dropdown-menu";
 import { Check, Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
+import { track } from "@/lib/analytics";
 
 import { type TranslationKey, useT } from "@/lib/i18n";
 
@@ -44,7 +45,15 @@ export default function ThemeToggle() {
 				{OPTIONS.map(({ value, labelKey, Icon }) => {
 					const active = theme === value;
 					return (
-						<DropdownMenuItem key={value} onClick={() => setTheme(value)}>
+						<DropdownMenuItem
+							key={value}
+							onClick={() => {
+								if (theme !== value) {
+									track("theme_change", value);
+								}
+								setTheme(value);
+							}}
+						>
 							<Icon className="size-4" />
 							<span className="flex-1">{t(labelKey)}</span>
 							{active ? <Check className="size-3.5" /> : null}
